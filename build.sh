@@ -4,11 +4,13 @@ mkdir -p dist
 body() {
   cat ui.html
   echo '<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>'
+  echo '<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>'
   echo '<script>'
   echo 'const E = (() => {'
   sed '/^if (typeof module/d' engine.js
   echo 'return { utmFromLatLon, latLonFromUtm, calcular, presupuesto, nodesFromManual, buildGeometry, buildProfile, evaluatePole, hypotheses, cableProps };'
   echo '})();'
+  cat anexo_tpl.js
   cat app.js
   echo '</script>'
 }
@@ -22,7 +24,11 @@ h=sys.stdin.read()
 js=open('/opt/node-tools/node_modules/jszip/dist/jszip.min.js').read()
 tag='<script src=\"https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js\"></script>'
 assert tag in h
-sys.stdout.write(h.replace(tag,'<script>'+js+'</script>'))"
+h=h.replace(tag,'<script>'+js+'</script>')
+tag2='<script src=\"https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js\"></script>'
+assert tag2 in h
+pl=open('/opt/npm-tools/node_modules/pdf-lib/dist/pdf-lib.min.js').read().replace('</script','<\\/script')
+sys.stdout.write(h.replace(tag2,'<script>'+pl+'</script>'))"
   echo '</body></html>'
 } > dist/CalculoApoyosBT_local.html
 node -e "
