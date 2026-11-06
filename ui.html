@@ -9,7 +9,7 @@
   --bg:#eef0f1; --panel:#ffffff; --ink:#1b2328; --muted:#5b6870; --line:#d3d9dc; --soft:#f5f7f8;
   --accent:#1d5b86; --accent-ink:#ffffff; --accent-soft:#e3eef6;
   --ok:#2f7d4f; --ok-soft:#e1f1e7; --warn:#a66a00; --warn-soft:#fbefd6; --bad:#b3362c; --bad-soft:#f8e1de;
-  --map:#fbfcfc; --grid:#e6eaec;
+  --map:#fbfcfc; --grid:#e6eaec; --exist:#6d6a64;
   --f-display:"Barlow Semi Condensed","Arial Narrow",Arial,sans-serif;
   --f-body:"Barlow","Segoe UI",Roboto,Arial,sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
@@ -18,12 +18,12 @@
   --bg:#13181b; --panel:#1b2226; --ink:#e3e8ea; --muted:#94a2a9; --line:#2f393e; --soft:#20282c;
   --accent:#6fb0de; --accent-ink:#0c1a24; --accent-soft:#1d3342;
   --ok:#6cc48f; --ok-soft:#173022; --warn:#e3a94a; --warn-soft:#352812; --bad:#f08277; --bad-soft:#3a1d1a;
-  --map:#161c1f; --grid:#232c30; color-scheme:dark }}
+  --map:#161c1f; --grid:#232c30; --exist:#b9b3a8; color-scheme:dark }}
 :root[data-theme="dark"]{
   --bg:#13181b; --panel:#1b2226; --ink:#e3e8ea; --muted:#94a2a9; --line:#2f393e; --soft:#20282c;
   --accent:#6fb0de; --accent-ink:#0c1a24; --accent-soft:#1d3342;
   --ok:#6cc48f; --ok-soft:#173022; --warn:#e3a94a; --warn-soft:#352812; --bad:#f08277; --bad-soft:#3a1d1a;
-  --map:#161c1f; --grid:#232c30; color-scheme:dark }
+  --map:#161c1f; --grid:#232c30; --exist:#b9b3a8; color-scheme:dark }
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45}
 .wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 32px;max-width:1500px;margin:0 auto}
@@ -71,7 +71,7 @@ tr.sel td{background:var(--accent-soft)}
 .bar{height:6px;background:var(--grid);border-radius:3px;overflow:hidden;min-width:60px}
 .bar i{display:block;height:100%;background:var(--ok)}
 .bar i.w{background:var(--warn)} .bar i.b{background:var(--bad)}
-canvas#map{width:100%;height:380px;display:block;background:var(--map);border:1px solid var(--line);border-radius:4px;touch-action:none}
+canvas#map{width:100%;height:440px;cursor:grab;display:block;background:var(--map);border:1px solid var(--line);border-radius:4px;touch-action:none}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
 .kpi{border-left:3px solid var(--accent);padding:2px 0 2px 10px}
 .kpi b{display:block;font:600 1.25rem var(--f-mono);font-variant-numeric:tabular-nums}
@@ -83,6 +83,13 @@ canvas#map{width:100%;height:380px;display:block;background:var(--map);border:1p
 .exist{background:var(--soft);border:1px dashed var(--line);border-radius:4px;padding:10px;margin-top:6px;white-space:normal}
 .mono{font-family:var(--f-mono);font-size:.8rem}
 .toast{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:4px;font-size:.85rem;z-index:20;max-width:min(420px,calc(100vw - 32px))}
+.mapbox{position:relative}
+.zoom{position:absolute;top:8px;left:8px;display:flex;flex-direction:column;gap:4px}
+.zoom .btn{padding:3px 0;width:30px;text-align:center;font-family:var(--f-mono)}
+.fondo{border-top:1px solid var(--line);padding-block:8px}
+.fondo:first-child{border-top:none}
+input[type=range]{width:110px;padding:0;background:none;border:none}
+a.btn{text-decoration:none;display:inline-block}
 .norm{max-width:78ch}
 .norm h3{font:700 1rem var(--f-display);text-transform:uppercase;letter-spacing:.04em;margin:18px 0 6px}
 .norm p,.norm li{color:var(--ink)}
@@ -95,7 +102,7 @@ canvas#map{width:100%;height:380px;display:block;background:var(--map);border:1p
 <div class="wrap">
   <header class="top">
     <h1><small>Redes aéreas trenzadas · ITC-BT-06</small>Cálculo de Apoyos BT</h1>
-    <div class="ver" id="ver">v1.0.0</div>
+    <div class="ver" id="ver">v1.1.0</div>
   </header>
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="calc" aria-selected="true">Proyecto</button>
@@ -134,8 +141,17 @@ canvas#map{width:100%;height:380px;display:block;background:var(--map);border:1p
         </section>
 
         <section class="card">
+          <h2>Línea existente y entronque <span class="row">
+            <label class="btn small" for="exFile">Importar KML/KMZ</label>
+            <input id="exFile" type="file" accept=".kml,.kmz" hidden>
+          </span></h2>
+          <div id="exPick" hidden style="margin-bottom:8px"></div>
+          <div id="exBody"></div>
+        </section>
+
+        <section class="card">
           <h2>Trazado <span class="row">
-            <label class="btn small" for="kmlFile">Importar KML/KMZ</label>
+            <label class="btn small" for="kmlFile">Importar trazado KML/KMZ</label>
             <input id="kmlFile" type="file" accept=".kml,.kmz" hidden>
             <button class="btn small" id="addRow">Añadir apoyo</button>
           </span></h2>
@@ -164,12 +180,20 @@ canvas#map{width:100%;height:380px;display:block;background:var(--map);border:1p
       <div class="col">
         <section class="card">
           <h2>Plano del trazado <span class="note" id="mapInfo"></span></h2>
-          <canvas id="map" aria-label="Plano del trazado con los apoyos numerados"></canvas>
+          <div class="mapbox">
+            <canvas id="map" aria-label="Plano con la línea existente, el trazado nuevo y los apoyos numerados"></canvas>
+            <div class="zoom"><button class="btn small" id="zIn" aria-label="Acercar">+</button><button class="btn small" id="zOut" aria-label="Alejar">−</button><button class="btn small" id="zFit" aria-label="Encajar el trazado" title="Encajar">⤢</button></div>
+          </div>
           <div class="row" style="margin-top:8px;justify-content:space-between">
-            <span class="note">Verde: apoyo válido · Ámbar: apoyo existente a sustituir · Rojo: sin apoyo válido en la base</span>
+            <span class="note">Cuadros: apoyos nuevos (verde válido · ámbar existente a sustituir · rojo sin apoyo válido). Círculos discontinuos: línea existente. Arrastra para mover, rueda para zoom.</span>
             <button class="btn primary" id="exportZip">Exportar para Catastro (ZIP)</button>
           </div>
           <p class="note" id="exportNote" style="margin-top:6px"></p>
+        </section>
+
+        <section class="card">
+          <h2>Capas de fondo</h2>
+          <div id="fondos"></div>
         </section>
 
         <section class="card">
@@ -247,6 +271,7 @@ canvas#map{width:100%;height:380px;display:block;background:var(--map);border:1p
         <li>Ángulo: resultante de ángulo en ambas hipótesis, con el viento sobre conductores.</li>
         <li>Estrellamiento y derivación de apoyo existente: 2/3 de la resultante con viento a 15 °C y resultante total en la segunda hipótesis. Los conductores existentes entran con su tense, acimut, vano y altura de amarre.</li>
         <li>Fin e inicio de línea: tracción total de los conductores.</li>
+        <li>Entronque con línea existente: el apoyo de la línea existente pasa a ser A1 y entran en su cálculo los conductores existentes hacia los apoyos contiguos, con el acimut y el vano medidos sobre el trazado importado y el tense indicado.</li>
         <li>Viento sobre conductores perpendicular a cada vano y según la bisectriz o resultante; viento sobre el poste según sus dos ejes.</li>
         <li>Se trasladan los esfuerzos al punto de aplicación del esfuerzo nominal (0,25 m bajo cogolla) por igualdad de momentos en el empotramiento, y se comparan por separado con el esfuerzo nominal (eje principal) y el secundario. Orientación del poste: principal según la resultante o el eje de la línea, o perpendicular, la más favorable.</li>
         <li>Coeficiente de seguridad del hormigón armado vibrado: 2,5, ya incluido en el esfuerzo nominal del poste.</li>
@@ -256,7 +281,7 @@ canvas#map{width:100%;height:380px;display:block;background:var(--map);border:1p
       <h3>Datos de partida de las bases</h3>
       <p>Esfuerzos, cogollas, conicidades, pesos y empotramientos de la especificación de postes HV/HVH ET/5022. La cogolla del HV-160 no figura en ella y se toma igual que la del HV-250. Cables: catálogo de fabricante (Prysmian, AL Polirret). Revisa estos valores con tu proveedor.</p>
       <h3>Exportación para Catastro</h3>
-      <p>Con un trazado importado de KML/KMZ, el ZIP incluye el DXF en coordenadas ETRS89 UTM (mismo sistema que la cartografía catastral), el KML y el GeoJSON. En AutoCAD, inserta el DXF en el mismo dibujo que la cartografía catastral descargada de la Sede Electrónica del Catastro. En QGIS o Google Earth Pro, añade la capa WMS del Catastro y abre el KML o el GeoJSON. El archivo LEEME del ZIP detalla los pasos.</p>
+      <p>Fondos: Catastro (WMS INSPIRE de la Dirección General del Catastro, parcelas y edificios) y ortofoto PNOA (WMS del IGN), pedidos en ETRS89 UTM para la zona del proyecto. Con un trazado importado de KML/KMZ o conectado a la línea existente, el ZIP incluye el DXF en coordenadas ETRS89 UTM (mismo sistema que la cartografía catastral), el KML y el GeoJSON. En AutoCAD, inserta el DXF en el mismo dibujo que la cartografía catastral descargada de la Sede Electrónica del Catastro. En QGIS o Google Earth Pro, añade la capa WMS del Catastro y abre el KML o el GeoJSON. El archivo LEEME del ZIP detalla los pasos.</p>
     </section>
   </div>
 </div>
