@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -73,14 +73,16 @@ function renderRows() {
   tb.innerHTML = S.proj.rows.map((r, i) => {
     const vano = i === 0 ? '—' : geo ? fmt(spans[i - 1]?.a, 1) : `<input class="num" type="number" step="0.5" data-k="vano" data-i="${i}" value="${r.vano}" aria-label="Vano anterior apoyo ${i + 1}">`;
     const ang = (i === 0 || i === S.proj.rows.length - 1) ? '—' : geo ? fmt(nodes[i].desvio, 1) : `<input class="num" type="number" step="1" data-k="angulo" data-i="${i}" value="${r.angulo}" aria-label="Desvío apoyo ${i + 1}">`;
+    const zc = S.calc?.conPerfil && S.calc.nodes[i]?.z != null && !(S.proj.modo === 'manual' && !S.proj.perfil) ? fmt(S.calc.nodes[i].z, 1)
+      : S.proj.modo === 'manual' && !S.proj.perfil ? `<input class="num" type="number" step="0.1" data-k="cota" data-i="${i}" value="${r.cota ?? ''}" aria-label="Cota del terreno apoyo ${i + 1}">` : '—';
     const cruce = i === 0 ? '' : `<input type="checkbox" data-k="cruce" data-i="${i}" ${r.cruce ? 'checked' : ''} aria-label="Cruce en vano anterior">`;
     const fsel = `<select data-k="funcion" data-i="${i}">${Object.entries(FUNCS).map(([k, v]) => `<option value="${k}" ${r.funcion === k ? 'selected' : ''}>${v}</option>`).join('')}</select>`;
     const hsel = `<select data-k="alturaFija" data-i="${i}"><option value="">Auto</option>${heights.map(h => `<option value="${h}" ${String(r.alturaFija) === String(h) ? 'selected' : ''}>${h} m</option>`).join('')}</select>`;
     const msel = `<select data-k="modeloFijo" data-i="${i}"><option value="">Auto</option>${S.poles.map(p => `<option value="${esc(p.id)}" ${r.modeloFijo === p.id ? 'selected' : ''}>${poleLabel(p)}</option>`).join('')}</select>`;
     const ex = `<button class="btn small" data-act="ex" data-i="${i}">${r.existente.activo ? 'Editar' : 'No'}</button>`;
     const del = `<button class="btn small ghost" data-act="del" data-i="${i}" aria-label="Eliminar apoyo ${i + 1}">✕</button>`;
-    let html = `<tr class="${S.sel === i ? 'sel' : ''}"><td><b>A${i + 1}</b></td><td class="n">${vano}</td><td class="n">${ang}</td><td>${cruce}</td><td>${fsel}</td><td>${hsel}</td><td>${msel}</td><td>${ex}</td><td>${del}</td></tr>`;
-    if (S.openEx === i) html += `<tr><td colspan="9">${existEditor(r, i)}</td></tr>`;
+    let html = `<tr class="${S.sel === i ? 'sel' : ''}"><td><b>A${i + 1}</b></td><td class="n">${vano}</td><td class="n">${ang}</td><td class="n">${zc}</td><td>${cruce}</td><td>${fsel}</td><td>${hsel}</td><td>${msel}</td><td>${ex}</td><td>${del}</td></tr>`;
+    if (S.openEx === i) html += `<tr><td colspan="10">${existEditor(r, i)}</td></tr>`;
     return html;
   }).join('');
 }
@@ -112,7 +114,7 @@ function bindRows() {
   const tb = $('#rowsTable tbody');
   tb.addEventListener('change', ev => {
     const t = ev.target, i = Number(t.dataset.i); const r = S.proj.rows[i]; if (!r) return;
-    if (t.dataset.k) { r[t.dataset.k] = t.type === 'checkbox' ? t.checked : (t.type === 'number' ? Number(t.value) : t.value); }
+    if (t.dataset.k) { r[t.dataset.k] = t.type === 'checkbox' ? t.checked : (t.type === 'number' ? (t.value === '' ? '' : Number(t.value)) : t.value); }
     else if (t.dataset.ex) { r.existente[t.dataset.ex] = t.type === 'checkbox' ? t.checked : t.value; if (t.dataset.ex === 'activo') { renderRows(); } }
     else if (t.dataset.ec) {
       const c = r.existente.conductores[Number(t.dataset.j)];
@@ -141,9 +143,9 @@ function recalc() {
   const zh = $('#zonaHint'); zh.textContent = S.proj.geo?.altMax != null ? `Cota máxima del KML: ${fmt(S.proj.geo.altMax)} m` : '';
   if (!cable || !S.poles.length || S.proj.rows.length < 2) { S.calc = null; renderResults(); return; }
   const nodes = currentNodes();
-  try { S.calc = E.calcular({ nodes, cable, ctx: S.proj.ctx, poles: S.poles }); S.calc.nodes = nodes; S.calc.cable = cable; S.calc.bud = E.presupuesto(S.calc, nodes, cable, S.precios, S.proj.ctx.terreno); }
+  try { const perfil = perfilPts(); S.calc = E.calcular({ nodes, cable, ctx: S.proj.ctx, poles: S.poles, perfil }); S.calc.conPerfil = !!perfil; S.calc.perfilDist = perfil && S.proj.perfil ? Math.max(...nodes.map(n => n.dPerfil || 0)) : 0; S.calc.nodes = nodes; S.calc.cable = cable; S.calc.bud = E.presupuesto(S.calc, nodes, cable, S.precios, S.proj.ctx.terreno); }
   catch (e) { console.error(e); S.calc = null; toast('Error de cálculo: ' + e.message); }
-  renderResults();
+  renderResults(); renderPerfilInfo(); drawPerfil();
 }
 function statusOf(r, i) {
   const ex = S.proj.rows[i]?.existente?.activo;
@@ -167,7 +169,7 @@ function renderResults() {
     ${c.cantones.map((cn, k) => `<tr><td>C${k + 1} · A${cn.spans[0].i + 1}–A${cn.spans[cn.spans.length - 1].i + 2}</td><td class="n">${cn.spans.length}</td><td class="n">${fmt(cn.longitud, 1)}</td><td class="n">${fmt(cn.ar, 1)}</td>
       <td>${H.all.find(h => h.id === cn.gobierna).nombre}</td>${H.all.map(h => `<td class="n">${fmt(cn.T[h.id])}</td>`).join('')}<td class="n">${fmt(cn.cs, 2)}</td><td class="n">${fmt(cn.edsPct, 1)}</td></tr>`).join('')}</tbody>`;
 
-  $('#resTable').innerHTML = `<thead><tr><th>Apoyo</th><th>Función</th><th class="n">Desvío</th><th>Apoyo elegido</th><th class="n">F princ. (daN)</th><th class="n">F sec. (daN)</th><th>Utilización</th><th class="n">Amarre mín. (m)</th><th>Estado</th></tr></thead><tbody>
+  $('#resTable').innerHTML = `<thead><tr><th>Apoyo</th><th>Función</th><th class="n">Desvío</th><th>Apoyo elegido</th><th class="n">F princ. (daN)</th><th class="n">F sec. (daN)</th><th>Utilización</th><th class="n">Amarre mín. (m)</th><th class="n">Cota (m)</th><th>Estado</th></tr></thead><tbody>
     ${c.results.map((r, i) => {
       const st = statusOf(r, i), e = r.elegido, ev = e && e.r;
       const ex = S.proj.rows[i].existente.activo && r.existenteCheck;
@@ -175,8 +177,8 @@ function renderResults() {
       const p = shown?.pole, rr = shown?.r;
       let row = `<tr data-i="${i}" class="${S.sel === i ? 'sel' : ''}" style="cursor:pointer"><td><b>A${i + 1}</b></td><td>${FUNCS[r.func]}</td><td class="n">${i && i < c.results.length - 1 ? fmt(r.desvio, 1) + '°' : '—'}</td>
         <td class="mono">${p ? poleLabel(p) : '—'}</td><td class="n">${rr ? fmt(rr.Fp) + ' / ' + fmt(p.En) : '—'}</td><td class="n">${rr ? fmt(rr.Fs) + ' / ' + fmt(p.Es) : '—'}</td>
-        <td>${rr ? utilBar(rr.u) : ''}</td><td class="n">${fmt(r.need, 2)}</td><td><span class="chip ${st.cls}">${st.txt}</span></td></tr>`;
-      if (S.sel === i) row += `<tr><td colspan="9" class="detail">${detailHtml(r, i)}</td></tr>`;
+        <td>${rr ? utilBar(rr.u) : ''}</td><td class="n">${fmt(r.need, 2)}</td><td class="n">${r.z != null ? fmt(r.z, 1) : '—'}</td><td><span class="chip ${st.cls}">${st.txt}</span>${r.tiroArriba ? ' <span class="chip warn" title="Componente vertical ascendente de los conductores">tiro arriba</span>' : ''}</td></tr>`;
+      if (S.sel === i) row += `<tr><td colspan="10" class="detail">${detailHtml(r, i)}</td></tr>`;
       return row;
     }).join('')}</tbody>`;
 
@@ -194,6 +196,11 @@ function renderResults() {
   const w = [];
   if (nBad) w.push(`<div class="banner bad">${nBad} apoyo(s) sin modelo válido en la base. Añade apoyos de mayor esfuerzo o altura, reduce el tense o acorta los vanos.</div>`);
   if (b.lineas.some(l => l.sinPrecio)) w.push('<div class="banner warn">Hay partidas sin precio. Complétalos en las bases de apoyos y cables y en Precios auxiliares.</div>');
+  const sinLibre = c.spans.filter(s => s.libre != null && s.libre < s.dmin - 0.01);
+  if (sinLibre.length) w.push(`<div class="banner bad">Distancia al suelo insuficiente en ${sinLibre.map(s => `A${s.i + 1}–A${s.i + 2} (${fmt(s.libre, 2)} m de ${fmt(s.dmin)} m)`).join(', ')}. Intercala un apoyo o permite apoyos más altos.</div>`);
+  const tiro = c.results.filter(r => r.tiroArriba);
+  if (tiro.length) w.push(`<div class="banner warn">Tiro hacia arriba (componente vertical ascendente) en ${tiro.map(r => 'A' + (r.i + 1)).join(', ')}: usa amarre en lugar de suspensión y asegura la sujeción (ITC-BT-06 3.9.1.1).</div>`);
+  if (!c.conPerfil && (S.proj.modo === 'kml' || S.proj.entronque?.k != null)) w.push('<div class="banner warn">Cálculo sin perfil de elevación: se ha supuesto terreno llano. Carga el perfil de GPS Visualizer en «Trazado».</div>');
   if (c.Tmax < c.TmaxReg - 0.5) w.push(`<div class="banner info">Tense reducido a ${fmt(c.Tmax)} daN (máximo reglamentario ${fmt(c.TmaxReg)} daN).</div>`);
   const keep = S.dbMissingShown ? $('#warnings').querySelector('.banner.bad')?.outerHTML || '' : '';
   $('#warnings').innerHTML = keep + w.join('');
@@ -216,7 +223,7 @@ function detailHtml(r, i) {
   const conds = r.conds.map(cd => `${cd.existente ? 'Existente' : 'Nuevo'} · acimut ${fmt(cd.az)}° · vano ${fmt(cd.a, 1)} m · T(V15) ${fmt(cd.T.V15)} daN`).join('<br>');
   return `${x ? block('Apoyo existente' + (x.ok ? ' (válido)' : ' (no válido)'), x) : ''}${x && x.orientacionSupuesta ? '<p class="note">Orientación del existente desconocida: se ha supuesto la más favorable. Indica el acimut real para comprobarlo.</p>' : ''}
     ${(!x || !x.ok) ? block(x ? 'Apoyo de sustitución propuesto' : 'Apoyo elegido', e) : ''}
-    <dl style="margin-top:6px"><dt>Altura mínima de amarre</dt><dd>${fmt(r.need, 2)} m (distancia al suelo + flecha máxima)</dd><dt>Carga vertical (conductores nuevos)</dt><dd>${fmt(r.vert)} daN</dd></dl>
+    <dl style="margin-top:6px"><dt>Altura mínima de amarre</dt><dd>${fmt(r.need, 2)} m (distancia al suelo + flecha máxima)</dd><dt>Carga vertical (conductores nuevos)</dt><dd>${fmt(r.vert)} daN</dd><dt>Gravivano</dt><dd>${fmt(r.gravivano, 1)} m${r.tiroArriba ? ' · tiro hacia arriba' : ''}</dd>${r.z != null ? `<dt>Cota terreno / amarre</dt><dd>${fmt(r.z, 1)} / ${r.zAmarre != null ? fmt(r.zAmarre, 1) : '—'} m</dd>` : ''}</dl>
     <p class="mono" style="margin:6px 0 0">${conds}</p>`;
 }
 
@@ -237,10 +244,11 @@ function informe(c) {
 <tr><th>Desequilibrio en alineación</th>${td(ctx.desequilibrio + ' % (la ITC-BT-06 no fija valor)')}</tr><tr><th>Terreno</th>${td(ctx.terreno)}</tr></tbody></table>
 <h2>3. Cantones y tensiones</h2><table><thead><tr><th>Cantón</th><th>Vanos</th><th>a regulación (m)</th>${H.all.map(h => `<th>T ${h.id} (daN)</th>`).join('')}<th>EDS %</th></tr></thead><tbody>
 ${c.cantones.map((cn, k) => `<tr>${td('C' + (k + 1))}${td(cn.spans.map(s => `A${s.i + 1}–A${s.i + 2}`).join(', '))}${tn(fmt(cn.ar, 1))}${H.all.map(h => tn(fmt(cn.T[h.id]))).join('')}${tn(fmt(cn.edsPct, 1))}</tr>`).join('')}</tbody></table>
-<h2>4. Vanos y flechas</h2><table><thead><tr><th>Vano</th><th>Longitud (m)</th>${[H.H1, H.H2, H.H3].map(h => `<th>Flecha ${h.id} (m)</th>`).join('')}<th>Dist. mínima (m)</th></tr></thead><tbody>
-${c.spans.map(s => `<tr>${td(`A${s.i + 1}–A${s.i + 2}${s.cruce ? ' (cruce)' : ''}`)}${tn(fmt(s.a, 2))}${[H.H1, H.H2, H.H3].map(h => tn(fmt(s.flechas[h.id], 2))).join('')}${tn(fmt(s.dmin, 1))}</tr>`).join('')}</tbody></table>
-<h2>5. Apoyos</h2><table><thead><tr><th>Apoyo</th><th>Función</th><th>Modelo</th><th>Hipótesis pésima</th><th>F princ./En (daN)</th><th>F sec./Es (daN)</th><th>Util. %</th><th>Eje principal</th><th>Estado</th></tr></thead><tbody>
-${c.results.map((r, i) => { const sel = r.existenteCheck?.ok ? r.existenteCheck : r.elegido, p = sel?.pole, rr = sel?.r; return `<tr>${td('A' + (i + 1))}${td(FUNCS[r.func])}${td(p ? poleLabel(p) : '—')}${td(rr ? H.all.find(h => h.id === rr.hyp).nombre : '—')}${tn(rr ? fmt(rr.Fp) + ' / ' + fmt(p.En) : '—')}${tn(rr ? fmt(rr.Fs) + ' / ' + fmt(p.Es) : '—')}${tn(rr ? fmt(rr.u * 100, 1) : '—')}${tn(rr ? fmt(rr.phi) + '°' : '—')}${td(statusOf(r, i).txt)}</tr>`; }).join('')}</tbody></table>
+<h2>4. Vanos y flechas</h2><table><thead><tr><th>Vano</th><th>Longitud (m)</th>${[H.H1, H.H2, H.H3].map(h => `<th>Flecha ${h.id} (m)</th>`).join('')}<th>Desnivel (m)</th><th>Dist. libre (m)</th><th>Dist. mínima (m)</th></tr></thead><tbody>
+${c.spans.map(s => `<tr>${td(`A${s.i + 1}–A${s.i + 2}${s.cruce ? ' (cruce)' : ''}`)}${tn(fmt(s.a, 2))}${[H.H1, H.H2, H.H3].map(h => tn(fmt(s.flechas[h.id], 2))).join('')}${tn(c.conPerfil ? fmt(s.dz, 2) : '—')}${tn(s.libre != null ? fmt(s.libre, 2) : '—')}${tn(fmt(s.dmin, 1))}</tr>`).join('')}</tbody></table>
+${c.conPerfil ? `<p class="s">Perfil del terreno: ${esc(S.proj.perfil?.fuente || 'cotas introducidas a mano')}. Distancia libre mínima al terreno con el conductor a flecha máxima.</p>` : '<p class="s">Sin perfil de elevación: terreno supuesto llano.</p>'}
+<h2>5. Apoyos</h2><table><thead><tr><th>Apoyo</th><th>Función</th><th>Modelo</th><th>Hipótesis pésima</th><th>F princ./En (daN)</th><th>F sec./Es (daN)</th><th>Util. %</th><th>Eje principal</th><th>Cota (m)</th><th>Gravivano (m)</th><th>Estado</th></tr></thead><tbody>
+${c.results.map((r, i) => { const sel = r.existenteCheck?.ok ? r.existenteCheck : r.elegido, p = sel?.pole, rr = sel?.r; return `<tr>${td('A' + (i + 1))}${td(FUNCS[r.func])}${td(p ? poleLabel(p) : '—')}${td(rr ? H.all.find(h => h.id === rr.hyp).nombre : '—')}${tn(rr ? fmt(rr.Fp) + ' / ' + fmt(p.En) : '—')}${tn(rr ? fmt(rr.Fs) + ' / ' + fmt(p.Es) : '—')}${tn(rr ? fmt(rr.u * 100, 1) : '—')}${tn(rr ? fmt(rr.phi) + '°' : '—')}${tn(r.z != null ? fmt(r.z, 1) : '—')}${tn(fmt(r.gravivano, 1))}${td(statusOf(r, i).txt + (r.tiroArriba ? ' · tiro hacia arriba' : ''))}</tr>`; }).join('')}</tbody></table>
 <p class="s">Esfuerzos referidos a 0,25 m bajo cogolla por igualdad de momentos en el empotramiento; esfuerzos nominales con coeficiente de seguridad 2,5 incluido (ITC-BT-06, tabla 2). Viento sobre el fuste ${ctx.vientoPoste ? 'incluido (100 daN/m²)' : 'no incluido'}.</p>
 <h2>6. Presupuesto</h2><table><thead><tr><th>Concepto</th><th>Ud</th><th>Cantidad</th><th>Coste</th><th>Venta</th></tr></thead><tbody>
 ${b.lineas.map(l => `<tr>${td(esc(l.concepto))}${td(l.ud)}${tn(fmt(l.cant, l.ud === 'ud' ? 0 : 1))}${tn(eur(l.coste))}${tn(eur(l.venta))}</tr>`).join('')}
@@ -399,7 +407,7 @@ function bindMap() {
   $('#zOut').onclick = () => zoomAt(1 / 1.5, cv.clientWidth / 2, cv.clientHeight / 2);
   $('#zFit').onclick = () => { fitView(); drawMap(); };
   $('#resTable').addEventListener('click', ev => { const tr = ev.target.closest('tr[data-i]'); if (!tr) return; const i = Number(tr.dataset.i); S.sel = S.sel === i ? null : i; renderRows(); renderResults(); });
-  window.addEventListener('resize', () => drawMap());
+  window.addEventListener('resize', () => { drawMap(); drawPerfil(); });
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', drawMap);
   bindFondos();
 }
@@ -467,39 +475,63 @@ function bindFondos() {
 async function delAsset(id) { try { const a = await window.claude?.use?.('assets'); await a?.delete(id); } catch (e) { } }
 
 /* ---------- Importación KML / KMZ ---------- */
-async function readKmlOptions(file) {
+/* Lee KML, KMZ, GPX o el texto plano de GPS Visualizer y devuelve las rutas candidatas (con cota si la hay) */
+async function readRouteOptions(file) {
+  const name = file.name.toLowerCase();
+  if (/\.(txt|csv|tsv)$/.test(name)) return [parseGpsvText(await file.text(), file.name)];
   let text;
-  if (/\.kmz$/i.test(file.name)) {
+  if (/\.kmz$/.test(name)) {
     const zip = await JSZip.loadAsync(await file.arrayBuffer());
     const kmlf = Object.values(zip.files).find(f => /\.kml$/i.test(f.name));
     if (!kmlf) throw new Error('El KMZ no contiene ningún archivo .kml');
     text = await kmlf.async('string');
   } else text = await file.text();
   const doc = new DOMParser().parseFromString(text, 'application/xml');
-  if (doc.querySelector('parsererror')) throw new Error('El archivo no es un KML válido');
+  if (doc.querySelector('parsererror')) throw new Error('El archivo no tiene un formato KML o GPX válido');
   const tag = (el, n) => [...el.getElementsByTagNameNS('*', n)];
-  const parseCoords = s => s.trim().split(/\s+/).map(t => t.split(',').map(Number)).filter(a => a.length >= 2 && !isNaN(a[0]) && !isNaN(a[1])).map(([lon, lat, alt]) => ({ lat, lon, alt: isNaN(alt) ? null : alt }));
-  const lines = tag(doc, 'LineString').map(ls => {
-    const pm = ls.closest('Placemark'); const nm = (pm && tag(pm, 'name')[0]?.textContent) || 'Línea';
-    return { label: `${nm} · ${0} vértices`, nombre: nm, pts: parseCoords(tag(ls, 'coordinates')[0]?.textContent || '') };
-  }).filter(l => l.pts.length >= 2).map(l => ({ ...l, label: `${l.nombre} · ${l.pts.length} vértices` }));
-  const points = tag(doc, 'Placemark').filter(pm => tag(pm, 'Point').length).map(pm => {
-    const c = parseCoords(tag(pm, 'coordinates')[0]?.textContent || '')[0];
-    return c ? { ...c, nombre: tag(pm, 'name')[0]?.textContent || '' } : null;
-  }).filter(Boolean);
-  const opts = [...lines];
-  if (points.length >= 2) opts.push({ label: `Puntos del archivo como apoyos (${points.length}, en orden)`, pts: points, sinDividir: true });
-  if (!opts.length) throw new Error('No se ha encontrado ninguna línea (LineString) ni puntos en el archivo');
+  const opts = [];
+  if (/\.gpx$/.test(name) || doc.documentElement.localName === 'gpx') {
+    const pt = el => ({ lat: Number(el.getAttribute('lat')), lon: Number(el.getAttribute('lon')), alt: tag(el, 'ele')[0] ? Number(tag(el, 'ele')[0].textContent) : null });
+    tag(doc, 'trk').forEach(t => { const pts = tag(t, 'trkpt').map(pt); if (pts.length >= 2) opts.push({ nombre: tag(t, 'name')[0]?.textContent || 'Track', pts }); });
+    tag(doc, 'rte').forEach(t => { const pts = tag(t, 'rtept').map(pt); if (pts.length >= 2) opts.push({ nombre: tag(t, 'name')[0]?.textContent || 'Ruta', pts }); });
+    const w = tag(doc, 'wpt').map(pt); if (w.length >= 2) opts.push({ nombre: 'Puntos', pts: w, sinDividir: true, esPuntos: true });
+  } else {
+    const parseCoords = s => s.trim().split(/\s+/).map(t => t.split(',').map(Number)).filter(a => a.length >= 2 && !isNaN(a[0]) && !isNaN(a[1])).map(([lon, lat, alt]) => ({ lat, lon, alt: isNaN(alt) ? null : alt }));
+    tag(doc, 'LineString').forEach(ls => {
+      const pm = ls.closest('Placemark'); const nm = (pm && tag(pm, 'name')[0]?.textContent) || 'Línea';
+      const pts = parseCoords(tag(ls, 'coordinates')[0]?.textContent || ''); if (pts.length >= 2) opts.push({ nombre: nm, pts });
+    });
+    const points = tag(doc, 'Placemark').filter(pm => tag(pm, 'Point').length).map(pm => parseCoords(tag(pm, 'coordinates')[0]?.textContent || '')[0]).filter(Boolean);
+    if (points.length >= 2) opts.push({ nombre: 'Puntos', pts: points, sinDividir: true, esPuntos: true });
+  }
+  if (!opts.length) throw new Error('No se ha encontrado ninguna línea ni puntos en el archivo');
+  opts.forEach(o => { o.conCota = hasAlt(o.pts); o.label = o.esPuntos ? `Puntos del archivo como apoyos (${o.pts.length}, en orden)` : `${o.nombre} · ${o.pts.length} puntos${o.conCota ? ' · con cotas' : ''}`; });
   return opts;
 }
+/* Texto plano de GPS Visualizer: columnas separadas por tabuladores con cabecera type/latitude/longitude/altitude */
+function parseGpsvText(text, fname) {
+  const lines = text.split(/\r?\n/);
+  const hi = lines.findIndex(l => /latitude/i.test(l) && /longitude/i.test(l));
+  if (hi < 0) throw new Error('El texto no tiene columnas de latitud y longitud (formato de GPS Visualizer)');
+  const sep = lines[hi].includes('\t') ? '\t' : lines[hi].includes(';') ? ';' : ',';
+  const H = lines[hi].split(sep).map(h => h.trim().toLowerCase());
+  const iLat = H.findIndex(h => h.startsWith('latitude')), iLon = H.findIndex(h => h.startsWith('longitude'));
+  const iAlt = H.findIndex(h => /^(altitude|elevation)/.test(h)), ft = iAlt >= 0 && /ft|feet/.test(H[iAlt]);
+  const num = v => Number(String(v ?? '').trim().replace(',', '.'));
+  const pts = lines.slice(hi + 1).map(l => l.split(sep)).filter(c => c.length > Math.max(iLat, iLon) && !isNaN(num(c[iLat])) && !isNaN(num(c[iLon])) && String(c[iLat]).trim() !== '')
+    .map(c => ({ lat: num(c[iLat]), lon: num(c[iLon]), alt: iAlt >= 0 && String(c[iAlt] ?? '').trim() !== '' && !isNaN(num(c[iAlt])) ? num(c[iAlt]) * (ft ? 0.3048 : 1) : null }));
+  if (pts.length < 2) throw new Error('El texto no contiene al menos dos puntos');
+  return { nombre: fname.replace(/\.\w+$/, ''), pts };
+}
+function hasAlt(pts) { const a = pts.map(p => p.alt); return a.every(v => v != null && !isNaN(v)) && a.some(v => v !== 0); }
 async function importFile(file, destino) {
   try {
-    const opts = await readKmlOptions(file);
-    const apply = o => destino === 'existente' ? applyExisting(o, file.name) : applyTrace(o, file.name);
+    const opts = await readRouteOptions(file);
+    const apply = o => destino === 'existente' ? applyExisting(o, file.name) : destino === 'perfil' ? applyPerfil(o, file.name) : applyTrace(o, file.name);
     if (opts.length === 1) apply(opts[0]);
     else {
       const box = destino === 'existente' ? $('#exPick') : $('#kmlPick'); box.hidden = false;
-      box.innerHTML = `<div class="banner info">El archivo tiene varios elementos. Elige cuál ${destino === 'existente' ? 'es la línea existente' : 'define el trazado nuevo'}:</div><div class="row" style="margin-top:6px">${opts.map((o, k) => `<button class="btn small" data-k="${k}">${esc(o.label)}</button>`).join('')}</div>`;
+      box.innerHTML = `<div class="banner info">El archivo tiene varios elementos. Elige cuál ${destino === 'existente' ? 'es la línea existente' : destino === 'perfil' ? 'tiene el perfil de elevación' : 'define el trazado nuevo'}:</div><div class="row" style="margin-top:6px">${opts.map((o, k) => `<button class="btn small" data-k="${k}">${esc(o.label)}</button>`).join('')}</div>`;
       box.onclick = ev => { const b = ev.target.closest('button[data-k]'); if (!b) return; box.hidden = true; apply(opts[Number(b.dataset.k)]); };
     }
   } catch (e) { toast('No se pudo importar: ' + e.message); }
@@ -526,12 +558,43 @@ function applyTrace(opt, fname) {
   const alts = pts.map(p => p.alt).filter(v => v != null && v !== 0);
   const altMax = alts.length ? Math.max(...alts) : null;
   S.proj.geo = { zone, pts, fuente: fname, altMax };
+  if (opt.conCota) S.proj.perfil = { fuente: fname, pts: opt.pts.map(p => ({ x: E.utmFromLatLon(p.lat, p.lon, zone).x, y: E.utmFromLatLon(p.lat, p.lon, zone).y, z: p.alt })) };
+  else if (S.proj.perfil && S.proj.perfil.fuente === S.proj.geo?.fuente) S.proj.perfil = null;
   S.proj.modo = 'kml';
   S.proj.rows = pts.map(() => newRow());
   if (!S.proj.nombre || /^Ejemplo/.test(S.proj.nombre)) { S.proj.nombre = fname.replace(/\.(kml|kmz)$/i, ''); $('#p_nombre').value = S.proj.nombre; }
   if (altMax != null) { const z = altMax > 1000 ? 'C' : altMax > 500 ? 'B' : 'A'; if (z !== ctx.zona) { ctx.zona = z; $('#p_zona').value = z; toast(`Zona ${z} asignada por la cota máxima del KML (${fmt(altMax)} m). Revísala.`); } }
   if (S.proj.entronque) snapToEntronque(true);
   S.sel = null; S.openEx = null; V.fitted = false; refreshAll();
+}
+function applyPerfil(opt, fname) {
+  if (!opt.conCota) { toast('Ese archivo no lleva cotas. Pásalo primero por GPS Visualizer para añadir la elevación.'); return; }
+  const zone = setZoneFrom(opt.pts[0]);
+  S.proj.perfil = { fuente: fname, pts: opt.pts.map(p => { const u = E.utmFromLatLon(p.lat, p.lon, zone); return { x: u.x, y: u.y, z: p.alt }; }) };
+  const alts = opt.pts.map(p => p.alt); const altMax = Math.max(...alts);
+  const z = altMax > 1000 ? 'C' : altMax > 500 ? 'B' : 'A';
+  if (z !== S.proj.ctx.zona) { S.proj.ctx.zona = z; $('#p_zona').value = z; }
+  toast(`Perfil de elevación cargado: ${opt.pts.length} puntos, cotas ${fmt(Math.min(...alts))}–${fmt(altMax)} m. Zona ${z}.`);
+  refreshAll();
+}
+function perfilPts() {
+  if (S.proj.perfil?.pts?.length >= 2) return S.proj.perfil.pts;
+  if (S.proj.modo === 'manual' && S.proj.rows.length > 1 && S.proj.rows.every(r => r.cota !== '' && r.cota != null && !isNaN(Number(r.cota)))) {
+    const n = currentNodes(); return n.map((p, i) => ({ x: p.x, y: p.y, z: Number(S.proj.rows[i].cota) }));
+  }
+  return null;
+}
+function perfilInfoHtml() {
+  const has = S.proj.perfil?.pts?.length >= 2;
+  const gpsv = `<a href="https://www.gpsvisualizer.com/elevation" target="_blank" rel="noopener">GPS Visualizer (Elevation)</a>`;
+  const steps = `<ol style="margin:6px 0 0;padding-left:20px"><li>Entra en ${gpsv} y sube tu archivo .kml en «Seleccionar archivo».</li><li>En «Output format» elige <b>GPX file</b> o <b>Plain text</b>.</li><li>Pulsa el botón verde «Convert &amp; add elevation».</li><li>Pulsa «Download…» y guarda el archivo.</li><li>Cárgalo aquí con «Cargar perfil de elevación» (o impórtalo directamente como trazado).</li></ol>`;
+  if (has) {
+    const zs = S.proj.perfil.pts.map(p => p.z);
+    const d = S.calc?.perfilDist;
+    return `<div class="banner info">Perfil de elevación: <b>${esc(S.proj.perfil.fuente)}</b> · ${S.proj.perfil.pts.length} puntos · cotas ${fmt(Math.min(...zs))}–${fmt(Math.max(...zs))} m. <button class="btn small ghost" id="perfilDel">Quitar</button></div>${d > 15 ? `<div class="banner warn" style="margin-top:6px">Algún apoyo está a ${fmt(d)} m del perfil cargado. Comprueba que el perfil corresponde a este trazado.</div>` : ''}`;
+  }
+  if (S.proj.modo === 'kml' || S.proj.entronque?.k != null) return `<div class="banner warn"><b>El trazado no tiene perfil de elevación.</b> Sin él se supone terreno llano. Pulsa «Buscar perfil de elevación automáticamente» o, con GPS Visualizer:${steps}</div>`;
+  return `<p class="note">En entrada manual puedes escribir la cota del terreno de cada apoyo en la columna «Cota». Con un trazado KML, carga el perfil de GPS Visualizer.</p>`;
 }
 function geoInfoHtml() {
   const g = S.proj.geo; if (S.proj.modo !== 'kml' || !g) return '';
@@ -617,8 +680,9 @@ function bindEntronque() {
 function refreshAll() {
   $('#geoInfo').hidden = !(S.proj.modo === 'kml' && S.proj.geo); $('#geoInfo').innerHTML = geoInfoHtml();
   const tm = $('#toManual'); if (tm) tm.onclick = toManual;
-  renderRows(); renderEntronque(); recalc(); renderFondos();
+  renderRows(); renderEntronque(); recalc(); renderFondos(); renderPerfilInfo();
 }
+function renderPerfilInfo() { const b = $('#perfilInfo'); if (!b) return; b.innerHTML = perfilInfoHtml(); const d = $('#perfilDel'); if (d) d.onclick = () => { S.proj.perfil = null; refreshAll(); }; }
 
 /* ---------- Exportación ---------- */
 const ascii = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x20-\x7E]/g, '');
@@ -686,11 +750,11 @@ function geojson(c, g) {
 }
 function csv(c, g) {
   const sep = ';', n = v => String(v ?? '').replace('.', ',');
-  const head = ['Apoyo', 'Funcion', 'Desvio (grados)', 'Vano anterior (m)', 'Modelo', 'Tipo', 'Esfuerzo nominal (daN)', 'Esfuerzo secundario (daN)', 'Altura (m)', 'F principal (daN)', 'F secundario (daN)', 'Utilizacion (%)', 'Eje principal (acimut)', 'Estado', 'Coste (EUR)', 'Venta (EUR)'];
+  const head = ['Apoyo', 'Funcion', 'Desvio (grados)', 'Vano anterior (m)', 'Modelo', 'Tipo', 'Esfuerzo nominal (daN)', 'Esfuerzo secundario (daN)', 'Altura (m)', 'F principal (daN)', 'F secundario (daN)', 'Utilizacion (%)', 'Eje principal (acimut)', 'Estado', 'Coste (EUR)', 'Venta (EUR)', 'Cota terreno (m)', 'Cota amarre (m)', 'Gravivano (m)'];
   if (g) head.push(`UTM X (huso ${g.zone})`, 'UTM Y', 'Latitud', 'Longitud');
   const rows = c.results.map((r, i) => {
     const sel = r.existenteCheck?.ok ? r.existenteCheck : r.elegido; const p = sel?.pole, rr = sel?.r; const st = statusOf(r, i);
-    const a = [`A${i + 1}`, FUNCS[r.func], n(r.desvio?.toFixed(1)), i ? n(c.spans[i - 1].a.toFixed(2)) : '', p ? poleLabel(p) : '', p?.tipo, p?.En, p?.Es, p?.altura, n(rr?.Fp.toFixed(0)), n(rr?.Fs.toFixed(0)), n(rr ? (rr.u * 100).toFixed(1) : ''), n(rr?.phi.toFixed(0)), st.txt, n(st.txt === 'Existente válido' ? 0 : p?.coste), n(st.txt === 'Existente válido' ? 0 : p?.venta)];
+    const a = [`A${i + 1}`, FUNCS[r.func], n(r.desvio?.toFixed(1)), i ? n(c.spans[i - 1].a.toFixed(2)) : '', p ? poleLabel(p) : '', p?.tipo, p?.En, p?.Es, p?.altura, n(rr?.Fp.toFixed(0)), n(rr?.Fs.toFixed(0)), n(rr ? (rr.u * 100).toFixed(1) : ''), n(rr?.phi.toFixed(0)), st.txt, n(st.txt === 'Existente válido' ? 0 : p?.coste), n(st.txt === 'Existente válido' ? 0 : p?.venta), n(r.z?.toFixed(2)), n(r.zAmarre?.toFixed(2)), n(r.gravivano?.toFixed(1))];
     if (g) { const pt = g.pts[i]; a.push(n(pt.x.toFixed(2)), n(pt.y.toFixed(2)), n(pt.lat.toFixed(8)), n(pt.lon.toFixed(8))); }
     return a.join(sep);
   });
@@ -708,6 +772,7 @@ function leeme(c, g, fondosIncl) {
     g ? `- ${base}.geojson: las mismas capas para QGIS (WGS84).` : null,
     ...fondosIncl.map(f => `- ${f.file} + ${f.wf}: fondo de ${f.nombre} georreferenciado (archivo de mundo en EPSG:258${z}).`),
     `- ${base}_apoyos.csv: tabla de apoyos (separador punto y coma) para Excel.`,
+    c.conPerfil ? `- ${base}_perfil.csv: perfil longitudinal (terreno, conductor a flecha maxima y distancia libre).` : null,
     `- ${base}_anexo_calculo.html: anexo de calculo. Abrelo en el navegador e imprimelo a PDF.`, '',
     'SUPERPONER SOBRE CATASTRO', '',
     'AutoCAD:',
@@ -745,10 +810,150 @@ async function exportZip() {
     const file = `fondo_${k}_EPSG258${g.zone}.${ext}`, wf = `fondo_${k}_EPSG258${g.zone}.${wfExt}`;
     zip.file(file, b); zip.file(wf, worldFile(f)); incl.push({ file, wf, nombre: F.nombre });
   }
-  zip.file(base + '_apoyos.csv', csv(c, g)); zip.file(base + '_anexo_calculo.html', informe(c)); zip.file('LEEME.txt', leeme(c, g, incl));
+  zip.file(base + '_apoyos.csv', csv(c, g)); if (c.conPerfil) zip.file(base + '_perfil.csv', perfilCsv(c)); zip.file(base + '_anexo_calculo.html', informe(c)); zip.file('LEEME.txt', leeme(c, g, incl));
   const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
   try { await dl.save({ filename: base + '.zip', data: blob }); toast('Paquete guardado.'); }
   catch (e) { if (e.code !== 'declined') toast('No se pudo guardar el archivo: ' + (e.message || e.code)); }
+}
+
+/* ---------- Perfil longitudinal: dibujo ---------- */
+function drawPerfil() {
+  const cv = $('#perfil'); if (!cv) return; const dpr = window.devicePixelRatio || 1, W = cv.clientWidth, Hh = cv.clientHeight; if (!W) return;
+  cv.width = W * dpr; cv.height = Hh * dpr; const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const cs = getComputedStyle(document.documentElement), col = n => cs.getPropertyValue(n).trim();
+  g.fillStyle = col('--map'); g.fillRect(0, 0, W, Hh);
+  const c = S.calc;
+  if (!c || !c.conPerfil) { g.fillStyle = col('--muted'); g.font = '13px ' + col('--f-body'); g.textAlign = 'center'; g.fillText('Sin perfil de elevación: carga o busca el perfil del trazado para verlo aquí.', W / 2, Hh / 2); $('#perfilNote').textContent = ''; return; }
+  const N = c.nodes, ch0 = Math.min(...N.map(n => n.ch)), ch1 = Math.max(...N.map(n => n.ch)), rev = N[0].ch > N[N.length - 1].ch;
+  const X = ch => rev ? ch1 - ch : ch - ch0, L = Math.max(ch1 - ch0, 1);
+  const perf = perfilPts() ? E.buildProfile(perfilPts()) : null;
+  const terr = perf ? perf.pts.filter(p => p.ch >= ch0 - 1 && p.ch <= ch1 + 1).map(p => ({ d: X(p.ch), z: p.z })) : [];
+  N.forEach(n => terr.push({ d: X(n.ch), z: n.z })); terr.sort((a, b) => a.d - b.d);
+  const tops = c.results.map((r, i) => r.zAmarre ?? N[i].z);
+  const zMin = Math.min(...terr.map(t => t.z)) - 2, zMax = Math.max(...terr.map(t => t.z), ...tops) + 3;
+  const pl = 48, pr = 14, pt = 14, pb = 26, sx = (W - pl - pr) / L, sy = (Hh - pt - pb) / Math.max(zMax - zMin, 1);
+  const P = (d, z) => [pl + d * sx, Hh - pb - (z - zMin) * sy];
+  // ejes
+  g.strokeStyle = col('--grid'); g.fillStyle = col('--muted'); g.font = '10px ' + col('--f-mono'); g.lineWidth = 1;
+  const zs = niceStep((zMax - zMin) / 4); for (let z = Math.ceil(zMin / zs) * zs; z <= zMax; z += zs) { const [, y] = P(0, z); g.beginPath(); g.moveTo(pl, y); g.lineTo(W - pr, y); g.stroke(); g.textAlign = 'right'; g.fillText(fmt(z), pl - 4, y + 3); }
+  const ds = niceStep(L / 6); g.textAlign = 'center'; for (let d = 0; d <= L; d += ds) { const [x] = P(d, zMin); g.fillText(fmt(d) + ' m', x, Hh - 8); }
+  // terreno
+  g.beginPath(); terr.forEach((t, k) => { const [x, y] = P(t.d, t.z); k ? g.lineTo(x, y) : g.moveTo(x, y); });
+  const [xe] = P(terr[terr.length - 1].d, zMin), [xs] = P(terr[0].d, zMin);
+  g.lineTo(xe, Hh - pb); g.lineTo(xs, Hh - pb); g.closePath(); g.fillStyle = col('--soft'); g.fill(); g.strokeStyle = col('--exist'); g.lineWidth = 1.5; g.stroke();
+  // conductor a flecha máxima y apoyos
+  c.spans.forEach(s => {
+    if (s.ZA == null) return; const a = X(N[s.i].ch), b = X(N[s.i + 1].ch);
+    g.beginPath(); for (let k = 0; k <= 30; k++) { const t = k / 30; const [x, y] = P(a + (b - a) * t, s.ZA + (s.ZB - s.ZA) * t - 4 * s.fmax * t * (1 - t)); k ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.strokeStyle = s.libre != null && s.libre < s.dmin - 0.01 ? col('--bad') : col('--accent'); g.lineWidth = 2; g.stroke();
+  });
+  c.results.forEach((r, i) => {
+    const d = X(N[i].ch), [x, y0] = P(d, N[i].z), [, y1] = P(d, tops[i]);
+    const st = statusOf(r, i); g.strokeStyle = col('--' + st.col); g.lineWidth = 3; g.beginPath(); g.moveTo(x, y0); g.lineTo(x, y1); g.stroke();
+    g.fillStyle = col('--ink'); g.font = '600 11px ' + col('--f-body'); g.textAlign = 'center'; g.fillText('A' + (i + 1), x, y1 - 5);
+  });
+  const exag = sy / sx; $('#perfilNote').textContent = `Escala vertical ×${fmt(exag, exag < 10 ? 1 : 0)} · conductor a flecha máxima`;
+}
+
+/* ---------- Trazado por coordenadas de inicio y fin ---------- */
+function parseCoordText(t) {
+  const n = String(t).trim().replace(/;/g, ' ').split(/[\s,]+/).filter(Boolean).map(v => Number(v));
+  if (n.length < 2 || n.some(isNaN)) return null;
+  const [a, b] = n;
+  if (Math.abs(a) <= 90 && Math.abs(b) <= 180) return { lat: a, lon: b };
+  const zone = S.proj.zone || Number($('#c_huso').value) || 29; const ll = E.latLonFromUtm(a, b, zone); return { lat: ll.lat, lon: ll.lon }; // UTM X Y
+}
+function bindCoordForm() {
+  $('#c_crear').onclick = () => {
+    const A = parseCoordText($('#c_ini').value), B = parseCoordText($('#c_fin').value);
+    if (!A || !B) { toast('Escribe las coordenadas como «latitud, longitud» (42.8590, -8.6510) o «X Y» en UTM.'); return; }
+    if (!S.proj.zone && /^\s*\d{5,}/.test($('#c_ini').value)) S.proj.zone = Number($('#c_huso').value) || 29;
+    const prev = S.proj.ctx.dividir; S.proj.ctx.dividir = true;
+    applyTrace({ nombre: 'Coordenadas', pts: [A, B] }, 'coordenadas de inicio y fin');
+    S.proj.ctx.dividir = prev;
+  };
+}
+
+/* ---------- Perfil automático (Copernicus DEM vía Open-Meteo, con el navegador de la app de escritorio) ---------- */
+function getApiKey() { try { return localStorage.getItem('openmeteoKey') || ''; } catch (e) { return ''; } }
+function setApiKey(v) { try { localStorage.setItem('openmeteoKey', v); } catch (e) { } }
+function samplePolyline(pts, step) {
+  const out = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1], d = Math.hypot(b.x - a.x, b.y - a.y), k = Math.max(1, Math.ceil(d / step));
+    for (let j = 0; j < k; j++) out.push({ x: a.x + (b.x - a.x) * j / k, y: a.y + (b.y - a.y) * j / k });
+  }
+  out.push({ x: pts[pts.length - 1].x, y: pts[pts.length - 1].y });
+  return out;
+}
+async function autoPerfil() {
+  const btn = $('#perfilAuto'), msg = $('#perfilAutoMsg');
+  const g = getGeo(); if (!g) { msg.textContent = 'Primero importa el trazado, créalo con coordenadas de inicio y fin o conéctalo a la línea existente.'; return; }
+  const mcp = await window.claude?.use?.('mcp').catch(() => null);
+  if (!mcp) { msg.innerHTML = 'La búsqueda automática solo funciona al abrir esta app dentro de la aplicación de escritorio de Claude. Usa GPS Visualizer (pasos de arriba).'; return; }
+  let L = 0; for (let i = 1; i < g.pts.length; i++) L += Math.hypot(g.pts[i].x - g.pts[i - 1].x, g.pts[i].y - g.pts[i - 1].y);
+  const step = Math.max(5, L / 900);
+  const sp = samplePolyline(g.pts, step).map(p => ({ ...p, ...E.latLonFromUtm(p.x, p.y, g.zone) }));
+  const key = getApiKey().trim();
+  const base = key ? 'https://customer-api.open-meteo.com/v1/elevation' : 'https://api.open-meteo.com/v1/elevation';
+  btn.disabled = true; let tabId = null; const z = [];
+  try {
+    for (let k = 0; k < sp.length; k += 100) {
+      const chunk = sp.slice(k, k + 100);
+      msg.textContent = `Consultando cotas ${k + 1}–${k + chunk.length} de ${sp.length}…`;
+      const url = `${base}?latitude=${chunk.map(p => p.lat.toFixed(6)).join(',')}&longitude=${chunk.map(p => p.lon.toFixed(6)).join(',')}${key ? '&apikey=' + encodeURIComponent(key) : ''}`;
+      if (!tabId) {
+        const r = await mcp.callTool('host:claude_browser', 'preview_start', { url });
+        const t = resultText(r); tabId = (t.match(/tabId\s*[:=]?\s*["']?([\w-]+)/i) || [])[1] || null;
+      } else await mcp.callTool('host:claude_browser', 'navigate', tabId ? { url, tabId } : { url });
+      let vals = null;
+      for (let tries = 0; tries < 4 && !vals; tries++) {
+        if (tries) await new Promise(res => setTimeout(res, 800));
+        const r = await mcp.callTool('host:claude_browser', 'get_page_text', tabId ? { tabId } : {});
+        const m = resultText(r).match(/\{\s*"(elevation|error)"[\s\S]*?\}/);
+        if (m) { const j = JSON.parse(m[0]); if (j.error) throw { code: 'api', message: j.reason || 'error del servicio' }; vals = j.elevation; }
+      }
+      if (!vals || vals.length !== chunk.length) throw { code: 'api', message: 'el servicio no devolvió las cotas' };
+      z.push(...vals);
+    }
+    S.proj.perfil = { fuente: `Copernicus DEM GLO-90 vía Open-Meteo (${sp.length} puntos cada ${fmt(step, 1)} m)`, pts: sp.map((p, i) => ({ x: p.x, y: p.y, z: z[i] })) };
+    const altMax = Math.max(...z), zn = altMax > 1000 ? 'C' : altMax > 500 ? 'B' : 'A';
+    if (zn !== S.proj.ctx.zona) { S.proj.ctx.zona = zn; $('#p_zona').value = zn; }
+    msg.textContent = `Perfil obtenido: cotas ${fmt(Math.min(...z))}–${fmt(altMax)} m. Zona ${zn}.`;
+    refreshAll();
+  } catch (e) {
+    const code = e && e.code;
+    msg.textContent = code === 'server_not_connected' ? 'No se encuentra el navegador de la app de escritorio de Claude. Abre esta app desde la aplicación de escritorio, o usa GPS Visualizer.'
+      : code === 'not_in_manifest' || code === 'approval_required' || code === 'cancelled' ? 'No se ha dado permiso para usar el navegador. Puedes volver a intentarlo o usar GPS Visualizer.'
+      : code === 'api' ? 'El servicio de elevación respondió con un error: ' + e.message + '.'
+      : 'No se pudo obtener el perfil (' + (code || 'error') + '). Inténtalo de nuevo o usa GPS Visualizer.';
+  } finally { btn.disabled = false; }
+}
+function resultText(r) {
+  if (!r) return ''; if (typeof r.payload === 'string') return r.payload;
+  const t = (r.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n');
+  return t || (r.payload ? JSON.stringify(r.payload) : '');
+}
+function bindPerfilAuto() {
+  $('#perfilAuto').onclick = autoPerfil;
+  const k = $('#omKey'); k.value = getApiKey(); k.addEventListener('change', () => setApiKey(k.value.trim()));
+  $('#perfilAutoMsg').textContent = '';
+}
+
+/* ---------- Exportación del perfil ---------- */
+function perfilCsv(c) {
+  const N = c.nodes, sep = ';', n = v => v == null ? '' : String(v).replace('.', ',');
+  const rows = ['Apoyo/vano;Distancia al origen (m);Cota terreno (m);Cota conductor flecha max (m);Distancia libre (m);Distancia minima (m)'];
+  const ch0 = N[0].ch;
+  c.spans.forEach(s => {
+    rows.push([`A${s.i + 1}`, n(Math.abs(N[s.i].ch - ch0).toFixed(1)), n(N[s.i].z.toFixed(2)), n(s.ZA?.toFixed(2)), '', ''].join(sep));
+    (s.terreno || []).filter(p => p.t > 0 && p.t < 1).forEach(p => {
+      const zc = s.ZA != null ? s.ZA + (s.ZB - s.ZA) * p.t - 4 * s.fmax * p.t * (1 - p.t) : null;
+      rows.push([`vano A${s.i + 1}-A${s.i + 2}`, n((Math.abs(N[s.i].ch - ch0) + p.t * s.a).toFixed(1)), n(p.z.toFixed(2)), n(zc?.toFixed(2)), n(zc != null ? (zc - p.z).toFixed(2) : ''), n(s.dmin)].join(sep));
+    });
+  });
+  const l = N.length - 1; rows.push([`A${l + 1}`, n(Math.abs(N[l].ch - ch0).toFixed(1)), n(N[l].z.toFixed(2)), n(c.spans[l - 1]?.ZB?.toFixed(2)), '', ''].join(sep));
+  return '﻿' + rows.join('\r\n');
 }
 
 /* ---------- Proyectos ---------- */
@@ -830,7 +1035,8 @@ function start() {
   $('#ver').textContent = 'v' + VERSION;
   loadForm(); bindForm(); bindRows(); bindMap(); bindProjects(); bindDbTables(); bindPrecios(); bindTabs();
   $('#kmlFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importFile(f, 'nuevo'); e.target.value = ''; });
-  bindEntronque();
+  bindEntronque(); bindCoordForm(); bindPerfilAuto();
+  $('#perfilFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importFile(f, 'perfil'); e.target.value = ''; });
   $('#exportZip').onclick = exportZip;
   $('#exportNote').textContent = 'Incluye DXF en ETRS89 UTM con la línea nueva y la existente, KML, GeoJSON, los fondos cargados con su archivo de mundo, tabla CSV y anexo de cálculo.';
   renderPrecios(); renderPoleTable(); renderCableTable(); renderProjList(); refreshAll();

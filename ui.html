@@ -83,6 +83,8 @@ canvas#map{width:100%;height:440px;cursor:grab;display:block;background:var(--ma
 .exist{background:var(--soft);border:1px dashed var(--line);border-radius:4px;padding:10px;margin-top:6px;white-space:normal}
 .mono{font-family:var(--f-mono);font-size:.8rem}
 .toast{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:4px;font-size:.85rem;z-index:20;max-width:min(420px,calc(100vw - 32px))}
+canvas#perfil{width:100%;height:240px;display:block;background:var(--map);border:1px solid var(--line);border-radius:4px}
+summary{cursor:pointer}
 .mapbox{position:relative}
 .zoom{position:absolute;top:8px;left:8px;display:flex;flex-direction:column;gap:4px}
 .zoom .btn{padding:3px 0;width:30px;text-align:center;font-family:var(--f-mono)}
@@ -102,7 +104,7 @@ a.btn{text-decoration:none;display:inline-block}
 <div class="wrap">
   <header class="top">
     <h1><small>Redes aéreas trenzadas · ITC-BT-06</small>Cálculo de Apoyos BT</h1>
-    <div class="ver" id="ver">v1.1.0</div>
+    <div class="ver" id="ver">v1.2.0</div>
   </header>
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="calc" aria-selected="true">Proyecto</button>
@@ -143,7 +145,7 @@ a.btn{text-decoration:none;display:inline-block}
         <section class="card">
           <h2>Línea existente y entronque <span class="row">
             <label class="btn small" for="exFile">Importar KML/KMZ</label>
-            <input id="exFile" type="file" accept=".kml,.kmz" hidden>
+            <input id="exFile" type="file" accept=".kml,.kmz,.gpx,.txt" hidden>
           </span></h2>
           <div id="exPick" hidden style="margin-bottom:8px"></div>
           <div id="exBody"></div>
@@ -152,7 +154,7 @@ a.btn{text-decoration:none;display:inline-block}
         <section class="card">
           <h2>Trazado <span class="row">
             <label class="btn small" for="kmlFile">Importar trazado KML/KMZ</label>
-            <input id="kmlFile" type="file" accept=".kml,.kmz" hidden>
+            <input id="kmlFile" type="file" accept=".kml,.kmz,.gpx,.txt" hidden>
             <button class="btn small" id="addRow">Añadir apoyo</button>
           </span></h2>
           <div class="fields" style="margin-bottom:10px">
@@ -161,10 +163,29 @@ a.btn{text-decoration:none;display:inline-block}
             <label class="chk full"><input id="p_dividir" type="checkbox"> Al importar, intercalar apoyos en tramos más largos que el vano máximo</label>
           </div>
           <div id="geoInfo" class="banner info" hidden></div>
+          <details class="coords" style="margin-top:8px"><summary class="note">Crear el trazado con coordenadas de inicio y fin</summary>
+            <div class="fields" style="margin-top:8px">
+              <label class="f">Inicio<input id="c_ini" type="text" placeholder="42.8590, -8.6510  o  528511 4745216"></label>
+              <label class="f">Fin<input id="c_fin" type="text" placeholder="42.8603, -8.6495"></label>
+              <label class="f">Huso UTM (si usas X Y)<input id="c_huso" class="num" type="number" value="29" min="27" max="31"></label>
+              <div class="f" style="justify-content:flex-end"><button class="btn small" id="c_crear">Crear trazado</button></div>
+            </div>
+            <p class="note">Se crea una línea recta y se intercalan apoyos según el vano máximo.</p>
+          </details>
+          <div class="row" style="margin-top:8px">
+            <button class="btn small primary" id="perfilAuto">Buscar perfil de elevación automáticamente</button>
+            <label class="btn small" for="perfilFile">Cargar perfil (GPX/TXT de GPS Visualizer)</label><input id="perfilFile" type="file" accept=".gpx,.txt,.kml,.kmz" hidden>
+          </div>
+          <p class="note" id="perfilAutoMsg"></p>
+          <details style="margin-top:4px"><summary class="note">Fuente del perfil automático</summary>
+            <p class="note">Cotas del modelo Copernicus DEM GLO-90 (malla de 90 m) a través del servicio Open-Meteo, consultado con el navegador de la aplicación de escritorio de Claude: solo funciona abriendo esta app desde ella. Es un perfil aproximado; para proyecto, contrástalo en campo o con el MDT05 del IGN. El servicio gratuito de Open-Meteo es para uso no comercial; para uso comercial necesitas una clave de pago.</p>
+            <label class="f" style="margin-top:6px">Clave de Open-Meteo (uso comercial, se guarda solo en este navegador)<input id="omKey" type="password" autocomplete="off"></label>
+          </details>
+          <div id="perfilInfo" style="margin-top:8px"></div>
           <div id="kmlPick" hidden style="margin-top:8px"></div>
           <div class="tablewrap" style="margin-top:10px;max-height:460px;overflow:auto">
             <table id="rowsTable"><thead><tr>
-              <th>Apoyo</th><th class="n">Vano ant. (m)</th><th class="n">Desvío (°)</th><th>Cruce</th><th>Función</th><th>Altura</th><th>Modelo</th><th>Existente</th><th></th>
+              <th>Apoyo</th><th class="n">Vano ant. (m)</th><th class="n">Desvío (°)</th><th class="n">Cota (m)</th><th>Cruce</th><th>Función</th><th>Altura</th><th>Modelo</th><th>Existente</th><th></th>
             </tr></thead><tbody></tbody></table>
           </div>
           <p class="note">Desvío positivo: giro a la derecha en el sentido de avance. Marca «Cruce» en el vano que llega al apoyo si cruza carretera o ferrocarril.</p>
@@ -189,6 +210,11 @@ a.btn{text-decoration:none;display:inline-block}
             <button class="btn primary" id="exportZip">Exportar para Catastro (ZIP)</button>
           </div>
           <p class="note" id="exportNote" style="margin-top:6px"></p>
+        </section>
+
+        <section class="card">
+          <h2>Perfil longitudinal <span class="note" id="perfilNote"></span></h2>
+          <canvas id="perfil" aria-label="Perfil longitudinal del terreno con apoyos y catenaria a flecha máxima"></canvas>
         </section>
 
         <section class="card">
@@ -276,8 +302,10 @@ a.btn{text-decoration:none;display:inline-block}
         <li>Se trasladan los esfuerzos al punto de aplicación del esfuerzo nominal (0,25 m bajo cogolla) por igualdad de momentos en el empotramiento, y se comparan por separado con el esfuerzo nominal (eje principal) y el secundario. Orientación del poste: principal según la resultante o el eje de la línea, o perpendicular, la más favorable.</li>
         <li>Coeficiente de seguridad del hormigón armado vibrado: 2,5, ya incluido en el esfuerzo nominal del poste.</li>
       </ul>
-      <h3>Alturas</h3>
-      <p>Altura libre = altura total − empotramiento del terreno elegido. El amarre debe quedar a la distancia mínima al suelo más la flecha máxima del vano contiguo (4 m; 6 m en cruces con carreteras y ferrocarriles, ITC-BT-06 3.9.1.4). Se supone terreno llano; revisa los perfiles con desnivel.</p>
+      <h3>Alturas y perfil del terreno</h3>
+      <p>Altura libre = altura total − empotramiento del terreno elegido. Sin perfil, el amarre debe quedar a la distancia mínima al suelo más la flecha máxima del vano contiguo (4 m; 6 m en cruces con carreteras y ferrocarriles, ITC-BT-06 3.9.1.4).</p>
+      <p>Con perfil de elevación (GPX o texto de GPS Visualizer, KML con cotas o cotas escritas a mano), cada apoyo toma la cota del terreno y en cada vano se dibuja el conductor a flecha máxima como parábola entre los dos puntos de amarre. Se comprueba la distancia al suelo en todos los puntos del perfil dentro del vano y, si falta, se suben los apoyos de los extremos. Entre dos puntos del perfil el terreno se interpola en línea recta: cuantos más puntos tenga la ruta, mejor.</p>
+      <p>Gravivano: longitud de conductor que carga verticalmente el apoyo, a 0 °C con la sobrecarga de la segunda hipótesis y a 15 °C sin sobrecarga. Si sale negativo, el apoyo tiene tiro hacia arriba y se avisa.</p>
       <h3>Datos de partida de las bases</h3>
       <p>Esfuerzos, cogollas, conicidades, pesos y empotramientos de la especificación de postes HV/HVH ET/5022. La cogolla del HV-160 no figura en ella y se toma igual que la del HV-250. Cables: catálogo de fabricante (Prysmian, AL Polirret). Revisa estos valores con tu proveedor.</p>
       <h3>Exportación para Catastro</h3>

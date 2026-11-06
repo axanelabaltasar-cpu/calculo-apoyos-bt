@@ -177,6 +177,23 @@ function windDirs(ap, phi) {
   return [...set];
 }
 
+/* Perfil longitudinal: polilínea {x,y,z} con distancia acumulada */
+function buildProfile(pts) {
+  if (!pts || pts.length < 2 || pts.some(p => p.z == null || isNaN(p.z))) return null;
+  let ch = 0; const out = pts.map((p, i) => { if (i) ch += Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y); return { x: p.x, y: p.y, z: Number(p.z), ch }; });
+  return { pts: out, L: ch };
+}
+function projectOnProfile(prof, q) {
+  let best = { d: Infinity, ch: 0, z: prof.pts[0].z };
+  for (let i = 0; i < prof.pts.length - 1; i++) {
+    const A = prof.pts[i], B = prof.pts[i + 1], dx = B.x - A.x, dy = B.y - A.y, L2 = dx * dx + dy * dy;
+    const t = L2 ? Math.max(0, Math.min(1, ((q.x - A.x) * dx + (q.y - A.y) * dy) / L2)) : 0;
+    const d = Math.hypot(A.x + dx * t - q.x, A.y + dy * t - q.y);
+    if (d < best.d) best = { d, ch: A.ch + t * Math.sqrt(L2), z: A.z + (B.z - A.z) * t };
+  }
+  return best;
+}
+
 /* Cálculo completo */
 function calcular(input) {
   const { nodes, cable, ctx: c0, poles } = input;
@@ -221,13 +238,25 @@ function calcular(input) {
     s.cruce = !!nodes[s.i + 1].cruce;          // el cruce se marca en el vano que llega al apoyo i+1
     s.dmin = s.cruce ? 6 : c0.distSuelo;        // ITC-BT-06 3.9.1.4: 6 m sobre carreteras y ferrocarriles
   });
-  // Apoyos
+  // Perfil del terreno: cota de cada apoyo y del terreno bajo cada vano
+  const prof = buildProfile(input.perfil);
+  if (prof) {
+    nodes.forEach(nd => { const pr = projectOnProfile(prof, nd); nd.ch = pr.ch; nd.z = pr.z; nd.dPerfil = pr.d; });
+    spans.forEach(s => {
+      const A = nodes[s.i], B = nodes[s.i + 1], c0h = Math.min(A.ch, B.ch), c1h = Math.max(A.ch, B.ch), L = c1h - c0h;
+      s.dz = B.z - A.z; s.aReal = Math.hypot(s.a, s.dz);
+      s.terreno = [{ t: 0, z: A.z }, ...prof.pts.filter(p => p.ch > c0h + 0.01 && p.ch < c1h - 0.01).map(p => ({ t: L > 0 ? (A.ch <= B.ch ? (p.ch - c0h) / L : (c1h - p.ch) / L) : 0.5, z: p.z })), { t: 1, z: B.z }].sort((x, y) => x.t - y.t);
+    });
+  } else spans.forEach(s => { s.aReal = s.a; s.dz = 0; });
+  // Apoyos: esfuerzos de cada candidato
   const pvNew = hyp.pv;
+  const tipos = c0.tipos === 'HV' ? ['HV'] : c0.tipos === 'HVH' ? ['HVH'] : ['HV', 'HVH'];
+  const price = p => (Number(p[c0.criterioPrecio]) || 0);
   const results = nodes.map((nd, i) => {
     const conds = [];
     const spansAdj = [];
-    if (i > 0) { const s = spans[i - 1]; spansAdj.push(s); conds.push({ az: (s.az + 180) % 360, T: cantones[s.canton].T, a: s.a, pv: pvNew, depth: c0.depthAmarre, nueva: true }); }
-    if (i < n - 1) { const s = spans[i]; spansAdj.push(s); conds.push({ az: s.az, T: cantones[s.canton].T, a: s.a, pv: pvNew, depth: c0.depthAmarre, nueva: true }); }
+    if (i > 0) { const s = spans[i - 1]; spansAdj.push(s); conds.push({ az: (s.az + 180) % 360, T: cantones[s.canton].T, a: s.a, pv: pvNew, depth: c0.depthAmarre, nueva: true, span: s.i }); }
+    if (i < n - 1) { const s = spans[i]; spansAdj.push(s); conds.push({ az: s.az, T: cantones[s.canton].T, a: s.a, pv: pvNew, depth: c0.depthAmarre, nueva: true, span: s.i }); }
     const ex = nd.existente && nd.existente.activo ? nd.existente : null;
     if (ex) for (const ec of ex.conductores || []) {
       const T = Number(ec.tense) || 0;
@@ -238,34 +267,71 @@ function calcular(input) {
     const lineAz = i < n - 1 ? spans[i].az : spans[i - 1].az;
     const ref = Math.hypot(rx, ry) > 1 ? (Math.atan2(rx, ry) * 180 / Math.PI + 360) % 180 : lineAz % 180;
     const ap = { func: nd.func, conds, ref };
-    const need = Math.max(0, ...spansAdj.map(s => s.fmax + s.dmin)); // altura mínima de amarre sobre el suelo
     const evalCand = (p, phi) => evaluatePole(p, ap, ctx, phi);
-    const tipos = c0.tipos === 'HV' ? ['HV'] : c0.tipos === 'HVH' ? ['HVH'] : ['HV', 'HVH'];
     let cands = poles.filter(p => p.activo !== false && tipos.includes(p.tipo));
     if (nd.alturaFija) cands = cands.filter(p => Number(p.altura) === Number(nd.alturaFija));
     if (ex && ex.modeloId) { const pe = poles.find(pp => pp.id === ex.modeloId); if (pe) cands = cands.filter(p => p.altura >= pe.altura); }
     if (nd.modeloFijo) cands = poles.filter(p => p.id === nd.modeloFijo);
-    const evals = cands.map(p => {
-      const g = poleGeom(p, c0.terreno);
-      const hAmarre = g.Hl - c0.depthAmarre;
-      const r = evalCand(p, null);
-      return { pole: p, r, hAmarre, alturaOk: hAmarre >= need, ok: r && r.u <= 1 && hAmarre >= need };
-    });
-    const price = p => (Number(p[c0.criterioPrecio]) || 0);
-    const okList = evals.filter(e => e.ok).sort((x, y) => (price(x.pole) - price(y.pole)) || (x.pole.altura - y.pole.altura) || (x.pole.En - y.pole.En));
-    const elegido = okList[0] || null;
+    const evals = cands.map(p => ({ pole: p, r: evalCand(p, null), hAmarre: poleGeom(p, c0.terreno).Hl - c0.depthAmarre }))
+      .sort((x, y) => (price(x.pole) - price(y.pole)) || (x.pole.altura - y.pole.altura) || (x.pole.En - y.pole.En));
     let existenteCheck = null;
     if (ex && ex.modeloId) {
       const p = poles.find(pp => pp.id === ex.modeloId);
       if (p) {
         const phi = ex.azPrincipal === '' || ex.azPrincipal == null ? null : Number(ex.azPrincipal);
         const r = evalCand(p, phi);
-        existenteCheck = { pole: p, r, ok: r && r.u <= 1, orientacionSupuesta: phi == null };
+        existenteCheck = { pole: p, r, ok: r && r.u <= 1, orientacionSupuesta: phi == null, hAmarre: poleGeom(p, c0.terreno).Hl - (Number(ex.conductores?.[0]?.depth) || c0.depthAmarre) };
       }
     }
-    // Cargas verticales informativas (daN): peso de conductor y hielo en la mitad de cada vano adyacente
-    const vert = conds.filter(c => c.nueva).reduce((t, c) => t + (cp.w + hyp.H2.ice) * c.a / 2, 0);
-    return { i, func: nd.func, desvio: nd.desvio, need, elegido, evals, existenteCheck, vert, conds };
+    const need = Math.max(0, ...spansAdj.map(s => s.fmax + s.dmin)); // altura mínima de amarre en terreno llano
+    return { i, func: nd.func, desvio: nd.desvio, need, evals, existenteCheck, conds, z: nd.z ?? null };
+  });
+  // Elección de apoyos y comprobación de la distancia al suelo a lo largo de cada vano
+  const pick = r => { const e = r.evals.find(e => e.r && e.r.u <= 1 && e.hAmarre >= r.need - 1e-6); return e || null; };
+  const hUsed = r => {
+    if (r.existenteCheck && r.existenteCheck.ok) return r.existenteCheck.hAmarre;
+    return r.elegido ? r.elegido.hAmarre : null;
+  };
+  for (let it = 0; it < 10; it++) {
+    results.forEach(r => { r.elegido = pick(r); });
+    if (!prof) break;
+    let changed = false;
+    spans.forEach(s => {
+      const rA = results[s.i], rB = results[s.i + 1], hA = hUsed(rA), hB = hUsed(rB);
+      if (hA == null || hB == null) { s.libre = null; return; }
+      const ZA = nodes[s.i].z + hA, ZB = nodes[s.i + 1].z + hB;
+      let minC = Infinity, at = 0;
+      for (const p of s.terreno) {
+        const zc = ZA + (ZB - ZA) * p.t - 4 * s.fmax * p.t * (1 - p.t);
+        const c = zc - p.z; if (c < minC) { minC = c; at = p.t; }
+      }
+      s.libre = minC; s.libreEn = at * s.a; s.ZA = ZA; s.ZB = ZB;
+      const def = s.dmin - minC;
+      if (def > 0.01) {
+        // Se eleva la cadena del vano por igual en los dos extremos que se puedan cambiar
+        for (const r of [rA, rB]) {
+          if (r.existenteCheck && r.existenteCheck.ok) continue;
+          const h = hUsed(r); if (h != null && r.need < h + def) { r.need = h + def; changed = true; }
+        }
+      }
+    });
+    if (!changed) break;
+  }
+  // Gravivano: componente vertical de los conductores nuevos en el apoyo (tiro hacia arriba si es negativa)
+  results.forEach((r, i) => {
+    const h = hUsed(r), Zi = prof && h != null ? nodes[i].z + h : null;
+    let gv = 0, gvFrio = 0;
+    r.conds.filter(c => c.nueva).forEach(c => {
+      const s = spans[c.span], j = s.i === i ? s.i + 1 : s.i, hj = hUsed(results[j]);
+      let slope = 0;
+      if (prof && Zi != null && hj != null) slope = (Zi - (nodes[j].z + hj)) / s.a;
+      const cn = cantones[s.canton];
+      gv += s.a / 2 + (cn.T[hyp.H2.id] / (cp.w + hyp.H2.ice)) * slope;
+      gvFrio += s.a / 2 + (cn.T.EDS / cp.w) * slope;
+    });
+    r.gravivano = gv; r.vert = Math.max(0, gv) * (cp.w + hyp.H2.ice);
+    r.tiroArriba = Math.min(gv, gvFrio) < 0;
+    r.zAmarre = Zi;
   });
   return { cp, Tmax, TmaxReg, csBase, hyp, spans, cantones, results };
 }
@@ -291,7 +357,7 @@ function presupuesto(calc, nodes, cable, cfg, terreno) {
   });
   for (const k in grupos) { const { p, n } = grupos[k]; add(`Apoyo ${p.tipo} ${p.En} R ${p.altura} m`, 'ud', n, p.coste, p.venta); }
   if (vol > 0) add('Cimentación monolítica de hormigón', 'm³', vol, cfg.hormigonCoste, cfg.hormigonVenta);
-  const L = calc.spans.reduce((t, s) => t + s.a, 0) * (1 + (cfg.holguraCable || 0) / 100);
+  const L = calc.spans.reduce((t, s) => t + (s.aReal || s.a), 0) * (1 + (cfg.holguraCable || 0) / 100);
   add(`Cable ${cable.designacion}`, 'm', L, cable.coste, cable.venta);
   if (suspension) add('Conjunto de suspensión', 'ud', suspension, cfg.suspCoste, cfg.suspVenta);
   if (amarres) add('Conjunto de amarre (por extremo)', 'ud', amarres, cfg.amarreCoste, cfg.amarreVenta);
@@ -299,4 +365,4 @@ function presupuesto(calc, nodes, cable, cfg, terreno) {
   return { lineas, tot, longitudCable: L };
 }
 
-if (typeof module !== 'undefined') module.exports = { utmFromLatLon, latLonFromUtm, changeState, cantonTensions, hypotheses, cableProps, calcular, presupuesto, nodesFromManual, buildGeometry, poleWindMomentPerQ, evaluatePole };
+if (typeof module !== 'undefined') module.exports = { buildProfile, projectOnProfile, utmFromLatLon, latLonFromUtm, changeState, cantonTensions, hypotheses, cableProps, calcular, presupuesto, nodesFromManual, buildGeometry, poleWindMomentPerQ, evaluatePole };
