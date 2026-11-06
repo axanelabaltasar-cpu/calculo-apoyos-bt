@@ -104,7 +104,7 @@ a.btn{text-decoration:none;display:inline-block}
 <div class="wrap">
   <header class="top">
     <h1><small>Redes aéreas trenzadas · ITC-BT-06</small>Cálculo de Apoyos BT</h1>
-    <div class="ver" id="ver">v1.2.0</div>
+    <div class="ver" id="ver">v1.3.0</div>
   </header>
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="calc" aria-selected="true">Proyecto</button>
@@ -193,7 +193,10 @@ a.btn{text-decoration:none;display:inline-block}
 
         <section class="card">
           <h2>Proyectos guardados</h2>
-          <div class="row"><button class="btn" id="saveProj">Guardar proyecto</button><button class="btn" id="newProj">Nuevo</button></div>
+          <div class="row"><button class="btn" id="saveProj">Guardar proyecto</button><button class="btn" id="newProj">Nuevo</button>
+            <button class="btn" id="expProj">Exportar a archivo</button><label class="btn" for="impProjFile">Abrir archivo</label><input id="impProjFile" type="file" accept=".json" hidden>
+            <button class="btn" id="expBases" hidden>Exportar bases</button></div>
+          <p class="note">«Abrir archivo» acepta un proyecto exportado (.apoyosbt.json) o, en la versión local, unas bases exportadas.</p>
           <div id="projList" style="margin-top:10px"></div>
         </section>
       </div>
@@ -684,10 +687,10 @@ function presupuesto(calc, nodes, cable, cfg, terreno) {
   return { lineas, tot, longitudCable: L };
 }
 
-return { utmFromLatLon, latLonFromUtm, calcular, presupuesto, nodesFromManual, buildGeometry };
+return { utmFromLatLon, latLonFromUtm, calcular, presupuesto, nodesFromManual, buildGeometry, buildProfile };
 })();
 /* ===== Aplicación ===== */
-const VERSION = '1.2.0';
+const VERSION = '1.3.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -705,10 +708,42 @@ function exampleProject() {
 const S = { poles: [], cables: [], precios: { holguraCable: 3 }, proj: exampleProject(), calc: null, sel: null, db: null, projs: [], loaded: { apoyos: false, cables: false } };
 
 /* ---------- Base de datos ---------- */
+const LOCAL = !!window.LOCAL_SEED;   // versión para abrir en el PC, fuera de Claude
+/* Base de datos local (navegador) con la misma interfaz mínima que la base del artefacto */
+function localDb() {
+  const KEY = 'calculoApoyosBT.db'; let data;
+  try { data = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { data = null; }
+  if (!data) { data = {}; (window.LOCAL_SEED || []).forEach(o => { (data[o.collection] = data[o.collection] || {})[o.doc_id] = o.data; }); }
+  const subs = [];
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { toast('No se pudo guardar en el navegador: ' + e.message); } subs.forEach(f => f()); };
+  const snapColl = c => ({ docs: Object.entries(data[c] || {}).map(([id, v]) => ({ id, data: () => ({ ...v }) })) });
+  const api = {
+    collection: c => ({
+      onSnapshot(cb) { const f = () => cb(snapColl(c)); subs.push(f); setTimeout(f, 0); return () => { }; },
+      async add(v) { const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7); (data[c] = data[c] || {})[id] = v; save(); return { id }; }
+    }),
+    doc: path => { const [c, id] = path.split('/'); return {
+      onSnapshot(cb) { const f = () => cb({ data: () => (data[c] || {})[id] ? { ...data[c][id] } : undefined }); subs.push(f); setTimeout(f, 0); return () => { }; },
+      async set(v) { (data[c] = data[c] || {})[id] = v; save(); },
+      async update(v) { (data[c] = data[c] || {})[id] = { ...(data[c][id] || {}), ...v }; save(); },
+      async delete() { if (data[c]) delete data[c][id]; save(); } }; },
+    exportAll: () => JSON.stringify({ app: 'Calculo de Apoyos BT', version: VERSION, apoyos: data.apoyos, cables: data.cables, config: data.config }, null, 1),
+    importAll(j) { for (const k of ['apoyos', 'cables', 'config']) if (j[k]) data[k] = j[k]; save(); }
+  };
+  if (!localStorage.getItem(KEY)) save();
+  return api;
+}
+async function saveFile(filename, blob) {
+  if (LOCAL) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); return true; }
+  const dl = await window.claude?.use?.('downloads').catch(() => null);
+  if (!dl) { toast('La descarga de archivos no está disponible en esta vista.'); return false; }
+  try { await dl.save({ filename, data: blob }); return true; } catch (e) { if (e.code !== 'declined') toast('No se pudo guardar el archivo: ' + (e.message || e.code)); return false; }
+}
 async function initDb() {
+  if (LOCAL) { S.db = localDb(); }
   const timer = setTimeout(() => { if (!S.db) dbMissing(); }, 10000);
-  let db = null;
-  try { db = await window.claude?.use?.('db'); } catch (e) { db = null; }
+  let db = S.db || null;
+  if (!db) try { db = await window.claude?.use?.('db'); } catch (e) { db = null; }
   clearTimeout(timer);
   if (!db) { dbMissing(); return; }
   S.db = db;
@@ -720,7 +755,7 @@ async function initDb() {
   db.collection('proyectos').onSnapshot(qs => { S.projs = qs.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')); renderProjList(); }, () => { });
 }
 function dbMissing() {
-  if (S.dbMissingShown) return; S.dbMissingShown = true;
+  if (S.dbMissingShown || LOCAL) return; S.dbMissingShown = true;
   $('#warnings').insertAdjacentHTML('afterbegin', '<div class="banner bad">No hay conexión con la base de datos de apoyos y cables. Abre la aplicación con tu cuenta de claude.ai para cargar las bases y guardar cambios.</div>');
 }
 function numOrStr(v, t) { if (t === 'text') return v; const n = Number(String(v).replace(',', '.')); return isNaN(n) ? 0 : n; }
@@ -994,11 +1029,11 @@ function fitView() {
   V.fitted = true;
 }
 function ensureImg(tipo) {
-  const f = S.proj.fondos?.[tipo]; if (!f || (!f.assetId && !f.blobUrl)) return null;
+  const f = S.proj.fondos?.[tipo]; if (!f || (!f.assetId && !f.blobUrl && !f.url)) return null;
   S.img = S.img || {};
-  const src = f.blobUrl || ('/_blob/' + f.assetId);
+  const src = f.blobUrl || (f.assetId ? '/_blob/' + f.assetId : f.url);
   if (!S.img[tipo] || S.img[tipo].srcKey !== src) {
-    const im = new Image(); im.srcKey = src; im.onload = () => drawMap(); im.onerror = () => { im.failed = true; drawMap(); }; im.src = src; S.img[tipo] = im;
+    const im = new Image(); im.srcKey = src; im.onload = () => drawMap(); im.onerror = () => { im.failed = true; if (f.url) toast(`No se pudo cargar ${FONDOS[tipo].nombre}. Comprueba la conexión a internet.`); drawMap(); }; im.src = src; S.img[tipo] = im;
   }
   return S.img[tipo];
 }
@@ -1122,21 +1157,25 @@ function renderFondos() {
   if (!S.proj.zone) { box.innerHTML = '<p class="note">Los fondos de Catastro y ortofoto necesitan coordenadas reales: importa el trazado o la línea existente desde KML/KMZ.</p>'; return; }
   const fb = fondoBbox();
   box.innerHTML = Object.entries(FONDOS).map(([k, F]) => {
-    const f = S.proj.fondos[k] || {}; const has = f.assetId || f.blobUrl;
+    const f = S.proj.fondos[k] || {}; const has = f.assetId || f.blobUrl || f.url;
     const link = fb ? F.url(fb.bbox, S.proj.zone, fb.w, fb.h) : '#';
     const stale = has && fb && f.bbox && (fb.bbox[0] < f.bbox[0] || fb.bbox[1] < f.bbox[1] || fb.bbox[2] > f.bbox[2] || fb.bbox[3] > f.bbox[3]);
     return `<div class="fondo"><div class="row" style="justify-content:space-between"><label class="chk"><input type="checkbox" data-fv="${k}" ${f.visible && has ? 'checked' : ''} ${has ? '' : 'disabled'}> <b>${F.nombre}</b></label>
       <label class="chk note">Opacidad <input type="range" min="10" max="100" step="5" data-fo="${k}" value="${f.op ?? (k === 'catastro' ? 80 : 100)}" ${has ? '' : 'disabled'} aria-label="Opacidad ${F.nombre}"></label></div>
-      <div class="row" style="margin-top:6px"><a class="btn small" href="${esc(link)}" target="_blank" rel="noopener" data-fl="${k}">1 · Abrir imagen de la zona</a>
-      <label class="btn small" for="ff_${k}">2 · Cargar imagen guardada</label><input id="ff_${k}" type="file" accept="image/png,image/jpeg" data-ff="${k}" hidden>
+      <div class="row" style="margin-top:6px">${LOCAL ? `<button class="btn small" data-fauto="${k}">${has ? 'Actualizar' : 'Cargar'} ${F.nombre.toLowerCase()}</button>` : `<a class="btn small" href="${esc(link)}" target="_blank" rel="noopener" data-fl="${k}">1 · Abrir imagen de la zona</a>`}
+      <label class="btn small" for="ff_${k}">${LOCAL ? 'Cargar imagen propia' : '2 · Cargar imagen guardada'}</label><input id="ff_${k}" type="file" accept="image/png,image/jpeg" data-ff="${k}" hidden>
       ${has ? `<button class="btn small ghost" data-fd="${k}">Quitar</button>` : ''}</div>
       ${stale ? '<p class="note" style="color:var(--warn)">El trazado se sale de la imagen cargada. Pide una imagen nueva.</p>' : ''}</div>`;
-  }).join('') + `<p class="note">Pulsa «Abrir imagen», guarda la imagen que aparece (clic derecho › Guardar imagen como) y cárgala aquí. La app la coloca en su sitio porque conoce sus coordenadas. Si cambias el trazado, pide la imagen de nuevo.</p>`;
+  }).join('') + (LOCAL ? `<p class="note">La imagen se pide al servicio oficial para la zona del proyecto y se coloca sola. Necesita conexión a internet. Si cambias el trazado, pulsa «Actualizar».</p>` : '') + `<p class="note" ${LOCAL ? 'hidden' : ''}>Pulsa «Abrir imagen», guarda la imagen que aparece (clic derecho › Guardar imagen como) y cárgala aquí. La app la coloca en su sitio porque conoce sus coordenadas. Si cambias el trazado, pide la imagen de nuevo.</p>`;
 }
 function bindFondos() {
   const box = $('#fondos');
   box.addEventListener('click', ev => {
     const a = ev.target.closest('[data-fl]'); if (a) { const fb = fondoBbox(); S.proj.fondos[a.dataset.fl] = { ...(S.proj.fondos[a.dataset.fl] || {}), pend: fb }; }
+    const au = ev.target.closest('[data-fauto]');
+    if (au) { const k = au.dataset.fauto, fb = fondoBbox(); if (!fb) return; const prev = S.proj.fondos[k] || {};
+      S.proj.fondos[k] = { bbox: fb.bbox, w: fb.w, h: fb.h, url: FONDOS[k].url(fb.bbox, S.proj.zone, fb.w, fb.h), op: prev.op ?? (k === 'catastro' ? 80 : 100), visible: true };
+      S.img = S.img || {}; delete S.img[k]; renderFondos(); drawMap(); toast(`Cargando ${FONDOS[k].nombre}…`); }
     const d = ev.target.closest('[data-fd]'); if (d) { const k = d.dataset.fd; const f = S.proj.fondos[k]; if (f?.assetId) delAsset(f.assetId); S.proj.fondos[k] = {}; renderFondos(); drawMap(); }
   });
   box.addEventListener('change', async ev => {
@@ -1151,7 +1190,7 @@ function bindFondos() {
       if (Math.abs(im.naturalWidth / im.naturalHeight - fb.w / fb.h) > 0.02) toast('Las proporciones de la imagen no coinciden con la zona pedida. Comprueba que es la imagen correcta.');
       const f = { bbox: fb.bbox, w: im.naturalWidth, h: im.naturalHeight, op: prev.op ?? (k === 'catastro' ? 80 : 100), visible: true, blobUrl, nombre: file.name };
       S.proj.fondos[k] = f; S.img = S.img || {}; delete S.img[k]; renderFondos(); drawMap();
-      const assets = await window.claude?.use?.('assets').catch(() => null);
+      const assets = LOCAL ? null : await window.claude?.use?.('assets').catch(() => null);
       if (assets) {
         try { const r = await assets.upload(file); if (prev.assetId) delAsset(prev.assetId); f.assetId = r.id; toast(`${FONDOS[k].nombre} cargado. Se guardará con el proyecto.`); }
         catch (e) { toast('Fondo cargado solo en esta sesión: no se pudo guardar la imagen (' + (e.code || e.message) + ').'); }
@@ -1481,18 +1520,17 @@ function fileBase(g) { return ascii(S.proj.nombre || 'linea_bt').replace(/[^A-Za
 async function fondoBlob(f) {
   if (f.blobUrl) { try { return await (await fetch(f.blobUrl)).blob(); } catch (e) { } }
   if (f.assetId) { try { const r = await fetch('/_blob/' + f.assetId); if (r.ok) return await r.blob(); } catch (e) { } }
+  if (f.url) { try { const r = await fetch(f.url); if (r.ok) return await r.blob(); } catch (e) { } }
   return null;
 }
 async function exportZip() {
   const c = S.calc; if (!c) { toast('No hay resultados que exportar.'); return; }
-  const dl = await window.claude?.use?.('downloads').catch(() => null);
-  if (!dl) { toast('La descarga de archivos no está disponible en esta vista.'); return; }
   const g = getGeo(c.nodes), zip = new JSZip(), base = fileBase(g);
   zip.file(base + '.dxf', dxf(c, g));
   if (g) { zip.file(base + '.kml', kml(c, g)); zip.file(base + '.geojson', geojson(c, g)); }
   const incl = [];
   if (g) for (const [k, F] of Object.entries(FONDOS)) {
-    const f = S.proj.fondos?.[k]; if (!f || !(f.assetId || f.blobUrl)) continue;
+    const f = S.proj.fondos?.[k]; if (!f || !(f.assetId || f.blobUrl || f.url)) continue;
     const b = await fondoBlob(f); if (!b) continue;
     const ext = /png/.test(b.type) ? 'png' : 'jpg', wfExt = ext === 'png' ? 'pgw' : 'jgw';
     const file = `fondo_${k}_EPSG258${g.zone}.${ext}`, wf = `fondo_${k}_EPSG258${g.zone}.${wfExt}`;
@@ -1500,8 +1538,7 @@ async function exportZip() {
   }
   zip.file(base + '_apoyos.csv', csv(c, g)); if (c.conPerfil) zip.file(base + '_perfil.csv', perfilCsv(c)); zip.file(base + '_anexo_calculo.html', informe(c)); zip.file('LEEME.txt', leeme(c, g, incl));
   const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
-  try { await dl.save({ filename: base + '.zip', data: blob }); toast('Paquete guardado.'); }
-  catch (e) { if (e.code !== 'declined') toast('No se pudo guardar el archivo: ' + (e.message || e.code)); }
+  if (await saveFile(base + '.zip', blob)) toast('Paquete guardado.');
 }
 
 /* ---------- Perfil longitudinal: dibujo ---------- */
@@ -1577,6 +1614,7 @@ function samplePolyline(pts, step) {
 async function autoPerfil() {
   const btn = $('#perfilAuto'), msg = $('#perfilAutoMsg');
   const g = getGeo(); if (!g) { msg.textContent = 'Primero importa el trazado, créalo con coordenadas de inicio y fin o conéctalo a la línea existente.'; return; }
+  if (LOCAL) return autoPerfilLocal(g);
   const mcp = await window.claude?.use?.('mcp').catch(() => null);
   if (!mcp) { msg.innerHTML = 'La búsqueda automática solo funciona al abrir esta app dentro de la aplicación de escritorio de Claude. Usa GPS Visualizer (pasos de arriba).'; return; }
   let L = 0; for (let i = 1; i < g.pts.length; i++) L += Math.hypot(g.pts[i].x - g.pts[i - 1].x, g.pts[i].y - g.pts[i - 1].y);
@@ -1616,6 +1654,45 @@ async function autoPerfil() {
       : code === 'api' ? 'El servicio de elevación respondió con un error: ' + e.message + '.'
       : 'No se pudo obtener el perfil (' + (code || 'error') + '). Inténtalo de nuevo o usa GPS Visualizer.';
   } finally { btn.disabled = false; }
+}
+async function autoPerfilLocal(g) {
+  const btn = $('#perfilAuto'), msg = $('#perfilAutoMsg'); btn.disabled = true;
+  let L = 0; for (let i = 1; i < g.pts.length; i++) L += Math.hypot(g.pts[i].x - g.pts[i - 1].x, g.pts[i].y - g.pts[i - 1].y);
+  const step = Math.max(2, L / 900);
+  const sp = samplePolyline(g.pts, step).map(p => ({ ...p, ...E.latLonFromUtm(p.x, p.y, g.zone) }));
+  const z = []; let fuente = '';
+  try {
+    // 1) MDT05 del IGN (servicio getElevation de la IDEE)
+    try {
+      for (let k = 0; k < sp.length; k += 100) {
+        const chunk = sp.slice(k, k + 100); msg.textContent = `MDT05 del IGN: cotas ${k + 1}–${k + chunk.length} de ${sp.length}…`;
+        const geom = JSON.stringify({ type: 'FeatureCollection', features: chunk.map(p => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [+p.lon.toFixed(7), +p.lat.toFixed(7)] } })) });
+        const r = await fetch('https://api-processes.idee.es/processes/getElevation/execution?f=json', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ inputs: { geom, formato: 'geojson', crs: 4326, withCoord: false, outputFormat: 'array' } }) });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const j = await r.json(); const vals = j.values || j.outputs?.values || j.value || (Array.isArray(j) ? j : null);
+        if (!Array.isArray(vals) || vals.length !== chunk.length || vals.some(v => typeof v !== 'number')) throw new Error('respuesta no reconocida');
+        z.push(...vals);
+      }
+      fuente = `MDT05 del IGN (${sp.length} puntos cada ${fmt(step, 1)} m)`;
+    } catch (e1) {
+      // 2) Copernicus DEM GLO-90 vía Open-Meteo
+      z.length = 0; const key = getApiKey().trim();
+      const base = key ? 'https://customer-api.open-meteo.com/v1/elevation' : 'https://api.open-meteo.com/v1/elevation';
+      for (let k = 0; k < sp.length; k += 100) {
+        const chunk = sp.slice(k, k + 100); msg.textContent = `IGN no disponible (${e1.message}). Open-Meteo: cotas ${k + 1}–${k + chunk.length} de ${sp.length}…`;
+        const r = await fetch(`${base}?latitude=${chunk.map(p => p.lat.toFixed(6)).join(',')}&longitude=${chunk.map(p => p.lon.toFixed(6)).join(',')}${key ? '&apikey=' + encodeURIComponent(key) : ''}`);
+        const j = await r.json(); if (j.error || !Array.isArray(j.elevation)) throw new Error(j.reason || 'respuesta no válida');
+        z.push(...j.elevation);
+      }
+      fuente = `Copernicus DEM GLO-90 vía Open-Meteo (${sp.length} puntos cada ${fmt(step, 1)} m)`;
+    }
+    S.proj.perfil = { fuente, pts: sp.map((p, i) => ({ x: p.x, y: p.y, z: z[i] })) };
+    const altMax = Math.max(...z), zn = altMax > 1000 ? 'C' : altMax > 500 ? 'B' : 'A';
+    if (zn !== S.proj.ctx.zona) { S.proj.ctx.zona = zn; $('#p_zona').value = zn; }
+    msg.textContent = `Perfil obtenido de ${fuente}: cotas ${fmt(Math.min(...z))}–${fmt(altMax)} m. Zona ${zn}.`;
+    refreshAll();
+  } catch (e) { msg.textContent = 'No se pudo obtener el perfil (' + e.message + '). Comprueba la conexión a internet o usa GPS Visualizer.'; }
+  finally { btn.disabled = false; }
 }
 function resultText(r) {
   if (!r) return ''; if (typeof r.payload === 'string') return r.payload;
@@ -1661,7 +1738,21 @@ function renderProjList() {
   box.innerHTML = `<div class="tablewrap"><table><tbody>${S.projs.map(p => `<tr><td>${esc(p.nombre)}</td><td class="note">${p.fecha ? new Date(p.fecha).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : ''}</td>
     <td><button class="btn small" data-load="${esc(p.id)}">Abrir</button></td><td>${S.delConfirm === p.id ? `<button class="btn small" data-del="${esc(p.id)}" style="color:var(--bad)">Confirmar borrado</button>` : `<button class="btn small ghost" data-askdel="${esc(p.id)}" aria-label="Borrar proyecto">✕</button>`}</td></tr>`).join('')}</tbody></table></div>`;
 }
+async function exportProject() {
+  const d = { app: 'Calculo de Apoyos BT', version: VERSION, proyecto: { ...S.proj, id: undefined, fondos: Object.fromEntries(Object.entries(S.proj.fondos || {}).map(([k, f]) => [k, { ...f, blobUrl: undefined }])) } };
+  if (await saveFile(ascii(S.proj.nombre || 'proyecto').replace(/[^A-Za-z0-9_-]+/g, '_') + '.apoyosbt.json', new Blob([JSON.stringify(d)], { type: 'application/json' }))) toast('Proyecto exportado.');
+}
+async function importProject(file) {
+  try { const j = JSON.parse(await file.text());
+    if (j.apoyos || j.cables) { if (!S.db?.importAll) return toast('Importar bases solo está disponible en la versión local.'); S.db.importAll(j); return toast('Bases de apoyos y cables importadas.'); }
+    const d = j.proyecto || j; S.proj = { ...exampleProject(), ...d, ctx: { ...DEF_CTX, ...d.ctx }, id: null };
+    S.img = {}; S.sel = null; S.openEx = null; V.fitted = false; loadForm(); refreshAll(); toast('Proyecto abierto desde archivo.');
+  } catch (e) { toast('El archivo no es un proyecto válido.'); }
+}
 function bindProjects() {
+  $('#expProj').onclick = exportProject;
+  $('#impProjFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importProject(f); e.target.value = ''; });
+  const eb = $('#expBases'); if (eb) { eb.hidden = !LOCAL; eb.onclick = async () => { if (await saveFile('bases_apoyos_cables.json', new Blob([S.db.exportAll()], { type: 'application/json' }))) toast('Bases exportadas.'); }; }
   $('#saveProj').onclick = saveProject;
   $('#newProj').onclick = () => { S.proj = exampleProject(); S.proj.nombre = ''; S.proj.rows = [newRow(), newRow()]; S.proj.rows[0].vano = 0; S.img = {}; S.sel = null; S.openEx = null; V.fitted = false; loadForm(); refreshAll(); };
   $('#projList').addEventListener('click', async ev => {
@@ -1720,7 +1811,8 @@ function bindTabs() {
   }));
 }
 function start() {
-  $('#ver').textContent = 'v' + VERSION;
+  if (LOCAL) { document.title = 'Cálculo de Apoyos BT (local)'; $('#ver').textContent = 'v' + VERSION + ' · local'; }
+  if (!LOCAL) $('#ver').textContent = 'v' + VERSION;
   loadForm(); bindForm(); bindRows(); bindMap(); bindProjects(); bindDbTables(); bindPrecios(); bindTabs();
   $('#kmlFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importFile(f, 'nuevo'); e.target.value = ''; });
   bindEntronque(); bindCoordForm(); bindPerfilAuto();

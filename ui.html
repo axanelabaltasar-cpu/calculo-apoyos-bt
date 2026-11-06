@@ -104,7 +104,7 @@ a.btn{text-decoration:none;display:inline-block}
 <div class="wrap">
   <header class="top">
     <h1><small>Redes aéreas trenzadas · ITC-BT-06</small>Cálculo de Apoyos BT</h1>
-    <div class="ver" id="ver">v1.2.0</div>
+    <div class="ver" id="ver">v1.3.0</div>
   </header>
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="calc" aria-selected="true">Proyecto</button>
@@ -193,7 +193,10 @@ a.btn{text-decoration:none;display:inline-block}
 
         <section class="card">
           <h2>Proyectos guardados</h2>
-          <div class="row"><button class="btn" id="saveProj">Guardar proyecto</button><button class="btn" id="newProj">Nuevo</button></div>
+          <div class="row"><button class="btn" id="saveProj">Guardar proyecto</button><button class="btn" id="newProj">Nuevo</button>
+            <button class="btn" id="expProj">Exportar a archivo</button><label class="btn" for="impProjFile">Abrir archivo</label><input id="impProjFile" type="file" accept=".json" hidden>
+            <button class="btn" id="expBases" hidden>Exportar bases</button></div>
+          <p class="note">«Abrir archivo» acepta un proyecto exportado (.apoyosbt.json) o, en la versión local, unas bases exportadas.</p>
           <div id="projList" style="margin-top:10px"></div>
         </section>
       </div>
