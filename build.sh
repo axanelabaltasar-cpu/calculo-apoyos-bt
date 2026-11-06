@@ -7,7 +7,7 @@ body() {
   echo '<script>'
   echo 'const E = (() => {'
   sed '/^if (typeof module/d' engine.js
-  echo 'return { utmFromLatLon, latLonFromUtm, calcular, presupuesto, nodesFromManual, buildGeometry, buildProfile };'
+  echo 'return { utmFromLatLon, latLonFromUtm, calcular, presupuesto, nodesFromManual, buildGeometry, buildProfile, evaluatePole, hypotheses, cableProps };'
   echo '})();'
   cat app.js
   echo '</script>'
