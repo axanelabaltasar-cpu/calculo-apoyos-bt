@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.4.0';
+const VERSION = '1.4.1';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -102,6 +102,7 @@ function renderRows() {
   const tb = $('#rowsTable tbody'); const geo = S.proj.modo === 'kml';
   const heights = [...new Set(S.poles.map(p => p.altura))].sort((a, b) => a - b);
   const nodes = currentNodes(); const spans = nodes.length > 1 ? E.buildGeometry(nodes) : [];
+  if (!S.proj.rows.length) { tb.innerHTML = '<tr><td colspan="10" class="empty">Sin apoyos. Importa el trazado, créalo con coordenadas de inicio y fin o pulsa «Añadir apoyo».</td></tr>'; return; }
   tb.innerHTML = S.proj.rows.map((r, i) => {
     const vano = i === 0 ? '—' : geo ? fmt(spans[i - 1]?.a, 1) : `<input class="num" type="number" step="0.5" data-k="vano" data-i="${i}" value="${r.vano}" aria-label="Vano anterior apoyo ${i + 1}">`;
     const ang = (i === 0 || i === S.proj.rows.length - 1) ? '—' : geo ? fmt(nodes[i].desvio, 1) : `<input class="num" type="number" step="1" data-k="angulo" data-i="${i}" value="${r.angulo}" aria-label="Desvío apoyo ${i + 1}">`;
@@ -165,7 +166,7 @@ function bindRows() {
   });
   $('#addRow').addEventListener('click', () => {
     if (S.proj.modo === 'kml') { toast('Con un trazado con coordenadas, añade apoyos en el plano: herramienta «Insertar», capa «Apoyos nuevos».'); return; }
-    S.proj.rows.push(newRow()); renderRows(); recalc();
+    const r = newRow(); if (!S.proj.rows.length) r.vano = 0; S.proj.rows.push(r); renderRows(); recalc();
   });
 }
 
@@ -193,7 +194,7 @@ function renderResults() {
   if (!c) {
     const msg = !S.loaded.apoyos || !S.loaded.cables ? 'Cargando las bases de apoyos y cables…' : 'Completa el trazado (al menos dos apoyos) y elige un cable.';
     ids.forEach(id => $(id).innerHTML = `<tbody><tr><td class="empty">${msg}</td></tr></tbody>`);
-    $('#kpis').innerHTML = ''; drawMap(); return;
+    $('#kpis').innerHTML = ''; $('#warnings').innerHTML = S.dbMissingShown ? ($('#warnings').querySelector('.banner.bad')?.outerHTML || '') : ''; drawMap(); return;
   }
   const H = c.hyp;
   $('#cantTable').innerHTML = `<thead><tr><th>Cantón</th><th class="n">Vanos</th><th class="n">Long. (m)</th><th class="n">a regul. (m)</th><th>Gobierna</th>
@@ -339,6 +340,7 @@ function entronqueConductores() {
 }
 function currentNodes() {
   const rows = S.proj.rows;
+  if (!rows.length) return [];
   let nodes;
   if (S.proj.modo === 'kml' && S.proj.geo) nodes = S.proj.geo.pts.map(p => ({ x: p.x, y: p.y }));
   else {
@@ -392,7 +394,10 @@ function drawMap() {
   g.fillStyle = col('--map'); g.fillRect(0, 0, W, Hh);
   const nodes = S.drag ? currentNodes() : (S.calc?.nodes || (S.proj.rows.length > 1 ? currentNodes() : []));
   const ex = exNodes(), lines = exLineas(), ruta = S.proj.geo?.ruta || [];
-  if (nodes.length < 2 && ex.length < 1 && !lines.length) { S.mapT = null; return; }
+  if (nodes.length < 2 && ex.length < 1 && !lines.length) {
+    S.mapT = null; g.fillStyle = col('--muted'); g.font = '13px ' + col('--f-body'); g.textAlign = 'center';
+    g.fillText('Proyecto vacío: importa el trazado, la red existente o crea el trazado con coordenadas.', W / 2, Hh / 2); return;
+  }
   if (!V.fitted || !V.sc) fitView();
   const sc = V.sc, P = n => [W / 2 + (n.x - V.cx) * sc, Hh / 2 - (n.y - V.cy) * sc];
   for (const tipo of ['orto', 'catastro']) {
@@ -788,7 +793,7 @@ function setEntronque(k) {
   en.k = Number.isInteger(k) && k >= 0 ? k : null;
   if (en.k != null) {
     if (S.proj.modo === 'kml') snapToEntronque(false);
-    else { S.proj.rows[0].existente.activo = true; if (S.proj.rows.length < 2) S.proj.rows.push(newRow()); }
+    else { while (S.proj.rows.length < 2) { const r = newRow(); if (!S.proj.rows.length) r.vano = 0; S.proj.rows.push(r); } S.proj.rows[0].existente.activo = true; }
   }
   refreshAll();
 }
@@ -806,6 +811,7 @@ function renderEntronque() {
   const box = $('#exBody'), R = redEx(), en = S.proj.entronque;
   if (!R || (!R.lineas.length && !R.apoyos?.length)) { box.innerHTML = '<p class="note">Importa por separado las líneas existentes y los apoyos existentes (KMZ/KML; puedes importar varios archivos). Luego eliges el apoyo de entronque: la app añade al cálculo de A1 los conductores existentes que salen de él, con su dirección y vano reales.</p>'; return; }
   ensureEntronque();
+  if (!S.proj.rows.length) { S.proj.rows.push(Object.assign(newRow(), { vano: 0 })); S.proj.rows.push(newRow()); }
   const r0 = S.proj.rows[0], ex = exNodes();
   const fuentes = (arr, tipo) => [...new Set(arr.map(x => x.fuente))].map(f => `<span class="chip info">${esc(f)} · ${arr.filter(x => x.fuente === f).length} ${tipo}</span> <button class="btn small ghost" data-delsrc="${esc(f)}" data-tipo="${tipo}" aria-label="Quitar ${esc(f)}">✕</button>`).join(' ');
   const cabOpts = S.cables.map(c => `<option value="${esc(c.id)}" ${en.cableId === c.id ? 'selected' : ''}>${esc(c.designacion)}</option>`).join('');
@@ -1316,6 +1322,17 @@ function renderProjList() {
   box.innerHTML = `<div class="tablewrap"><table><tbody>${S.projs.map(p => `<tr><td>${esc(p.nombre)}</td><td class="note">${p.fecha ? new Date(p.fecha).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : ''}</td>
     <td><button class="btn small" data-load="${esc(p.id)}">Abrir</button></td><td>${S.delConfirm === p.id ? `<button class="btn small" data-del="${esc(p.id)}" style="color:var(--bad)">Confirmar borrado</button>` : `<button class="btn small ghost" data-askdel="${esc(p.id)}" aria-label="Borrar proyecto">✕</button>`}</td></tr>`).join('')}</tbody></table></div>`;
 }
+/* Proyecto vacío: borra del área de trabajo trazado, red existente, entronque, perfil, fondos y edición. No toca las bases ni los proyectos guardados. */
+function nuevoProyecto() {
+  const fondos = S.proj.fondos || {}; Object.values(fondos).forEach(f => { if (f?.blobUrl) try { URL.revokeObjectURL(f.blobUrl); } catch (e) { } });
+  S.proj = { id: null, nombre: '', modo: 'manual', rows: [], geo: null, ctx: { ...DEF_CTX }, cableId: S.proj.cableId || '', zone: null, redEx: null, entronque: null, perfil: null, fondos: {} };
+  Object.assign(S, { img: {}, sel: null, selPt: null, openEx: null, pickEntronque: false, hist: [], calc: null, mapT: null, tool: 'pan', editLayer: 'nuevo', delConfirm: null });
+  V.fitted = false; V.sc = null;
+  ['#kmlPick', '#exPick'].forEach(id => { const el = $(id); if (el) { el.hidden = true; el.innerHTML = ''; } });
+  const m = $('#perfilAutoMsg'); if (m) m.textContent = '';
+  loadForm(); renderEdBar(); refreshAll();
+  toast('Proyecto nuevo y vacío. Las bases de apoyos y cables y los proyectos guardados no se han tocado.');
+}
 async function exportProject() {
   const d = { app: 'Calculo de Apoyos BT', version: VERSION, proyecto: { ...S.proj, id: undefined, fondos: Object.fromEntries(Object.entries(S.proj.fondos || {}).map(([k, f]) => [k, { ...f, blobUrl: undefined }])) } };
   if (await saveFile(ascii(S.proj.nombre || 'proyecto').replace(/[^A-Za-z0-9_-]+/g, '_') + '.apoyosbt.json', new Blob([JSON.stringify(d)], { type: 'application/json' }))) toast('Proyecto exportado.');
@@ -1332,7 +1349,12 @@ function bindProjects() {
   $('#impProjFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importProject(f); e.target.value = ''; });
   const eb = $('#expBases'); if (eb) { eb.hidden = !LOCAL; eb.onclick = async () => { if (await saveFile('bases_apoyos_cables.json', new Blob([S.db.exportAll()], { type: 'application/json' }))) toast('Bases exportadas.'); }; }
   $('#saveProj').onclick = saveProject;
-  $('#newProj').onclick = () => { S.proj = exampleProject(); S.proj.nombre = ''; S.proj.rows = [newRow(), newRow()]; S.proj.rows[0].vano = 0; S.img = {}; S.sel = null; S.openEx = null; V.fitted = false; loadForm(); refreshAll(); };
+  $('#newProj').onclick = () => {
+    const b = $('#newProj');
+    if (!b.dataset.confirm) { b.dataset.confirm = '1'; b.textContent = 'Pulsa otra vez para vaciar'; b.classList.add('danger'); clearTimeout(b._t); b._t = setTimeout(() => { delete b.dataset.confirm; b.textContent = 'Nuevo proyecto'; b.classList.remove('danger'); }, 4000); return; }
+    clearTimeout(b._t); delete b.dataset.confirm; b.textContent = 'Nuevo proyecto'; b.classList.remove('danger');
+    nuevoProyecto();
+  };
   $('#projList').addEventListener('click', async ev => {
     const b = ev.target.closest('button'); if (!b) return;
     if (b.dataset.load) { const p = S.projs.find(x => x.id === b.dataset.load); try { const d = JSON.parse(p.datos); S.proj = { ...exampleProject(), ...d, ctx: { ...DEF_CTX, ...d.ctx }, id: p.id }; } catch (e) { toast('El proyecto guardado está dañado.'); return; }

@@ -52,6 +52,8 @@ input.num{font-family:var(--f-mono);font-size:.82rem;text-align:right}
 .btn:hover{border-color:var(--accent)}
 .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .btn.small{padding:3px 8px;font-size:.78rem}
+
+.btn.danger{color:var(--bad);border-color:var(--bad)}
 .btn.ghost{background:none;border-color:transparent;color:var(--muted)}
 .btn.ghost:hover{color:var(--bad)}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
@@ -100,14 +102,14 @@ a.btn{text-decoration:none;display:inline-block}
 .norm p,.norm li{color:var(--ink)}
 .dbtable td input{width:78px}
 .dbtable td input.txt{width:170px;text-align:left}
-.empty{padding:22px;text-align:center;color:var(--muted)}
+.empty{padding:22px;text-align:center;color:var(--muted);white-space:normal}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
 <div class="wrap">
   <header class="top">
     <h1><small>Redes aéreas trenzadas · ITC-BT-06</small>Cálculo de Apoyos BT</h1>
-    <div class="ver" id="ver">v1.4.0</div>
+    <div class="ver" id="ver">v1.4.1</div>
   </header>
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="calc" aria-selected="true">Proyecto</button>
@@ -197,7 +199,7 @@ a.btn{text-decoration:none;display:inline-block}
 
         <section class="card">
           <h2>Proyectos guardados</h2>
-          <div class="row"><button class="btn" id="saveProj">Guardar proyecto</button><button class="btn" id="newProj">Nuevo</button>
+          <div class="row"><button class="btn" id="saveProj">Guardar proyecto</button><button class="btn" id="newProj">Nuevo proyecto</button>
             <button class="btn" id="expProj">Exportar a archivo</button><label class="btn" for="impProjFile">Abrir archivo</label><input id="impProjFile" type="file" accept=".json" hidden>
             <button class="btn" id="expBases" hidden>Exportar bases</button></div>
           <p class="note">«Abrir archivo» acepta un proyecto exportado (.apoyosbt.json) o, en la versión local, unas bases exportadas.</p>
