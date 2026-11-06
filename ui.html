@@ -86,6 +86,9 @@ canvas#map{width:100%;height:440px;cursor:grab;display:block;background:var(--ma
 canvas#perfil{width:100%;height:240px;display:block;background:var(--map);border:1px solid var(--line);border-radius:4px}
 summary{cursor:pointer}
 .mapbox{position:relative}
+.edbar{gap:4px}
+.edbar .btn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.edbar select{width:auto;padding:3px 6px}
 .zoom{position:absolute;top:8px;left:8px;display:flex;flex-direction:column;gap:4px}
 .zoom .btn{padding:3px 0;width:30px;text-align:center;font-family:var(--f-mono)}
 .fondo{border-top:1px solid var(--line);padding-block:8px}
@@ -104,7 +107,7 @@ a.btn{text-decoration:none;display:inline-block}
 <div class="wrap">
   <header class="top">
     <h1><small>Redes aéreas trenzadas · ITC-BT-06</small>Cálculo de Apoyos BT</h1>
-    <div class="ver" id="ver">v1.3.0</div>
+    <div class="ver" id="ver">v1.4.0</div>
   </header>
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="calc" aria-selected="true">Proyecto</button>
@@ -143,17 +146,18 @@ a.btn{text-decoration:none;display:inline-block}
         </section>
 
         <section class="card">
-          <h2>Línea existente y entronque <span class="row">
-            <label class="btn small" for="exFile">Importar KML/KMZ</label>
-            <input id="exFile" type="file" accept=".kml,.kmz,.gpx,.txt" hidden>
-          </span></h2>
+          <h2>Red existente y entronque</h2>
+          <div class="row" style="margin-bottom:8px">
+            <label class="btn small" for="exLinFile">Importar líneas existentes</label><input id="exLinFile" type="file" accept=".kmz,.kml,.gpx" hidden>
+            <label class="btn small" for="exApoFile">Importar apoyos existentes</label><input id="exApoFile" type="file" accept=".kmz,.kml,.gpx" hidden>
+          </div>
           <div id="exPick" hidden style="margin-bottom:8px"></div>
           <div id="exBody"></div>
         </section>
 
         <section class="card">
           <h2>Trazado <span class="row">
-            <label class="btn small" for="kmlFile">Importar trazado KML/KMZ</label>
+            <label class="btn small" for="kmlFile">Importar trazado (ruta + apoyos)</label>
             <input id="kmlFile" type="file" accept=".kml,.kmz,.gpx,.txt" hidden>
             <button class="btn small" id="addRow">Añadir apoyo</button>
           </span></h2>
@@ -204,10 +208,20 @@ a.btn{text-decoration:none;display:inline-block}
       <div class="col">
         <section class="card">
           <h2>Plano del trazado <span class="note" id="mapInfo"></span></h2>
+          <div class="edbar row" id="edBar" role="toolbar" aria-label="Edición del plano">
+            <button class="btn small" data-tool="pan" aria-pressed="true">Navegar</button>
+            <button class="btn small" data-tool="move" aria-pressed="false">Mover</button>
+            <button class="btn small" data-tool="insert" aria-pressed="false">Insertar</button>
+            <button class="btn small" data-tool="delete" aria-pressed="false">Borrar</button>
+            <label class="chk note">Capa <select id="edLayer"><option value="nuevo">Apoyos nuevos</option><option value="exApoyos">Apoyos existentes</option><option value="exLineas">Líneas existentes</option><option value="ruta">Ruta del trazado</option></select></label>
+            <button class="btn small" id="edUndo" disabled title="Ctrl+Z">Deshacer</button>
+          </div>
+          <p class="note" id="edHint" style="margin:4px 0 8px"></p>
           <div class="mapbox">
             <canvas id="map" aria-label="Plano con la línea existente, el trazado nuevo y los apoyos numerados"></canvas>
             <div class="zoom"><button class="btn small" id="zIn" aria-label="Acercar">+</button><button class="btn small" id="zOut" aria-label="Alejar">−</button><button class="btn small" id="zFit" aria-label="Encajar el trazado" title="Encajar">⤢</button></div>
           </div>
+          <div id="ptEdit" class="exist" hidden></div>
           <div class="row" style="margin-top:8px;justify-content:space-between">
             <span class="note">Cuadros: apoyos nuevos (verde válido · ámbar existente a sustituir · rojo sin apoyo válido). Círculos discontinuos: línea existente. Arrastra para mover, rueda para zoom.</span>
             <button class="btn primary" id="exportZip">Exportar para Catastro (ZIP)</button>
