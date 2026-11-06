@@ -1,0 +1,263 @@
+<title>Cálculo de Apoyos BT</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Concepto: hoja de cálculo de ingeniería de redes — panel de datos a la izquierda, plano y resultados a la derecha,
+   tonos de hormigón con un azul de plano técnico como acento. */
+:root{
+  --bg:#eef0f1; --panel:#ffffff; --ink:#1b2328; --muted:#5b6870; --line:#d3d9dc; --soft:#f5f7f8;
+  --accent:#1d5b86; --accent-ink:#ffffff; --accent-soft:#e3eef6;
+  --ok:#2f7d4f; --ok-soft:#e1f1e7; --warn:#a66a00; --warn-soft:#fbefd6; --bad:#b3362c; --bad-soft:#f8e1de;
+  --map:#fbfcfc; --grid:#e6eaec;
+  --f-display:"Barlow Semi Condensed","Arial Narrow",Arial,sans-serif;
+  --f-body:"Barlow","Segoe UI",Roboto,Arial,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#13181b; --panel:#1b2226; --ink:#e3e8ea; --muted:#94a2a9; --line:#2f393e; --soft:#20282c;
+  --accent:#6fb0de; --accent-ink:#0c1a24; --accent-soft:#1d3342;
+  --ok:#6cc48f; --ok-soft:#173022; --warn:#e3a94a; --warn-soft:#352812; --bad:#f08277; --bad-soft:#3a1d1a;
+  --map:#161c1f; --grid:#232c30; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#13181b; --panel:#1b2226; --ink:#e3e8ea; --muted:#94a2a9; --line:#2f393e; --soft:#20282c;
+  --accent:#6fb0de; --accent-ink:#0c1a24; --accent-soft:#1d3342;
+  --ok:#6cc48f; --ok-soft:#173022; --warn:#e3a94a; --warn-soft:#352812; --bad:#f08277; --bad-soft:#3a1d1a;
+  --map:#161c1f; --grid:#232c30; color-scheme:dark }
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 32px;max-width:1500px;margin:0 auto}
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;padding-block:18px 12px;border-bottom:2px solid var(--ink)}
+h1{font-family:var(--f-display);font-weight:700;font-size:1.75rem;letter-spacing:.01em;margin:0;line-height:1.05;text-wrap:balance}
+h1 small{display:block;font-family:var(--f-body);font-weight:500;font-size:.8rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}
+.ver{font-family:var(--f-mono);font-size:.75rem;color:var(--muted)}
+nav.tabs{display:flex;gap:2px;flex-wrap:wrap;margin-top:14px;border-bottom:1px solid var(--line)}
+nav.tabs button{font:600 .95rem var(--f-display);letter-spacing:.02em;background:none;border:none;color:var(--muted);padding:10px 14px;border-bottom:3px solid transparent;cursor:pointer}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+nav.tabs button:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.grid{display:grid;grid-template-columns:minmax(0,430px) minmax(0,1fr);gap:16px;margin-top:16px;align-items:start}
+@media (max-width:980px){.grid{grid-template-columns:minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+section.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px 16px;min-width:0}
+section.card h2{font:700 1.05rem var(--f-display);letter-spacing:.03em;text-transform:uppercase;margin:0 0 10px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}
+.fields .full{grid-column:1/-1}
+label.f{display:flex;flex-direction:column;gap:3px;font-size:.78rem;color:var(--muted);font-weight:500;letter-spacing:.02em;min-width:0}
+label.f span.hint{font-weight:400;font-size:.72rem}
+input,select{font:inherit;color:var(--ink);background:var(--soft);border:1px solid var(--line);border-radius:4px;padding:6px 8px;min-width:0;width:100%}
+input[type=checkbox]{width:auto}
+input.num{font-family:var(--f-mono);font-size:.82rem;text-align:right}
+.chk{display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--ink)}
+.btn{font:600 .85rem var(--f-body);border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:4px;padding:7px 12px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.small{padding:3px 8px;font-size:.78rem}
+.btn.ghost{background:none;border-color:transparent;color:var(--muted)}
+.btn.ghost:hover{color:var(--bad)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.note{font-size:.8rem;color:var(--muted)}
+.banner{border-radius:4px;padding:8px 10px;font-size:.85rem}
+.banner.info{background:var(--accent-soft)} .banner.warn{background:var(--warn-soft)} .banner.bad{background:var(--bad-soft)}
+.tablewrap{overflow-x:auto;max-width:100%;border:1px solid var(--line);border-radius:4px}
+table{border-collapse:collapse;width:100%;font-size:.82rem}
+th,td{padding:5px 7px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle;white-space:nowrap}
+th{font:600 .72rem var(--f-body);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);background:var(--soft);position:sticky;top:0}
+td.n,th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+td input,td select{padding:3px 5px;font-size:.8rem}
+td input.num{width:72px}
+tr.sel td{background:var(--accent-soft)}
+.chip{display:inline-block;font:600 .7rem var(--f-body);letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:99px}
+.chip.ok{background:var(--ok-soft);color:var(--ok)} .chip.warn{background:var(--warn-soft);color:var(--warn)} .chip.bad{background:var(--bad-soft);color:var(--bad)} .chip.info{background:var(--accent-soft);color:var(--accent)}
+.bar{height:6px;background:var(--grid);border-radius:3px;overflow:hidden;min-width:60px}
+.bar i{display:block;height:100%;background:var(--ok)}
+.bar i.w{background:var(--warn)} .bar i.b{background:var(--bad)}
+canvas#map{width:100%;height:380px;display:block;background:var(--map);border:1px solid var(--line);border-radius:4px;touch-action:none}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.kpi{border-left:3px solid var(--accent);padding:2px 0 2px 10px}
+.kpi b{display:block;font:600 1.25rem var(--f-mono);font-variant-numeric:tabular-nums}
+.kpi span{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.detail{background:var(--soft);padding:10px 12px;white-space:normal;font-size:.8rem}
+.detail dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:4px 16px;margin:0}
+.detail dt{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.05em}
+.detail dd{margin:0 0 6px;font-family:var(--f-mono)}
+.exist{background:var(--soft);border:1px dashed var(--line);border-radius:4px;padding:10px;margin-top:6px;white-space:normal}
+.mono{font-family:var(--f-mono);font-size:.8rem}
+.toast{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:4px;font-size:.85rem;z-index:20;max-width:min(420px,calc(100vw - 32px))}
+.norm{max-width:78ch}
+.norm h3{font:700 1rem var(--f-display);text-transform:uppercase;letter-spacing:.04em;margin:18px 0 6px}
+.norm p,.norm li{color:var(--ink)}
+.dbtable td input{width:78px}
+.dbtable td input.txt{width:170px;text-align:left}
+.empty{padding:22px;text-align:center;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1><small>Redes aéreas trenzadas · ITC-BT-06</small>Cálculo de Apoyos BT</h1>
+    <div class="ver" id="ver">v1.0.0</div>
+  </header>
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="calc" aria-selected="true">Proyecto</button>
+    <button role="tab" data-tab="apoyos" aria-selected="false">Base de apoyos</button>
+    <button role="tab" data-tab="cables" aria-selected="false">Base de cables</button>
+    <button role="tab" data-tab="precios" aria-selected="false">Precios auxiliares</button>
+    <button role="tab" data-tab="norma" aria-selected="false">Criterios de cálculo</button>
+  </nav>
+
+  <!-- ============ PROYECTO ============ -->
+  <div id="tab-calc">
+    <div class="grid">
+      <div class="col">
+        <section class="card">
+          <h2>Datos de la línea</h2>
+          <div class="fields">
+            <label class="f full">Nombre del proyecto<input id="p_nombre" type="text"></label>
+            <label class="f">Zona (ITC-BT-06 2.1)
+              <select id="p_zona"><option value="A">A · &lt; 500 m</option><option value="B">B · 500–1000 m</option><option value="C">C · &gt; 1000 m</option></select>
+              <span class="hint" id="zonaHint"></span></label>
+            <label class="f">Cable trenzado<select id="p_cable"></select></label>
+            <label class="f">Tense de cálculo
+              <select id="p_tenseModo"><option value="max">Máximo reglamentario</option><option value="reducido">Reducido (daN)</option></select></label>
+            <label class="f">Tense reducido (daN)<input id="p_tenseValor" class="num" type="number" step="10"></label>
+            <label class="f">Temperatura máxima (°C)<input id="p_thetaMax" class="num" type="number" min="50" step="5"><span class="hint">ITC: no inferior a 50 °C</span></label>
+            <label class="f">Desequilibrio en alineación (%)<input id="p_desequilibrio" class="num" type="number" step="1"></label>
+            <label class="f">Amarre bajo cogolla (m)<input id="p_depthAmarre" class="num" type="number" step="0.05"></label>
+            <label class="f">Distancia mínima al suelo (m)<input id="p_distSuelo" class="num" type="number" step="0.5"><span class="hint">Cruces marcados: 6 m</span></label>
+            <label class="f">Terreno (empotramiento)<select id="p_terreno"><option value="flojo">Flojo</option><option value="normal">Normal</option><option value="fuerte">Fuerte</option></select></label>
+            <label class="f">Tipos de apoyo<select id="p_tipos"><option value="HV+HVH">HV y HVH</option><option value="HV">Solo HV</option><option value="HVH">Solo HVH</option></select></label>
+            <label class="f">Elegir apoyo por<select id="p_criterioPrecio"><option value="coste">Menor coste</option><option value="venta">Menor precio de venta</option></select></label>
+            <label class="f">Umbral de ángulo (°)<input id="p_umbralAngulo" class="num" type="number" step="1"><span class="hint">Por debajo: alineación</span></label>
+            <label class="chk full"><input id="p_sobreEdificios" type="checkbox"> Red sobre edificaciones o apoyos en fachada (coef. +25 %)</label>
+            <label class="chk full"><input id="p_vientoPoste" type="checkbox"> Incluir viento sobre el fuste del apoyo (100 daN/m²)</label>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Trazado <span class="row">
+            <label class="btn small" for="kmlFile">Importar KML/KMZ</label>
+            <input id="kmlFile" type="file" accept=".kml,.kmz" hidden>
+            <button class="btn small" id="addRow">Añadir apoyo</button>
+          </span></h2>
+          <div class="fields" style="margin-bottom:10px">
+            <label class="f">Vano máximo (m)<input id="p_vanoMax" class="num" type="number" step="1"></label>
+            <label class="f">Rumbo inicial (°)<input id="p_rumbo0" class="num" type="number" step="1"><span class="hint">Solo entrada manual</span></label>
+            <label class="chk full"><input id="p_dividir" type="checkbox"> Al importar, intercalar apoyos en tramos más largos que el vano máximo</label>
+          </div>
+          <div id="geoInfo" class="banner info" hidden></div>
+          <div id="kmlPick" hidden style="margin-top:8px"></div>
+          <div class="tablewrap" style="margin-top:10px;max-height:460px;overflow:auto">
+            <table id="rowsTable"><thead><tr>
+              <th>Apoyo</th><th class="n">Vano ant. (m)</th><th class="n">Desvío (°)</th><th>Cruce</th><th>Función</th><th>Altura</th><th>Modelo</th><th>Existente</th><th></th>
+            </tr></thead><tbody></tbody></table>
+          </div>
+          <p class="note">Desvío positivo: giro a la derecha en el sentido de avance. Marca «Cruce» en el vano que llega al apoyo si cruza carretera o ferrocarril.</p>
+        </section>
+
+        <section class="card">
+          <h2>Proyectos guardados</h2>
+          <div class="row"><button class="btn" id="saveProj">Guardar proyecto</button><button class="btn" id="newProj">Nuevo</button></div>
+          <div id="projList" style="margin-top:10px"></div>
+        </section>
+      </div>
+
+      <div class="col">
+        <section class="card">
+          <h2>Plano del trazado <span class="note" id="mapInfo"></span></h2>
+          <canvas id="map" aria-label="Plano del trazado con los apoyos numerados"></canvas>
+          <div class="row" style="margin-top:8px;justify-content:space-between">
+            <span class="note">Verde: apoyo válido · Ámbar: apoyo existente a sustituir · Rojo: sin apoyo válido en la base</span>
+            <button class="btn primary" id="exportZip">Exportar para Catastro (ZIP)</button>
+          </div>
+          <p class="note" id="exportNote" style="margin-top:6px"></p>
+        </section>
+
+        <section class="card">
+          <h2>Resumen</h2>
+          <div class="kpis" id="kpis"></div>
+          <div id="warnings" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"></div>
+        </section>
+
+        <section class="card">
+          <h2>Cantones y tensiones</h2>
+          <div class="tablewrap"><table id="cantTable"></table></div>
+        </section>
+
+        <section class="card">
+          <h2>Apoyos calculados</h2>
+          <div class="tablewrap"><table id="resTable"></table></div>
+          <p class="note">Esfuerzos referidos al punto de aplicación del esfuerzo nominal (0,25 m bajo cogolla), comparados con el esfuerzo nominal y secundario del poste (coef. de seguridad 2,5 incluido). Pulsa una fila para ver el desglose.</p>
+        </section>
+
+        <section class="card">
+          <h2>Presupuesto</h2>
+          <div class="tablewrap"><table id="budTable"></table></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ BBDD APOYOS ============ -->
+  <div id="tab-apoyos" hidden>
+    <section class="card" style="margin-top:16px">
+      <h2>Base de apoyos HV / HVH <span class="row"><button class="btn small" id="addPole">Añadir apoyo</button></span></h2>
+      <p class="note">Esfuerzos en daN (útiles, coeficiente 2,5 incluido). Cogolla y conicidad: cara estrecha (A) y ancha (B). Empotramiento en m según terreno. Los cambios se guardan al salir de cada casilla.</p>
+      <div class="tablewrap dbtable" style="margin-top:8px;max-height:70vh;overflow:auto"><table id="poleTable"></table></div>
+    </section>
+  </div>
+
+  <!-- ============ BBDD CABLES ============ -->
+  <div id="tab-cables" hidden>
+    <section class="card" style="margin-top:16px">
+      <h2>Base de cables trenzados <span class="row"><button class="btn small" id="addCable">Añadir cable</button></span></h2>
+      <p class="note">Cables RZ 0,6/1 kV con neutro fiador de Almelec (UNE 21030-1). El tense lo soporta el fiador: sección, carga de rotura y módulo son los del fiador. Diámetro del haz para viento; diámetro del conductor de fase para hielo (2,5 × d).</p>
+      <div class="tablewrap dbtable" style="margin-top:8px"><table id="cableTable"></table></div>
+    </section>
+  </div>
+
+  <!-- ============ PRECIOS ============ -->
+  <div id="tab-precios" hidden>
+    <section class="card" style="margin-top:16px;max-width:640px">
+      <h2>Precios auxiliares</h2>
+      <div class="fields" id="preciosFields"></div>
+      <p class="note" style="margin-top:8px">Los precios de apoyos y cables se editan en sus bases.</p>
+    </section>
+  </div>
+
+  <!-- ============ NORMA ============ -->
+  <div id="tab-norma" hidden>
+    <section class="card norm" style="margin-top:16px">
+      <h2>Criterios de cálculo aplicados</h2>
+      <h3>Normativa</h3>
+      <p>Reglamento Electrotécnico para Baja Tensión (RD 842/2002), ITC-BT-06 «Redes aéreas para distribución en baja tensión», apartados 1 a 3. Conductores según UNE 21030-1. Postes de hormigón armado vibrado tipo HV y HVH según UNE 207016.</p>
+      <h3>Acciones</h3>
+      <ul>
+        <li>Viento: 50 daN/m² sobre conductores (diámetro aparente del haz) y 100 daN/m² sobre las caras planas de los postes HV y HVH.</li>
+        <li>Hielo: zona A sin hielo; zona B 60·√d g/m y zona C 120·√d g/m, con d = 2,5 veces el diámetro del conductor de fase.</li>
+      </ul>
+      <h3>Conductores</h3>
+      <ul>
+        <li>Tracción máxima ≤ carga de rotura del fiador / 2,5 (×1,25 sobre edificaciones o apoyos en fachada) en la hipótesis más desfavorable: zona A, viento a 15 °C y 1/3 de viento a 0 °C; zonas B y C, viento a 15 °C y hielo a 0 °C.</li>
+        <li>Ecuación de cambio de condiciones por cantón con vano de regulación ar = √(Σa³/Σa). Los cantones se cortan en todo apoyo que no sea de alineación.</li>
+        <li>Flecha máxima: la mayor de las dos hipótesis de zona y la de temperatura máxima (≥ 50 °C) sin sobrecarga.</li>
+      </ul>
+      <h3>Apoyos (Tabla 1)</h3>
+      <ul>
+        <li>Alineación: cargas permanentes y viento; en la segunda hipótesis, desequilibrio de tracciones. La ITC no fija su valor: se aplica el porcentaje indicado en los datos de la línea (8 % por defecto, por analogía con la ITC-LAT 07).</li>
+        <li>Ángulo: resultante de ángulo en ambas hipótesis, con el viento sobre conductores.</li>
+        <li>Estrellamiento y derivación de apoyo existente: 2/3 de la resultante con viento a 15 °C y resultante total en la segunda hipótesis. Los conductores existentes entran con su tense, acimut, vano y altura de amarre.</li>
+        <li>Fin e inicio de línea: tracción total de los conductores.</li>
+        <li>Viento sobre conductores perpendicular a cada vano y según la bisectriz o resultante; viento sobre el poste según sus dos ejes.</li>
+        <li>Se trasladan los esfuerzos al punto de aplicación del esfuerzo nominal (0,25 m bajo cogolla) por igualdad de momentos en el empotramiento, y se comparan por separado con el esfuerzo nominal (eje principal) y el secundario. Orientación del poste: principal según la resultante o el eje de la línea, o perpendicular, la más favorable.</li>
+        <li>Coeficiente de seguridad del hormigón armado vibrado: 2,5, ya incluido en el esfuerzo nominal del poste.</li>
+      </ul>
+      <h3>Alturas</h3>
+      <p>Altura libre = altura total − empotramiento del terreno elegido. El amarre debe quedar a la distancia mínima al suelo más la flecha máxima del vano contiguo (4 m; 6 m en cruces con carreteras y ferrocarriles, ITC-BT-06 3.9.1.4). Se supone terreno llano; revisa los perfiles con desnivel.</p>
+      <h3>Datos de partida de las bases</h3>
+      <p>Esfuerzos, cogollas, conicidades, pesos y empotramientos de la especificación de postes HV/HVH ET/5022. La cogolla del HV-160 no figura en ella y se toma igual que la del HV-250. Cables: catálogo de fabricante (Prysmian, AL Polirret). Revisa estos valores con tu proveedor.</p>
+      <h3>Exportación para Catastro</h3>
+      <p>Con un trazado importado de KML/KMZ, el ZIP incluye el DXF en coordenadas ETRS89 UTM (mismo sistema que la cartografía catastral), el KML y el GeoJSON. En AutoCAD, inserta el DXF en el mismo dibujo que la cartografía catastral descargada de la Sede Electrónica del Catastro. En QGIS o Google Earth Pro, añade la capa WMS del Catastro y abre el KML o el GeoJSON. El archivo LEEME del ZIP detalla los pasos.</p>
+    </section>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
