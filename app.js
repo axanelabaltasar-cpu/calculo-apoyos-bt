@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.26.0';
+const VERSION = '1.27.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -503,7 +503,7 @@ function renderEntronque() {
   } else html += `<div class="banner warn" style="margin-top:8px">Elige el apoyo de entronque para verificar la red existente.</div>`;
   html += `<details style="margin-top:10px"><summary class="note">Textos de la red existente en el plano</summary>
     <div class="tablewrap" style="margin-top:6px;max-height:260px;overflow:auto"><table class="vt"><thead><tr><th>Elemento</th><th>Texto en el plano</th></tr></thead><tbody>
-    ${exLineas().map((l, li) => `<tr><td>Línea · ${esc(l.nombre)}</td><td><input type="text" data-lab-l="${li}" value="${esc(l.etiqueta ?? l.nombre ?? '')}"></td></tr>`).join('')}
+    ${exLineas().map((l, li) => `<tr><td>Línea · ${esc(l.nombre)}</td><td><input type="text" data-lab-l="${li}" value="${esc(l.txt || '')}" placeholder="${esc(mapLineLabel({ ...l, txt: '' }) || 'conductor')}"></td></tr>`).join('')}
     ${(R.apoyos || []).map((a, i) => `<tr><td>Apoyo E${i + 1}${a.nombre ? ' · ' + esc(a.nombre) : ''}</td><td><input type="text" data-lab-a="${i}" value="${esc(exLabel(i))}"></td></tr>`).join('')}
     ${(R.puntosDC || []).map((d, i) => `<tr><td>Punto D-C · ${d.cups ? esc(d.cups) : '<span class="chip warn">sin CUPS</span>'}</td><td><input type="text" data-lab-dc="${i}" value="${esc(dcLabel(d))}"></td></tr>`).join('')}
     </tbody></table></div><p class="note">En las líneas se añade detrás el cable verificado. Deja un texto vacío para no rotularlo.</p></details>
@@ -519,7 +519,7 @@ function bindEntronque() {
     const t = ev.target, en = S.proj.entronque; if (!en) return;
     if (t.id === 'en_k') return setEntronque(t.value === '' ? null : Number(t.value));
     if (t.id === 'en_depth') en.depth = Number(t.value);
-    if (t.dataset.labL != null) { const l = exLineas()[Number(t.dataset.labL)]; if (l) l.etiqueta = t.value; drawMap(); return; }
+    if (t.dataset.labL != null) { const l = exLineas()[Number(t.dataset.labL)]; if (l) l.txt = t.value; drawMap(); return; }
     if (t.dataset.labDc != null) { const d = exDC()[Number(t.dataset.labDc)]; if (d) d.etiqueta = t.value; drawMap(); return; }
     if (t.dataset.labA != null) { const a = redEx().apoyos[Number(t.dataset.labA)]; if (a) a.etiqueta = t.value; drawMap(); return; }
     if (t.dataset.vl) {
@@ -695,6 +695,12 @@ function modeloGis(k) {
   return c.find(p => /^HV$/i.test(p.tipo)) || c[0] || null;
 }
 function exLabel(i) { const p = exNodes()[i]; return p && p.etiqueta != null ? p.etiqueta : 'E' + (i + 1); }
+/* Texto del tramo en el plano: solo el tipo de conductor (o el texto que haya escrito el usuario) */
+function mapLineLabel(l) {
+  if (l.txt) return l.txt;
+  const cond = conductorTramo(l), d = lineData(l.id);
+  return cond || (d.v.cableId && d.cab ? shortCable(d.cab.designacion) : '');
+}
 function lineLabel(l) {
   const base = l.etiqueta != null ? l.etiqueta : l.nombre || '';
   const cond = conductorTramo(l);
@@ -775,7 +781,7 @@ function drawMap(T) {
   // Líneas existentes con su texto (y su cable verificado)
   if (vis('exLineas')) lines.forEach((l, li) => {
     g.strokeStyle = col('--exist'); g.lineWidth = 3; g.setLineDash([8, 5]); g.beginPath(); l.pts.forEach((n, i) => { const [x, y] = P(n); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); g.setLineDash([]);
-    const ls = longestSeg(l.pts); const txt = lineLabel(l);
+    const ls = longestSeg(l.pts); const txt = mapLineLabel(l);
     if (vis('exLineasTxt') && ls.i >= 0 && txt && ls.len > g.measureText(txt).width * 0.6) alongText(txt, l.pts[ls.i], l.pts[ls.i + 1], -1, 'italic 600 11px ' + col('--f-body'), col('--exist'));
     if (screen && tool !== 'pan' && L === 'exLineas') l.pts.forEach((n, i) => { const [x, y] = P(n); vtx(x, y, S.selPt?.layer === 'exLineas' && S.selPt.li === li && S.selPt.i === i); });
   });
@@ -1062,7 +1068,7 @@ function bindMap() {
     if (t.id === 'pe_lab') { p.etiqueta = t.value; drawMap(); renderEntronque(); return; }
     if (t.id === 'pe_cups') { p.cups = t.value.replace(/[\s.-]/g, '').toUpperCase(); if (p.etiqueta != null && p.etiqueta === cupsCorto('')) delete p.etiqueta; drawMap(); renderPtEdit(); renderEntronque(); return; }
     if (t.id === 'pe_dcl') { p.etiqueta = t.value === cupsCorto(p.cups) ? undefined : t.value; if (p.etiqueta === undefined) delete p.etiqueta; drawMap(); renderEntronque(); return; }
-    if (t.id === 'pe_ll') { const l = exLineas()[sp.li]; if (l) l.etiqueta = t.value; drawMap(); renderEntronque(); return; }
+    if (t.id === 'pe_ll') { const l = exLineas()[sp.li]; if (l) l.txt = t.value; drawMap(); renderEntronque(); return; }
     if (t.id === 'pe_x') p.x = Number(t.value); if (t.id === 'pe_y') p.y = Number(t.value); if (t.id === 'pe_n') p.nombre = t.value;
     setLL(p);
     if (sp.layer === 'exApoyos' && S.proj.entronque?.k === sp.i && S.proj.geo?.pts?.[0]) { Object.assign(S.proj.geo.pts[0], { x: p.x, y: p.y }); setLL(S.proj.geo.pts[0]); }
@@ -1093,7 +1099,7 @@ function renderPtEdit() {
     ${sp.layer === 'exApoyos' ? `<label class="f full">Texto en el plano<input id="pe_lab" type="text" value="${esc(exLabel(sp.i))}" placeholder="E${sp.i + 1}"><span class="hint">Vacío: no se rotula. Por defecto: E${sp.i + 1}</span></label>` : ''}
     ${sp.layer === 'exDC' ? `<label class="f full">CUPS<input id="pe_cups" type="text" value="${esc(p.cups || '')}" placeholder="ES0000000000000000XX"></label>
       <label class="f full">Texto en el plano<input id="pe_dcl" type="text" value="${esc(dcLabel(p))}" placeholder="${esc(cupsCorto(p.cups))}"><span class="hint">Por defecto: caracteres 12 a 18 del CUPS (${esc(cupsCorto(p.cups) || '—')}).</span></label>` : ''}
-    ${sp.layer === 'exLineas' ? `<label class="f full">Texto de la línea en el plano<input id="pe_ll" type="text" value="${esc(exLineas()[sp.li]?.etiqueta ?? exLineas()[sp.li]?.nombre ?? '')}"><span class="hint">El cable verificado se añade detrás. Vacío: solo el cable.</span></label>` : ''}</div>
+    ${sp.layer === 'exLineas' ? `<label class="f full">Texto de la línea en el plano<input id="pe_ll" type="text" value="${esc(exLineas()[sp.li]?.txt || '')}" placeholder="${esc(mapLineLabel({ ...(exLineas()[sp.li] || {}), txt: '' }) || 'conductor')}"><span class="hint">Vacío: el tipo de conductor.</span></label>` : ''}</div>
     ${p.lat != null ? `<p class="note mono" style="margin:6px 0 0">${p.lat.toFixed(7)}, ${p.lon.toFixed(7)}</p>` : ''}
     ${(() => { const at = sp.layer === 'exLineas' ? exLineas()[sp.li]?.attrs : p.attrs; const ks = at ? Object.keys(at) : []; return ks.length ? `<details style="margin-top:6px"><summary class="note">Datos del GIS (${ks.length})</summary><div class="tablewrap" style="margin-top:4px;max-height:200px;overflow:auto"><table class="vt"><tbody>${ks.map(k => `<tr><td class="note">${esc(k)}</td><td>${esc(at[k])}</td></tr>`).join('')}</tbody></table></div></details>` : ''; })()}`;
 }
@@ -1480,7 +1486,7 @@ function dxf(c, geo) {
   p(0, 'SECTION', 2, 'ENTITIES');
   const N = c.nodes, f3 = v => v.toFixed(3);
   const ex = geo ? exNodes() : [];
-  if (geo) exLineas().forEach(l => { const lab = lineLabel(l); if (lab && l.pts.length > 1) { let bi = 0, bl = 0; for (let i = 0; i < l.pts.length - 1; i++) { const d = Math.hypot(l.pts[i + 1].x - l.pts[i].x, l.pts[i + 1].y - l.pts[i].y); if (d > bl) { bl = d; bi = i; } } const A = l.pts[bi], B = l.pts[bi + 1]; let an = Math.atan2(B.y - A.y, B.x - A.x) * 180 / Math.PI; if (an > 90) an -= 180; if (an < -90) an += 180; p(0, 'TEXT', 8, 'BT_TEXTO_EXISTENTE', 10, f3((A.x + B.x) / 2), 20, f3((A.y + B.y) / 2 + 1), 30, 0, 40, 1, 1, ascii(lab), 50, an.toFixed(2), 72, 1, 11, f3((A.x + B.x) / 2), 21, f3((A.y + B.y) / 2 + 1), 31, 0); } });
+  if (geo) exLineas().forEach(l => { const lab = mapLineLabel(l); if (lab && l.pts.length > 1) { let bi = 0, bl = 0; for (let i = 0; i < l.pts.length - 1; i++) { const d = Math.hypot(l.pts[i + 1].x - l.pts[i].x, l.pts[i + 1].y - l.pts[i].y); if (d > bl) { bl = d; bi = i; } } const A = l.pts[bi], B = l.pts[bi + 1]; let an = Math.atan2(B.y - A.y, B.x - A.x) * 180 / Math.PI; if (an > 90) an -= 180; if (an < -90) an += 180; p(0, 'TEXT', 8, 'BT_TEXTO_EXISTENTE', 10, f3((A.x + B.x) / 2), 20, f3((A.y + B.y) / 2 + 1), 30, 0, 40, 1, 1, ascii(lab), 50, an.toFixed(2), 72, 1, 11, f3((A.x + B.x) / 2), 21, f3((A.y + B.y) / 2 + 1), 31, 0); } });
   if (geo) exLineas().forEach(l => { for (let i = 0; i < l.pts.length - 1; i++) p(0, 'LINE', 8, 'BT_LINEA_EXISTENTE', 10, f3(l.pts[i].x), 20, f3(l.pts[i].y), 30, 0, 11, f3(l.pts[i + 1].x), 21, f3(l.pts[i + 1].y), 31, 0); });
   if (geo && S.proj.geo?.ruta) { const r = S.proj.geo.ruta; for (let i = 0; i < r.length - 1; i++) p(0, 'LINE', 8, 'BT_RUTA', 10, f3(r[i].x), 20, f3(r[i].y), 30, 0, 11, f3(r[i + 1].x), 21, f3(r[i + 1].y), 31, 0); }
   if (geo && !ex.length) exDC().forEach(d => { p(0, 'CIRCLE', 8, 'BT_PUNTOS_DC', 10, f3(d.x), 20, f3(d.y), 30, 0, 40, 0.3); const lb = dcLabel(d); if (lb) p(0, 'TEXT', 8, 'BT_TEXTO_PUNTOS_DC', 10, f3(d.x + 0.8), 20, f3(d.y - 0.4), 30, 0, 40, 0.8, 1, ascii(lb)); });
