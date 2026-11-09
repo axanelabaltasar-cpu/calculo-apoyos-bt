@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.11.0';
+const VERSION = '1.12.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -82,7 +82,7 @@ function loadForm() {
   fillCableSelect();
 }
 function bindForm() {
-  $('#p_nombre').addEventListener('input', e => { S.proj.nombre = e.target.value; });
+  $('#p_nombre').addEventListener('input', e => { S.proj.nombre = e.target.value; renderProjName(); });
   for (const k of CTX_FIELDS) {
     const el = $('#p_' + k); if (!el) continue;
     el.addEventListener('change', () => { S.proj.ctx[k] = el.type === 'checkbox' ? el.checked : (el.type === 'number' ? Number(el.value) : el.value); if (k === 'rumbo0') renderRows(); recalc(); });
@@ -1201,7 +1201,7 @@ function refreshAll() {
   $('#geoInfo').hidden = !(S.proj.modo === 'kml' && S.proj.geo); $('#geoInfo').innerHTML = geoInfoHtml();
   const tm = $('#toManual'); if (tm) tm.onclick = toManual;
   renderRows(); renderEntronque(); recalc(); renderFondos(); renderPerfilInfo(); renderPtEdit(); updUndo();
-  renderCapas(); scheduleAuto();
+  renderCapas(); renderProjName(); scheduleAuto();
 }
 
 /* ---------- Plano: vista con desplazamiento y zoom ---------- */
@@ -1894,12 +1894,13 @@ async function saveProject() {
   try {
     if (S.proj.id) await S.db.doc('proyectos/' + S.proj.id).set(data);
     else { const ref = await S.db.collection('proyectos').add(data); S.proj.id = ref.id; }
-    toast('Proyecto guardado.');
+    toast('Proyecto guardado.'); renderProjName();
   } catch (e) { toast('No se pudo guardar: ' + (e.message || e.code)); }
 }
 function renderProjList() {
   const box = $('#projList');
-  if (!S.projs.length) { box.innerHTML = '<p class="note">Aún no hay proyectos guardados. Pulsa «Guardar proyecto» para conservar el trazado y los datos de cálculo.</p>'; return; }
+  const b = $('#projBtn'); if (b) b.textContent = `Proyectos guardados${S.projs.length ? ' (' + S.projs.length + ')' : ''} ▾`;
+  if (!S.projs.length) { box.innerHTML = '<p class="note">Aún no hay proyectos guardados. Pulsa «Guardar» para conservar el trazado y los datos de cálculo.</p>'; return; }
   box.innerHTML = `<div class="tablewrap"><table><tbody>${S.projs.map(p => `<tr><td>${esc(p.nombre)}</td><td class="note">${p.fecha ? new Date(p.fecha).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : ''}</td>
     <td><button class="btn small" data-load="${esc(p.id)}">Abrir</button></td><td>${S.delConfirm === p.id ? `<button class="btn small" data-del="${esc(p.id)}" style="color:var(--bad)">Confirmar borrado</button>` : `<button class="btn small ghost" data-askdel="${esc(p.id)}" aria-label="Borrar proyecto">✕</button>`}</td></tr>`).join('')}</tbody></table></div>`;
 }
@@ -1925,7 +1926,12 @@ async function importProject(file) {
     S.img = {}; S.sel = null; S.openEx = null; V.fitted = false; loadForm(); refreshAll(); toast('Proyecto abierto desde archivo.');
   } catch (e) { toast('El archivo no es un proyecto válido.'); }
 }
+function renderProjName() { const el = $('#projName'); if (el) { el.textContent = S.proj.nombre ? S.proj.nombre + (S.proj.id ? '' : ' · sin guardar') : 'Proyecto sin nombre'; } }
 function bindProjects() {
+  const btn = $('#projBtn'), panel = $('#projPanel');
+  btn.onclick = ev => { ev.stopPropagation(); panel.hidden = !panel.hidden; btn.setAttribute('aria-expanded', String(!panel.hidden)); if (!panel.hidden) renderProjList(); };
+  document.addEventListener('click', ev => { if (!panel.hidden && !ev.target.closest('.projdrop')) { panel.hidden = true; btn.setAttribute('aria-expanded', 'false'); } });
+  document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && !panel.hidden) { panel.hidden = true; btn.setAttribute('aria-expanded', 'false'); btn.focus(); } });
   $('#expProj').onclick = exportProject;
   $('#impProjFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importProject(f); e.target.value = ''; });
   const eb = $('#expBases'); if (eb) { eb.hidden = !LOCAL; eb.onclick = async () => { if (await saveFile('bases_apoyos_cables.json', new Blob([S.db.exportAll()], { type: 'application/json' }))) toast('Bases exportadas.'); }; }
@@ -1940,7 +1946,7 @@ function bindProjects() {
     const b = ev.target.closest('button'); if (!b) return;
     if (b.dataset.load) { const p = S.projs.find(x => x.id === b.dataset.load); try { const d = JSON.parse(p.datos); S.proj = { ...exampleProject(), ...d, ctx: { ...DEF_CTX, ...d.ctx }, id: p.id }; } catch (e) { toast('El proyecto guardado está dañado.'); return; }
       if (!S.proj.zone) S.proj.zone = S.proj.geo?.zone || null; S.proj.fondos = S.proj.fondos || {};
-      S.img = {}; S.sel = null; S.openEx = null; S.pickEntronque = false; V.fitted = false; loadForm(); refreshAll(); toast('Proyecto abierto.'); }
+      S.img = {}; S.sel = null; S.openEx = null; S.pickEntronque = false; V.fitted = false; loadForm(); refreshAll(); $('#projPanel').hidden = true; toast('Proyecto abierto.'); }
     if (b.dataset.askdel) { S.delConfirm = b.dataset.askdel; renderProjList(); }
     if (b.dataset.del) { try { await S.db.doc('proyectos/' + b.dataset.del).delete(); S.delConfirm = null; toast('Proyecto borrado.'); } catch (e) { toast('No se pudo borrar: ' + (e.message || e.code)); } }
   });
