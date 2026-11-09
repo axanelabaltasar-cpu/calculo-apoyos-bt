@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.12.0';
+const VERSION = '1.13.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -1185,17 +1185,32 @@ function autoFondos() {
   if (changed) { renderFondos(); drawMap(); }
 }
 function perfilKey(g) { return g.zone + ':' + g.pts.map(p => p.x.toFixed(0) + ',' + p.y.toFixed(0)).join(';'); }
+/* Geometría del perfil longitudinal: SOLO el trazado de la línea nueva, empezando en el apoyo de entronque.
+   Devuelve null mientras falte el entronque o el trazado. */
+function perfilGeo() {
+  const en = S.proj.entronque, ex = exNodes(); if (!en || en.k == null || !ex[en.k]) return null;
+  const g = getGeo(); if (!g || g.pts.length < 2) return null;
+  const E0 = ex[en.k]; let pts = g.pts.map(p => ({ x: p.x, y: p.y, lat: p.lat, lon: p.lon }));
+  const d = p => Math.hypot(p.x - E0.x, p.y - E0.y);
+  if (d(pts[pts.length - 1]) < d(pts[0])) pts.reverse();
+  if (d(pts[0]) > 0.5) pts.unshift({ x: E0.x, y: E0.y, ...E.latLonFromUtm(E0.x, E0.y, g.zone) });
+  else pts[0] = { x: E0.x, y: E0.y, ...E.latLonFromUtm(E0.x, E0.y, g.zone) };
+  if (pts.length < 2) return null;
+  return { zone: g.zone, pts };
+}
 async function autoPerfilMaybe() {
-  const g = getGeo(); if (!g || g.pts.length < 2) return;
-  const P = S.proj.perfil; if (P && !P.auto) return;           // perfil cargado por el usuario: se respeta
+  const P = S.proj.perfil;
+  const g = perfilGeo();
+  if (!g) { if (P?.auto) { S.proj.perfil = null; S.perfilFail = null; refreshAll(); } return; }   // sin entronque o sin trazado: no hay perfil automático
+  if (P && !P.auto) return;           // perfil cargado por el usuario: se respeta
   const key = perfilKey(g); if (P?.key === key || S.perfilFail === key || S.perfilBusy) return;
-  S.perfilBusy = true;
+  S.perfilBusy = true; renderPerfilInfo();
   try {
     const prev = S.proj.perfil;
-    if (LOCAL) await autoPerfilLocal(g); else await autoPerfil();
+    if (LOCAL) await autoPerfilLocal(g); else await autoPerfil(g);
     if (S.proj.perfil && S.proj.perfil !== prev) { S.proj.perfil.auto = true; S.proj.perfil.key = key; }
     else S.perfilFail = key;
-  } finally { S.perfilBusy = false; }
+  } finally { S.perfilBusy = false; renderPerfilInfo(); }
 }
 function refreshAll() {
   $('#geoInfo').hidden = !(S.proj.modo === 'kml' && S.proj.geo); $('#geoInfo').innerHTML = geoInfoHtml();
@@ -1327,7 +1342,11 @@ function perfilInfoHtml() {
     const d = S.calc?.perfilDist;
     return `<div class="banner info">Perfil de elevación: <b>${esc(S.proj.perfil.fuente)}</b> · ${S.proj.perfil.pts.length} puntos · cotas ${fmt(Math.min(...zs))}–${fmt(Math.max(...zs))} m. <button class="btn small ghost" id="perfilDel">Quitar</button></div>${d > 15 ? `<div class="banner warn" style="margin-top:6px">Algún apoyo está a ${fmt(d)} m del perfil cargado. Comprueba que el perfil corresponde a este trazado.</div>` : ''}`;
   }
-  if (S.proj.modo === 'kml' || S.proj.entronque?.k != null) return `<div class="banner warn"><b>El trazado no tiene perfil de elevación.</b> Sin él se supone terreno llano. Pulsa «Buscar perfil de elevación automáticamente» o, con GPS Visualizer:${steps}</div>`;
+  if (S.proj.modo === 'kml' || S.proj.entronque?.k != null) {
+    const falta = [S.proj.entronque?.k == null ? 'el apoyo de entronque (en «Red existente»)' : null, !(getGeo()?.pts?.length >= 2) ? 'el trazado de la línea nueva' : null].filter(Boolean);
+    if (falta.length) return `<div class="banner info">El perfil longitudinal se calcula <b>solo para la línea nueva, desde el apoyo de entronque</b>, y se busca automáticamente en cuanto estén los dos datos. Falta: ${falta.join(' y ')}.</div>`;
+    return `<div class="banner warn"><b>El trazado no tiene perfil de elevación.</b> Sin él se supone terreno llano. ${S.perfilBusy ? 'Buscando el perfil automáticamente…' : 'La búsqueda automática no ha dado resultado (¿sin conexión?).'} Pulsa «Buscar perfil de elevación automáticamente» o, con GPS Visualizer:${steps}</div>`;
+  }
   return `<p class="note">En entrada manual puedes escribir la cota del terreno de cada apoyo en la columna «Cota». Con un trazado KML, carga el perfil de GPS Visualizer.</p>`;
 }
 function toManual() {
@@ -1495,7 +1514,7 @@ function drawPerfil() {
   const cs = getComputedStyle(document.documentElement), col = n => cs.getPropertyValue(n).trim();
   g.fillStyle = col('--map'); g.fillRect(0, 0, W, Hh);
   const c = S.calc;
-  if (!c || !c.conPerfil) { g.fillStyle = col('--muted'); g.font = '13px ' + col('--f-body'); g.textAlign = 'center'; g.fillText('Sin perfil de elevación: carga o busca el perfil del trazado para verlo aquí.', W / 2, Hh / 2); $('#perfilNote').textContent = ''; return; }
+  if (!c || !c.conPerfil) { g.fillStyle = col('--muted'); g.font = '13px ' + col('--f-body'); g.textAlign = 'center'; g.fillText(S.proj.entronque?.k == null ? 'El perfil se calcula automáticamente con el trazado nuevo y el apoyo de entronque.' : 'Sin perfil de elevación del trazado nuevo todavía.', W / 2, Hh / 2); $('#perfilNote').textContent = ''; return; }
   const N = c.nodes, ch0 = Math.min(...N.map(n => n.ch)), ch1 = Math.max(...N.map(n => n.ch)), rev = N[0].ch > N[N.length - 1].ch;
   const X = ch => rev ? ch1 - ch : ch - ch0, L = Math.max(ch1 - ch0, 1);
   const perf = perfilPts() ? E.buildProfile(perfilPts()) : null;
@@ -1558,9 +1577,9 @@ function samplePolyline(pts, step) {
   out.push({ x: pts[pts.length - 1].x, y: pts[pts.length - 1].y });
   return out;
 }
-async function autoPerfil() {
+async function autoPerfil(g0) {
   const btn = $('#perfilAuto'), msg = $('#perfilAutoMsg');
-  const g = getGeo(); if (!g) { msg.textContent = 'Primero importa el trazado, créalo con coordenadas de inicio y fin o conéctalo a la línea existente.'; return; }
+  const g = g0?.pts ? g0 : perfilGeo(); if (!g) { msg.textContent = 'El perfil se calcula solo con el trazado de la línea nueva desde el apoyo de entronque: importa el trazado y elige el apoyo de entronque en «Red existente».'; return; }
   if (LOCAL) return autoPerfilLocal(g);
   const mcp = await window.claude?.use?.('mcp').catch(() => null);
   if (!mcp) { msg.innerHTML = 'La búsqueda automática solo funciona al abrir esta app dentro de la aplicación de escritorio de Claude. Usa GPS Visualizer (pasos de arriba).'; return; }
