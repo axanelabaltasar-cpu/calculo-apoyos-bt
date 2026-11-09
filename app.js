@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.15.0';
+const VERSION = '1.16.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -624,7 +624,7 @@ function fitView() {
 /* ===== Capas visibles del plano ===== */
 const CAPAS = [
   ['grupo', 'Proyecto'], ['nuevo', 'Apoyos nuevos'], ['nuevoTxt', 'Textos de apoyos nuevos'], ['linea', 'Línea nueva'], ['vanos', 'Longitud de vanos'], ['cable', 'Cable del proyecto'], ['ruta', 'Ruta del trazado'],
-  ['grupo', 'Red existente'], ['exApoyos', 'Apoyos existentes'], ['exApoyosTxt', 'Textos y esfuerzos de apoyos'], ['exLineas', 'Tramos baja'], ['exLineasTxt', 'Textos y conductor de tramos'], ['exDC', 'Puntos D-C'], ['exDCTxt', 'CUPS de puntos D-C'],
+  ['grupo', 'Red existente'], ['exApoyos', 'Apoyos existentes'], ['exApoyosTxt', 'Textos de apoyos'], ['exLineas', 'Tramos baja'], ['exLineasTxt', 'Textos y conductor de tramos'], ['exDC', 'Puntos D-C'], ['exDCTxt', 'CUPS de puntos D-C'],
   ['grupo', 'Fondo'], ['orto', 'Ortofoto PNOA'], ['catastro', 'Catastro'], ['rejilla', 'Cuadrícula']];
 function vis(k) { if (k === 'orto' || k === 'catastro') return S.proj.fondos?.[k]?.visible !== false; return S.proj.capas?.[k] !== false; }
 function setVis(k, on) {
@@ -720,9 +720,8 @@ function drawMap(T) {
     const isEn = S.proj.entronque?.k === i, isSel = screen && S.selPt?.layer === 'exApoyos' && S.selPt.i === i;
     g.fillStyle = isEn ? col('--accent') : col('--exist'); g.strokeStyle = isSel ? col('--ink') : col('--panel'); g.lineWidth = isSel ? 3 : 2;
     g.beginPath(); g.arc(x, y, isEn ? 7 : 5, 0, Math.PI * 2); g.fill(); g.stroke();
-    const lab = exLabel(i), esf = esfLabel(i);
+    const lab = exLabel(i);
     if (vis('exApoyosTxt') && lab && (sc > 0.6 || isEn || !screen)) { g.fillStyle = col('--exist'); g.font = '600 11px ' + col('--f-body'); g.textAlign = 'right'; halo(lab, x - 8, y - 7); }
-    if (vis('exApoyosTxt') && esf && (sc > 0.6 || isEn || !screen)) { g.fillStyle = col('--exist'); g.font = '10px ' + col('--f-mono'); g.textAlign = 'right'; halo(esf, x - 8, y + 12); }
   });
   // Puntos D-C: rombo y CUPS abreviado
   if (vis('exDC')) exDC().forEach((d, i) => {
@@ -1406,7 +1405,6 @@ function dxf(c, geo) {
     p(0, 'CIRCLE', 8, 'BT_APOYOS_EXISTENTES', 10, f3(ex[i].x), 20, f3(ex[i].y), 30, 0, 40, 0.4);
     if (i === 0 && geo) exDC().forEach(d => { p(0, 'CIRCLE', 8, 'BT_PUNTOS_DC', 10, f3(d.x), 20, f3(d.y), 30, 0, 40, 0.3); const lb = dcLabel(d); if (lb) p(0, 'TEXT', 8, 'BT_TEXTO_PUNTOS_DC', 10, f3(d.x + 0.8), 20, f3(d.y - 0.4), 30, 0, 40, 0.8, 1, ascii(lb)); });
     if (exLabel(i)) p(0, 'TEXT', 8, 'BT_TEXTO_EXISTENTE', 10, f3(ex[i].x - 3), 20, f3(ex[i].y + 1), 30, 0, 40, 1, 1, ascii(exLabel(i)));
-    if (esfLabel(i)) p(0, 'TEXT', 8, 'BT_TEXTO_EXISTENTE', 10, f3(ex[i].x - 3), 20, f3(ex[i].y - 1), 30, 0, 40, 0.8, 1, ascii(esfLabel(i)));
   }
   for (let i = 0; i < N.length - 1; i++) {
     p(0, 'LINE', 8, 'BT_TRAZADO', 10, f3(N[i].x), 20, f3(N[i].y), 30, 0, 11, f3(N[i + 1].x), 21, f3(N[i + 1].y), 31, 0);
