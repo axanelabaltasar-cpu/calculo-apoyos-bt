@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.21.0';
+const VERSION = '1.22.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -189,7 +189,7 @@ function autoValidaEntronque() {
 }
 
 function recalc() {
-  subCalc();
+  autoCableAereo(); subCalc();
   const cable = S.cables.find(c => c.id === S.proj.cableId);
   const zh = $('#zonaHint'); zh.textContent = S.proj.geo?.altMax != null ? `Cota máxima del KML: ${fmt(S.proj.geo.altMax)} m` : '';
   if (!cable || !S.poles.length || S.proj.rows.length < 2) { S.calc = null; renderResults(); return; }
@@ -198,7 +198,7 @@ function recalc() {
   try { const perfil = perfilPts(); S.calc = E.calcular({ nodes, cable, ctx: S.proj.ctx, poles: S.poles, perfil }); S.calc.conPerfil = !!perfil; S.calc.perfilDist = perfil && S.proj.perfil ? Math.max(...nodes.map(n => n.dPerfil || 0)) : 0; S.calc.nodes = nodes; S.calc.cable = cable; S.calc.bud = E.presupuesto(S.calc, nodes, cable, S.precios, S.proj.ctx.terreno); }
   catch (e) { console.error(e); S.calc = null; toast('Error de cálculo: ' + e.message); }
   autoValidaEntronque();
-  renderResults(); renderPerfilInfo(); drawPerfil(); renderAnexo();
+  renderResults(); renderPerfilInfo(); drawPerfil(); renderAnexo(); renderSumRes();
   if (S.proj.entronque?.k != null && !$('#exBody').contains(document.activeElement)) renderEntronque();
 }
 function statusOf(r, i) {
@@ -265,6 +265,7 @@ function renderResults() {
   if (!c.conPerfil && (S.proj.modo === 'kml' || S.proj.entronque?.k != null)) w.push('<div class="banner warn">Cálculo sin perfil de elevación: se ha supuesto terreno llano. Carga el perfil de GPS Visualizer en «Trazado».</div>');
   { const mo = S.proj.ctx.tenseModo; const pedido = mo === 'normal' ? S.proj.ctx.tenseNormal : mo === 'reducido' ? S.proj.ctx.tenseReducido : null;
     w.push(`<div class="banner info">Tense de cálculo ${mo === 'max' ? 'máximo reglamentario' : mo}: ${fmt(c.Tmax)} daN (máximo reglamentario ${fmt(c.TmaxReg)} daN).${pedido != null && Number(pedido) > c.TmaxReg ? ' El valor indicado supera el máximo y se ha limitado.' : ''}</div>`); }
+  { const er = elecAereoRes(); [...sumBanners(), ...(er ? er.checks : [])].filter(x => x.ok === 'bad').forEach(x => w.push(`<div class="banner bad">${esc(x.txt)}</div>`)); }
   const keep = S.dbMissingShown ? $('#warnings').querySelector('.banner.bad')?.outerHTML || '' : '';
   $('#warnings').innerHTML = keep + w.join('');
   drawMap();
@@ -315,7 +316,7 @@ function informe(c) {
 <tr><th>Sobrecargas</th>${td(`Viento ${fmt(H.pv, 3)} daN/m (50 daN/m²)${H.H2.ice ? ` · hielo ${fmt(H.H2.ice, 3)} daN/m` : ''}`)}</tr>
 <tr><th>Hipótesis</th>${td(H.all.map(h => `${h.id}: ${h.nombre}, peso aparente ${fmt(h.p, 3)} daN/m`).join('<br>'))}</tr>
 <tr><th>Desequilibrio en alineación</th>${td(ctx.desequilibrio + ' % (la ITC-BT-06 no fija valor)')}</tr><tr><th>Terreno</th>${td(ctx.terreno)}</tr></tbody></table>
-<h2>3. Cantones y tensiones</h2><table><thead><tr><th>Cantón</th><th>Vanos</th><th>a regulación (m)</th>${H.all.map(h => `<th>T ${h.id} (daN)</th>`).join('')}<th>EDS %</th></tr></thead><tbody>
+${informeElec()}<h2>3. Cantones y tensiones</h2><table><thead><tr><th>Cantón</th><th>Vanos</th><th>a regulación (m)</th>${H.all.map(h => `<th>T ${h.id} (daN)</th>`).join('')}<th>EDS %</th></tr></thead><tbody>
 ${c.cantones.map((cn, k) => `<tr>${td('C' + (k + 1))}${td(cn.spans.map(s => `A${s.i + 1}–A${s.i + 2}`).join(', '))}${tn(fmt(cn.ar, 1))}${H.all.map(h => tn(fmt(cn.T[h.id]))).join('')}${tn(fmt(cn.edsPct, 1))}</tr>`).join('')}</tbody></table>
 <h2>4. Vanos y flechas</h2><table><thead><tr><th>Vano</th><th>Longitud (m)</th>${[H.H1, H.H2, H.H3].map(h => `<th>Flecha ${h.id} (m)</th>`).join('')}<th>Desnivel (m)</th><th>Dist. libre (m)</th><th>Dist. mínima (m)</th></tr></thead><tbody>
 ${c.spans.map(s => `<tr>${td(`A${s.i + 1}–A${s.i + 2}${s.cruce ? ' (cruce)' : ''}`)}${tn(fmt(s.a, 2) + (s.manual ? ` (manual; medido ${fmt(s.aCalc, 2)})` : ''))}${[H.H1, H.H2, H.H3].map(h => tn(fmt(s.flechas[h.id], 2))).join('')}${tn(c.conPerfil ? fmt(s.dz, 2) : '—')}${tn(s.libre != null ? fmt(s.libre, 2) : '—')}${tn(fmt(s.dmin, 1))}</tr>`).join('')}</tbody></table>
@@ -628,7 +629,8 @@ function getGeo(nodes) {
 const V = { sc: null, cx: 0, cy: 0, fitted: false };
 /* Puntos que encuadran la vista y los fondos: el trazado nuevo y la red existente cercana (300 m) */
 function allPts() {
-  const n = S.calc?.nodes || (S.proj.rows.length > 1 ? currentNodes() : []);
+  const sinGeo = S.proj.modo !== 'kml' && S.proj.zone && !(S.proj.entronque && exNodes()[S.proj.entronque.k]); // trazado manual aún sin situar
+  const n = sinGeo ? [] : (S.calc?.nodes || (S.proj.rows.length > 1 ? currentNodes() : []));
   const ruta = S.proj.geo?.ruta || [];
   const ex = [...exNodes(), ...exLineas().flatMap(l => l.pts), ...exDC()];
   const base = [...n, ...ruta, ...subAllPts()];
@@ -873,7 +875,7 @@ function snapTargets(dp) {
     const pts = S.proj.modo === 'kml' && S.proj.geo ? S.proj.geo.pts : currentNodes();
     pts.forEach((p, i) => { if (own('nuevo', 0, i) || (i === 0 && linkedA1)) return; out.push({ x: p.x, y: p.y, label: 'Apoyo A' + (i + 1) }); });
   }
-  if (vis('exApoyos')) (redEx()?.apoyos || []).forEach((p, i) => { if (own('exApoyos', 0, i) || (i === enK && linkedA1)) return; out.push({ x: p.x, y: p.y, label: 'Apoyo existente E' + (i + 1) }); });
+  if (vis('exApoyos')) (redEx()?.apoyos || []).forEach((p, i) => { if (own('exApoyos', 0, i) || (i === enK && linkedA1)) return; out.push({ x: p.x, y: p.y, label: 'Apoyo existente E' + (i + 1), exK: i }); });
   if (vis('exLineas')) exLineas().forEach((l, li) => { const n = l.pts.length; [0, n - 1].forEach((i, k) => { if (n < 2 || (k && i === 0) || own('exLineas', li, i)) return; out.push({ x: l.pts[i].x, y: l.pts[i].y, label: (k ? 'Fin' : 'Inicio') + ' de tramo ' + (lineLabel(l) || 'L' + (li + 1)) }); }); });
   if (vis('ruta') && S.proj.geo?.ruta?.length > 1) { const r = S.proj.geo.ruta; [0, r.length - 1].forEach((i, k) => { if (!own('ruta', 0, i)) out.push({ x: r[i].x, y: r[i].y, label: (k ? 'Fin' : 'Inicio') + ' de ruta' }); }); }
   if (vis('exDC')) exDC().forEach((p, i) => { if (!own('exDC', 0, i)) out.push({ x: p.x, y: p.y, label: 'Punto D-C' + (dcLabel(p) ? ' ' + dcLabel(p) : '') }); });
@@ -893,9 +895,16 @@ function editClick(mx, my) {
   if (tool === 'insert' && isSubLayer(layer)) return subInsert(layer, mx, my);
   if (tool === 'insert') {
     if (layer === 'nuevo') {
-      ensureGeoPts(); const pts = S.proj.geo.pts; const h = hitSegment(pts, mx, my);
       snapshot();
-      const np = { x: w.x, y: w.y, vertice: true }; setLL(np);
+      // Dibujo desde el plano: un trazado manual sin coordenadas (los dos apoyos por defecto) se sustituye por el que se dibuja
+      if (S.proj.modo !== 'kml' && S.proj.rows.length <= 2 && S.proj.zone) { S.proj.rows = []; S.proj.geo = { zone: S.proj.zone, pts: [], fuente: 'dibujado en el plano' }; S.proj.modo = 'kml'; S.proj.perfil = null; }
+      ensureGeoPts(); const pts = S.proj.geo.pts; const h = hitSegment(pts, mx, my);
+      const sn = findSnap({ layer: '__nuevo__' }, mx, my); const np = { x: sn ? sn.x : w.x, y: sn ? sn.y : w.y, vertice: true }; setLL(np);
+      if (!pts.length && S.proj.entronque) {
+        const en = S.proj.entronque, ex = exNodes();
+        if (sn?.exK != null) { en.k = sn.exK; pts.push(np); S.proj.rows.push(newRow()); S.proj.rows[0].existente.activo = true; toast(`Trazado iniciado en el apoyo existente ${exLabel(sn.exK)} (entronque). Pulsa los siguientes apoyos.`); refreshAll(); return; }
+        if (en.k != null && ex[en.k]) { const E0 = ex[en.k]; pts.push({ x: E0.x, y: E0.y, lat: E0.lat, lon: E0.lon, vertice: true }); S.proj.rows.push(newRow()); S.proj.rows[0].existente.activo = true; pts.push(np); S.proj.rows.push(newRow()); toast(`Trazado iniciado en el apoyo de entronque ${exLabel(en.k)}; A2 añadido.`); refreshAll(); return; }
+      }
       if (h) { pts.splice(h.i + 1, 0, np); S.proj.rows.splice(h.i + 1, 0, newRow()); toast(`Apoyo insertado entre A${h.i + 1} y A${h.i + 2}.`); }
       else { pts.push(np); S.proj.rows.push(newRow()); toast(`Apoyo A${pts.length} añadido al final del trazado.`); }
     } else if (layer === 'exApoyos') {
@@ -987,6 +996,7 @@ function bindMap() {
     }
     if (d.moved) return;
     const mx = d.mx, my = d.my;
+    if (S.pickCgp) return placeCgp(mx, my);
     if (S.tool === 'insert' || S.tool === 'delete' || S.tool === 'text') return editClick(mx, my);
     const near = list => { let best = -1, bd = 16; list.forEach((n, i) => { const [x, y] = S.mapT.P(n); const dd = Math.hypot(x - mx, y - my); if (dd < bd) { bd = dd; best = i; } }); return best; };
     if (S.pickEntronque) { const k = near(S.mapT.ex); if (k >= 0) { S.pickEntronque = false; setEntronque(k); } return; }
@@ -1285,7 +1295,7 @@ function refreshAll() {
   $('#geoInfo').hidden = !(S.proj.modo === 'kml' && S.proj.geo); $('#geoInfo').innerHTML = geoInfoHtml();
   const tm = $('#toManual'); if (tm) tm.onclick = toManual;
   renderRows(); renderEntronque(); recalc(); renderFondos(); renderPerfilInfo(); renderPtEdit(); updUndo();
-  renderCapas(); renderProjName(); renderSub(); scheduleAuto();
+  renderCapas(); renderProjName(); renderSub(); renderSum(); scheduleAuto();
 }
 
 /* ---------- Plano: vista con desplazamiento y zoom ---------- */
@@ -1825,12 +1835,14 @@ async function exportPdf() {
       ['sq', acc, 'Apoyo nuevo (A)'], ['line', acc, 'Línea nueva: ' + shortCable(S.cables.find(x => x.id === S.proj.cableId)?.designacion || '')],
       ['circ', exi, 'Apoyo existente'], ['dash', exi, 'Tramo baja existente'], ['circ', acc, 'Apoyo de entronque']];
     if (exDC().length) leg.push(['diam', rgb(0.478, 0.243, 0.561), 'Punto D-C (CUPS, caracteres 12-18)']);
+    if (S.proj.sum?.cgp?.x != null) leg.push(['rect', rgb(0.702, 0.212, 0.173), 'CGP del cliente']);
     if (subHasData()) { const sv = SUB(); if (sv.lineas.some(l => l.estado === 'nuevo')) leg.push(['dash', rgb(0.761, 0.255, 0.047), 'Línea subterránea nueva']); if (sv.lineas.some(l => l.estado !== 'nuevo')) leg.push(['dash', exi, 'Línea subterránea existente']); if (sv.zanjas.length) leg.push(['line', rgb(0.604, 0.396, 0.149), 'Zanja (cuadros: arquetas)']); }
     const lstep = leg.length > 5 ? 4.0 : 4.6;
     leg.forEach((it, k) => {
       const cols = leg.length > 6 ? 2 : 1, kk = k % Math.ceil(leg.length / cols), lx = m + 3 + Math.floor(k / Math.ceil(leg.length / cols)) * 39;
       const yy = ly + 8 + kk * lstep, [kind, colr, label] = it;
       if (kind === 'diam') page.drawRectangle({ x: X(lx + 1.2), y: Y(yy + 1.5), width: X(2), height: X(2), color: colr, rotate: PDFLib.degrees(45) });
+      if (kind === 'rect') page.drawRectangle({ x: X(lx - 0.3), y: Y(yy + 0.9), width: X(3.2), height: X(2.1), color: colr });
       if (kind === 'sq') page.drawRectangle({ x: X(lx), y: Y(yy + 1), width: X(2.4), height: X(2.4), color: rgb(0.184, 0.49, 0.31) });
       if (kind === 'circ') page.drawCircle({ x: X(lx + 1.2), y: Y(yy - 0.2), size: X(1.2), color: colr });
       if (kind === 'line') page.drawLine({ start: { x: X(lx - 0.5), y: Y(yy - 0.2) }, end: { x: X(lx + 3), y: Y(yy - 0.2) }, thickness: 1.6, color: colr });
@@ -2121,7 +2133,7 @@ function start() {
   if (!LOCAL) $('#ver').textContent = 'v' + VERSION;
   loadForm(); bindForm(); bindRows(); bindMap(); bindProjects(); bindDbTables(); bindPrecios(); bindTabs();
   $('#kmlFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importFile(f, 'nuevo'); e.target.value = ''; });
-  bindEntronque(); bindCoordForm(); bindPerfilAuto(); bindSub(); bindSubBases(); renderSubBases();
+  bindEntronque(); bindCoordForm(); bindPerfilAuto(); bindSub(); bindSubBases(); renderSubBases(); bindSum(); renderSum();
   $('#perfilFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importFile(f, 'perfil'); e.target.value = ''; });
   $('#exportZip').onclick = exportZip;
   $('#exportNote').textContent = 'Incluye DXF en ETRS89 UTM con la línea nueva y la existente, KML, GeoJSON, los fondos cargados con su archivo de mundo, tabla CSV y anexo de cálculo.';

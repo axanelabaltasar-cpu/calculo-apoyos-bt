@@ -151,7 +151,7 @@ a.btn{text-decoration:none;display:inline-block}
       <label class="btn small" for="impProjFile">Abrir archivo</label><input id="impProjFile" type="file" accept=".json" hidden>
       <button class="btn small" id="expBases" type="button" hidden>Exportar bases</button>
       <button class="btn small" id="foldAll" type="button">Minimizar / desplegar todo</button>
-      <div class="ver" id="ver">v1.21.0</div>
+      <div class="ver" id="ver">v1.22.0</div>
     </div>
   </header>
   <nav class="tabs" role="tablist">
@@ -184,6 +184,7 @@ a.btn{text-decoration:none;display:inline-block}
             <label class="chk w2"><input id="p_sobreEdificios" type="checkbox"> Red sobre edificaciones o apoyos en fachada (coef. +25 %)</label>
             <label class="chk w2"><input id="p_vientoPoste" type="checkbox"> Incluir viento sobre el fuste del apoyo (100 daN/m²)</label>
           </div>
+          <div id="sumBox"></div>
         </section>
 
         <section class="card wide" id="planoCard">
@@ -361,6 +362,13 @@ a.btn{text-decoration:none;display:inline-block}
       <h2>Criterios de cálculo aplicados</h2>
       <h3>Normativa</h3>
       <p>Reglamento Electrotécnico para Baja Tensión (RD 842/2002), ITC-BT-06 «Redes aéreas para distribución en baja tensión», apartados 1 a 3. Conductores según UNE 21030-1. Postes de hormigón armado vibrado tipo HV y HVH según UNE 207016.</p>
+      <h3>Suministro solicitado y elección del conductor</h3>
+      <ul>
+        <li>Datos de partida: potencia, tensión (230 V monofásica o 400 V trifásica) y uso solicitados, cos φ, potencia disponible y caída de tensión en el punto de conexión, caída máxima admisible y ubicación de la CGP del cliente (ITC-BT-13).</li>
+        <li>Intensidad: P / (√3 · 400 · cos φ) en trifásico y P / (230 · cos φ) en monofásico. Caída de tensión con la carga al final de la línea y la resistencia a 90 °C; en monofásico, ida y vuelta.</li>
+        <li>Con la elección automática se toma el conductor de menor sección de la base que cumple la intensidad admisible (aéreo: ITC-BT-06 tabla 3; subterráneo: ITC-BT-07 con sus factores) y la caída de tensión total, y el cortocircuito si se indica. El cable aéreo elegido se comprueba después mecánicamente con los apoyos.</li>
+        <li>Se avisa si la potencia solicitada supera la disponible en el punto de conexión y si la línea nueva no llega a la CGP.</li>
+      </ul>
       <h3>Red subterránea (ITC-BT-07)</h3>
       <ul>
         <li>Cables de aluminio con aislamiento XLPE, 0,6/1 kV. Sección mínima de fase 16 mm²; neutro según la tabla del apartado 1 (p. ej. 150 → 70 mm², 240 → 120 mm²).</li>
