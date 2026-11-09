@@ -29,10 +29,15 @@ const SUB_PAR = { U: 400, dUmax: 5, tTerreno: 25, rho: 1, icc: 0, tcc: 0.5, rese
 
 /* Valores por defecto de las bases (se usan si la base está vacía y se cargan la primera vez) */
 const SUB_DEF_CABLES = [
-  { id: 'XZ1-AL-3x50+1x50', designacion: 'XZ1 (S) 0,6/1 kV Al 3x50+1x50', secFase: 50, secNeutro: 50, diamExt: 13.0, Imax: 180, R20: 0.641, X: 0.08, coste: 0, venta: 0, activo: true, orden: 10 },
-  { id: 'XZ1-AL-3x95+1x50', designacion: 'XZ1 (S) 0,6/1 kV Al 3x95+1x50', secFase: 95, secNeutro: 50, diamExt: 16.2, Imax: 260, R20: 0.320, X: 0.08, coste: 0, venta: 0, activo: true, orden: 20 },
-  { id: 'XZ1-AL-3x150+1x95', designacion: 'XZ1 (S) 0,6/1 kV Al 3x150+1x95', secFase: 150, secNeutro: 95, diamExt: 19.8, Imax: 330, R20: 0.206, X: 0.08, coste: 0, venta: 0, activo: true, orden: 30 },
-  { id: 'XZ1-AL-3x240+1x150', designacion: 'XZ1 (S) 0,6/1 kV Al 3x240+1x150', secFase: 240, secNeutro: 150, diamExt: 24.6, Imax: 430, R20: 0.125, X: 0.08, coste: 0, venta: 0, activo: true, orden: 40 }
+  { id: 'XZ1-AL-3x50+1x50', designacion: 'XZ1 (S) 0,6/1 kV Al 3x50+1x50', secFase: 50, secNeutro: 50, diamExt: 13.0, fases: 3, Imax: 180, R20: 0.641, X: 0.08, coste: 0, venta: 0, activo: true, orden: 10 },
+  { id: 'XZ1-AL-3x95+1x50', designacion: 'XZ1 (S) 0,6/1 kV Al 3x95+1x50', secFase: 95, secNeutro: 50, diamExt: 16.2, fases: 3, Imax: 260, R20: 0.320, X: 0.08, coste: 0, venta: 0, activo: true, orden: 20 },
+  { id: 'XZ1-AL-3x150+1x95', designacion: 'XZ1 (S) 0,6/1 kV Al 3x150+1x95', secFase: 150, secNeutro: 95, diamExt: 19.8, fases: 3, Imax: 330, R20: 0.206, X: 0.08, coste: 0, venta: 0, activo: true, orden: 30 },
+  { id: 'XZ1-AL-3x240+1x150', designacion: 'XZ1 (S) 0,6/1 kV Al 3x240+1x150', secFase: 240, secNeutro: 150, diamExt: 24.6, fases: 3, Imax: 430, R20: 0.125, X: 0.08, coste: 0, venta: 0, activo: true, orden: 40 },
+  // Acometidas monofásicas: dos conductores unipolares (fase + neutro de igual sección). I máx. = tabla 4 × 1,225 (nota 2)
+  { id: 'XZ1-AL-2x1x16', designacion: 'XZ1 (S) 0,6/1 kV Al 2x1x16', secFase: 16, secNeutro: 16, diamExt: 9.2, fases: 1, Imax: 119, R20: 1.91, X: 0.08, coste: 0, venta: 0, activo: true, orden: 110 },
+  { id: 'XZ1-AL-2x1x25', designacion: 'XZ1 (S) 0,6/1 kV Al 2x1x25', secFase: 25, secNeutro: 25, diamExt: 10.5, fases: 1, Imax: 153, R20: 1.20, X: 0.08, coste: 0, venta: 0, activo: true, orden: 120 },
+  { id: 'XZ1-AL-2x1x35', designacion: 'XZ1 (S) 0,6/1 kV Al 2x1x35', secFase: 35, secNeutro: 35, diamExt: 11.5, fases: 1, Imax: 184, R20: 0.868, X: 0.08, coste: 0, venta: 0, activo: true, orden: 130 },
+  { id: 'XZ1-AL-2x1x50', designacion: 'XZ1 (S) 0,6/1 kV Al 2x1x50', secFase: 50, secNeutro: 50, diamExt: 13.0, fases: 1, Imax: 220, R20: 0.641, X: 0.08, coste: 0, venta: 0, activo: true, orden: 140 }
 ];
 const SUB_DEF_TUBOS = [
   { id: 'TPE-90', designacion: 'Tubo PE corrugado doble pared 90 mm 450 N', dExt: 90, dInt: 76, coste: 0, venta: 0, activo: true, orden: 10 },
@@ -133,8 +138,8 @@ function calcSub() {
       if (lin.length > (Number(z.nTubos) || 0)) add('bad', `${lin.length} circuitos y ${z.nTubos} tubos: no se instalará más de un circuito por tubo (ITC-BT-07 2.1.2).`);
       else { const libres = (Number(z.nTubos) || 0) - lin.length; add(libres >= par.reservaMin ? 'ok' : 'warn', `${lin.length} circuito(s) en ${z.nTubos} tubo(s): ${libres} libre(s)${libres < par.reservaMin ? ` (criterio de reserva: ${par.reservaMin})` : ''}.`); }
       if (t && lin.length) {
-        const dmax = Math.max(...lin.map(l => subCable(l.cableId)?.diamExt || 0));
-        if (dmax) { haz = 2.414 * dmax; ratio = t.dInt / haz;
+        haz = Math.max(...lin.map(l => { const cc = subCable(l.cableId); return cc ? (Number(cc.fases) === 1 ? 2 : 2.414) * (cc.diamExt || 0) : 0; }));
+        if (haz) { ratio = t.dInt / haz;
           add(ratio >= 2 ? 'ok' : ratio >= 1.5 ? 'warn' : 'bad', `Ø interior del tubo ${fmt(t.dInt)} mm / Ø aparente del circuito ${fmt(haz, 1)} mm = ${fmt(ratio, 2)} ${ratio >= 2 ? '> 2' : ratio >= 1.5 ? '(admisible solo excepcionalmente, ≥ 1,5)' : '< 1,5: tubo insuficiente'} (ITC-BT-07 3.1.3).`); }
       }
       arq = arquetasZanja(z);
@@ -150,19 +155,20 @@ function calcSub() {
     const zr = z ? out.zanjas.find(q => q.z === z) : null;
     const prof = z ? Number(z.prof) || 0.7 : 0.7, entub = z ? !!z.entubada : true, nC = zr ? zr.lin.length : 1, sep = zr ? zr.sep : '0';
     const f = { t: interp(SUB_FT, Number(par.tTerreno)), r: interp(SUB_FR, Number(par.rho)), p: interp(SUB_FP, prof), a: faAgrup(nC, sep), tubo: entub ? SUB_F_TUBO : 1 };
-    const Itab = c ? (Number(c.Imax) || SUB_T4[c.secFase] || 0) : 0;
+    const mono = Number(c?.fases) === 1;
+    const Itab = c ? (Number(c.Imax) || (SUB_T4[c.secFase] || 0) * (mono ? 1.225 : 1)) : 0;
     const Iadm = Itab * f.t * f.r * f.p * f.a * f.tubo;
-    const P = Number(l.potencia) || 0, cos = Math.min(1, Math.max(0.5, Number(l.cosphi) || 0.9)), U = Number(par.U) || 400;
-    const I = P > 0 ? P * 1000 / (Math.sqrt(3) * U * cos) : 0;
+    const P = Number(l.potencia) || 0, cos = Math.min(1, Math.max(0.5, Number(l.cosphi) || 0.9)), U = Number(par.U) || 400, U0 = U / Math.sqrt(3), Uref = mono ? U0 : U;
+    const I = P > 0 ? (mono ? P * 1000 / (U0 * cos) : P * 1000 / (Math.sqrt(3) * U * cos)) : 0;
     const R90 = c ? (Number(c.R20) || 0) * (1 + 0.00403 * 70) : 0, Xk = c ? Number(c.X) || 0 : 0, sin = Math.sqrt(1 - cos * cos);
-    const dU = Math.sqrt(3) * I * (L / 1000) * (R90 * cos + Xk * sin), dUp = dU / U * 100, dUtot = dUp + (Number(l.dUprev) || 0);
+    const dU = (mono ? 2 : Math.sqrt(3)) * I * (L / 1000) * (R90 * cos + Xk * sin), dUp = dU / Uref * 100, dUtot = dUp + (Number(l.dUprev) || 0);
     if (!c) add('bad', 'Falta elegir el cable.');
     else {
       if (c.secFase < 16) add('bad', 'Sección mínima de fase en aluminio: 16 mm² (ITC-BT-07 1).');
-      const nm = neutroMin(c.secFase); add((c.secNeutro || 0) >= nm ? 'ok' : 'bad', `Neutro ${fmt(c.secNeutro)} mm² ${(c.secNeutro || 0) >= nm ? '≥' : '<'} ${nm} mm² mínimo para fase de ${c.secFase} mm² (ITC-BT-07 1, tabla 1).`);
+      const nm = mono ? c.secFase : neutroMin(c.secFase); if (mono) add('ok', `Acometida monofásica: 2 conductores unipolares (fase y neutro) a ${fmt(U0)} V.`); add((c.secNeutro || 0) >= nm ? 'ok' : 'bad', `Neutro ${fmt(c.secNeutro)} mm² ${(c.secNeutro || 0) >= nm ? '≥' : '<'} ${nm} mm² mínimo para fase de ${c.secFase} mm² (ITC-BT-07 1${mono ? ': con dos conductores, igual a la fase' : ', tabla 1'}).`);
       if (l.estado === 'nuevo') {
         if (P > 0) {
-          add(I <= Iadm + 1e-9 ? 'ok' : 'bad', `Intensidad ${fmt(I, 1)} A ${I <= Iadm ? '≤' : '>'} admisible ${fmt(Iadm, 1)} A (${fmt(Itab)} A × ${fmt(f.t, 2)} temp. × ${fmt(f.r, 2)} resist. × ${fmt(f.p, 2)} prof. × ${fmt(f.a, 2)} agrup. × ${fmt(f.tubo, 2)} tubo; ITC-BT-07 3.1).`);
+          add(I <= Iadm + 1e-9 ? 'ok' : 'bad', `Intensidad ${fmt(I, 1)} A ${I <= Iadm ? '≤' : '>'} admisible ${fmt(Iadm, 1)} A (${fmt(Itab)} A × ${fmt(f.t, 2)} temp. × ${fmt(f.r, 2)} resist. × ${fmt(f.p, 2)} prof. × ${fmt(f.a, 2)} agrup. × ${fmt(f.tubo, 2)} tubo; ITC-BT-07 3.1${mono ? '; dos unipolares: tabla 4 × 1,225' : ''}).`);
           add(dUtot <= par.dUmax + 1e-9 ? 'ok' : 'bad', `Caída de tensión ${fmt(dUp, 2)} %${Number(l.dUprev) ? ` + ${fmt(l.dUprev, 2)} % previa = ${fmt(dUtot, 2)} %` : ''} ${dUtot <= par.dUmax ? '≤' : '>'} ${fmt(par.dUmax, 1)} % (criterio del proyecto).`);
         } else add('warn', 'Indica la potencia prevista (kW) para comprobar intensidad y caída de tensión.');
         if (Number(par.icc) > 0) { const dens = interp(SUB_DCC, Number(par.tcc) || 0.5), Smin = Number(par.icc) * 1000 / dens; add(c.secFase >= Smin ? 'ok' : 'bad', `Cortocircuito ${fmt(par.icc, 1)} kA durante ${fmt(par.tcc, 2)} s: sección mínima ${fmt(Smin, 1)} mm² (${fmt(dens)} A/mm², ITC-BT-07 tabla 16).`); }
@@ -399,7 +405,7 @@ async function importSub(file, kind, estado) {
 }
 
 /* ---------- Bases (cables subterráneos y tubos) y precios ---------- */
-const SUBCAB_COLS = [['designacion', 'Designación', 'text'], ['secFase', 'Secc. fase'], ['secNeutro', 'Secc. neutro'], ['diamExt', 'Ø exterior (mm)'], ['Imax', 'I máx. enterrada (A)'], ['R20', 'R 20 °C (Ω/km)'], ['X', 'X (Ω/km)'], ['coste', 'Coste (€/m)'], ['venta', 'Venta (€/m)'], ['orden', 'Orden']];
+const SUBCAB_COLS = [['designacion', 'Designación', 'text'], ['secFase', 'Secc. fase'], ['secNeutro', 'Secc. neutro'], ['diamExt', 'Ø exterior (mm)'], ['fases', 'Fases (1 o 3)'], ['Imax', 'I máx. enterrada (A)'], ['R20', 'R 20 °C (Ω/km)'], ['X', 'X (Ω/km)'], ['coste', 'Coste (€/m)'], ['venta', 'Venta (€/m)'], ['orden', 'Orden']];
 const TUBO_COLS = [['designacion', 'Designación', 'text'], ['dExt', 'Ø exterior (mm)'], ['dInt', 'Ø interior (mm)'], ['coste', 'Coste (€/m)'], ['venta', 'Venta (€/m)'], ['orden', 'Orden']];
 function renderSubBases() {
   if (!document.activeElement?.closest?.('#subCableTable')) dbTable('#subCableTable', S.cablesSub, SUBCAB_COLS, 'cablesSub');
@@ -417,14 +423,23 @@ function bindSubBases() {
     });
   }
   const add = (coll, v, msg) => async () => { if (!S.db) return toast('Sin conexión a la base de datos.'); try { await S.db.collection(coll).add(v); toast(msg); } catch (e) { toast('No se pudo añadir: ' + (e.message || e.code)); } };
-  const ac = $('#addSubCable'); if (ac) ac.onclick = add('cablesSub', { designacion: 'Nuevo cable subterráneo', secFase: 0, secNeutro: 0, diamExt: 0, Imax: 0, R20: 0, X: 0.08, coste: 0, venta: 0, activo: true, orden: 999 }, 'Cable añadido al final de la tabla.');
+  const ac = $('#addSubCable'); if (ac) ac.onclick = add('cablesSub', { designacion: 'Nuevo cable subterráneo', secFase: 0, secNeutro: 0, diamExt: 0, fases: 3, Imax: 0, R20: 0, X: 0.08, coste: 0, venta: 0, activo: true, orden: 999 }, 'Cable añadido al final de la tabla.');
   const at = $('#addTubo'); if (at) at.onclick = add('tubos', { designacion: 'Nuevo tubo', dExt: 160, dInt: 136, coste: 0, venta: 0, activo: true, orden: 999 }, 'Tubo añadido al final de la tabla.');
 }
 /* Suscripción a las bases nuevas; si están vacías la primera vez, se cargan los valores por defecto */
 function initSubDb(db) {
-  const seed = async (coll, arr) => { try { const flag = 'seed_' + coll; const d = S.subSeedDone || (S.subSeedDone = {}); if (d[flag]) return; d[flag] = true; for (const o of arr) { const { id, ...v } = o; await db.doc(`${coll}/${id}`).set(v); } } catch (e) { } };
-  db.collection('cablesSub').onSnapshot(qs => { S.cablesSub = qs.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden || 0) - (b.orden || 0)); if (!S.cablesSub.length && !S.subLoaded.c) seed('cablesSub', SUB_DEF_CABLES); S.subLoaded.c = true; renderSubBases(); renderSub(); drawMap(); }, () => { });
-  db.collection('tubos').onSnapshot(qs => { S.tubos = qs.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden || 0) - (b.orden || 0)); if (!S.tubos.length && !S.subLoaded.t) seed('tubos', SUB_DEF_TUBOS); S.subLoaded.t = true; renderSubBases(); renderSub(); drawMap(); }, () => { });
+  // Carga una sola vez cada elemento de las bases por defecto que falte (registro en config/subSeed: lo que borres no vuelve)
+  let cfg = null; const got = { c: false, t: false };
+  const trySeed = async () => {
+    if (cfg === null || !got.c || !got.t || S.subSeeding) return; S.subSeeding = true;
+    const hechos = new Set(cfg.ids || []), nuevos = [];
+    for (const [coll, arr, have] of [['cablesSub', SUB_DEF_CABLES, S.cablesSub], ['tubos', SUB_DEF_TUBOS, S.tubos]])
+      for (const o of arr) { const key = coll + '/' + o.id; if (hechos.has(key)) continue; nuevos.push(key); if (!have.some(x => x.id === o.id)) { const { id, ...v } = o; try { await db.doc(key).set(v); } catch (e) { } } }
+    if (nuevos.length) try { await db.doc('config/subSeed').set({ ids: [...hechos, ...nuevos] }); } catch (e) { }
+  };
+  db.doc('config/subSeed').onSnapshot(d => { cfg = d.data() || {}; trySeed(); }, () => { cfg = cfg || {}; });
+  db.collection('cablesSub').onSnapshot(qs => { S.cablesSub = qs.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden || 0) - (b.orden || 0)); got.c = true; S.subLoaded.c = true; trySeed(); renderSubBases(); renderSub(); drawMap(); }, () => { });
+  db.collection('tubos').onSnapshot(qs => { S.tubos = qs.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden || 0) - (b.orden || 0)); got.t = true; S.subLoaded.t = true; trySeed(); renderSubBases(); renderSub(); drawMap(); }, () => { });
 }
 PRECIO_FIELDS.push(...SUB_PRECIOS);
 CAPAS.push(['grupo', 'Red subterránea'], ['subNueva', 'Líneas subterráneas nuevas'], ['subEx', 'Líneas subterráneas existentes'], ['subTxt', 'Textos de líneas subterráneas'], ['zanjaNueva', 'Zanjas nuevas'], ['zanjaEx', 'Zanjas existentes'], ['zanjaTxt', 'Textos de zanjas'], ['arquetas', 'Arquetas']);

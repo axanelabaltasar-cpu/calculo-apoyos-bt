@@ -151,7 +151,7 @@ a.btn{text-decoration:none;display:inline-block}
       <label class="btn small" for="impProjFile">Abrir archivo</label><input id="impProjFile" type="file" accept=".json" hidden>
       <button class="btn small" id="expBases" type="button" hidden>Exportar bases</button>
       <button class="btn small" id="foldAll" type="button">Minimizar / desplegar todo</button>
-      <div class="ver" id="ver">v1.18.0</div>
+      <div class="ver" id="ver">v1.19.0</div>
     </div>
   </header>
   <nav class="tabs" role="tablist">
@@ -336,7 +336,7 @@ a.btn{text-decoration:none;display:inline-block}
   <div id="tab-subbase" hidden>
     <section class="card" style="margin-top:16px">
       <h2>Cables subterráneos <span class="row"><button class="btn small" id="addSubCable">Añadir cable</button></span></h2>
-      <p class="note">Cables de aluminio con aislamiento XLPE, 0,6/1 kV (UNE-HD 603), en terna de unipolares más neutro. «I máx. enterrada» es la de la tabla 4 del ITC-BT-07 (terna enterrada a 0,70 m, 25 °C y 1 K·m/W); el cálculo le aplica los factores de corrección. Ø exterior de cada cable unipolar para comprobar el tubo; R a 20 °C y X para la caída de tensión. Precio por metro de circuito completo (3 fases + neutro). Los diámetros por defecto son aproximados: ajústalos al catálogo de tu proveedor.</p>
+      <p class="note">Cables de aluminio con aislamiento XLPE, 0,6/1 kV (UNE-HD 603), en terna de unipolares más neutro. «I máx. enterrada» es la de la tabla 4 del ITC-BT-07 (terna enterrada a 0,70 m, 25 °C y 1 K·m/W); el cálculo le aplica los factores de corrección. Fases: 3 para circuitos trifásicos (terna + neutro) y 1 para acometidas monofásicas de dos conductores unipolares (fase y neutro de igual sección), cuya I máx. es la de la tabla 4 × 1,225 (nota 2) y que se calculan a 230 V con caída de tensión de ida y vuelta. Ø exterior de cada cable unipolar para comprobar el tubo; R a 20 °C y X para la caída de tensión. Precio por metro de circuito completo (3 fases + neutro). Los diámetros por defecto son aproximados: ajústalos al catálogo de tu proveedor.</p>
       <div class="tablewrap dbtable" style="margin-top:8px"><table id="subCableTable"></table></div>
     </section>
     <section class="card" style="margin-top:16px">
