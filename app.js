@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.14.0';
+const VERSION = '1.15.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -1932,21 +1932,43 @@ async function descargarAnexo() {
 }
 
 /* ---------- Proyectos ---------- */
+/* Guardar: primero pregunta en qué carpeta (y con qué nombre) se guarda el archivo del proyecto; después lo añade a «Proyectos guardados». */
+function projFileData() { return { app: 'Calculo de Apoyos BT', version: VERSION, proyecto: { ...S.proj, id: undefined, fondos: Object.fromEntries(Object.entries(S.proj.fondos || {}).map(([k, f]) => [k, { ...f, blobUrl: undefined }])) } }; }
+function projFileName() { return ascii(S.proj.nombre || 'proyecto').replace(/[^A-Za-z0-9_-]+/g, '_') + '.apoyosbt.json'; }
+async function pickAndWrite(name, blob) {
+  // Devuelve {ok, archivo} · {cancel} · {noPicker}
+  if (typeof window.showSaveFilePicker !== 'function') return { noPicker: true };
+  let h;
+  try { h = await window.showSaveFilePicker({ id: 'apoyosbt-proyectos', suggestedName: name, startIn: 'documents', types: [{ description: 'Proyecto de Cálculo de Apoyos BT', accept: { 'application/json': ['.json'] } }] }); }
+  catch (e) { if (e?.name === 'AbortError') return { cancel: true }; return { noPicker: true }; }
+  try { const w = await h.createWritable(); await w.write(blob); await w.close(); return { ok: true, archivo: h.name }; }
+  catch (e) { toast('No se pudo escribir el archivo: ' + (e.message || e.name)); return { cancel: true }; }
+}
 async function saveProject() {
-  if (!S.db) { toast('Sin conexión a la base de datos.'); return; }
-  const data = { nombre: S.proj.nombre || 'Sin nombre', fecha: new Date().toISOString(), datos: JSON.stringify({ ...S.proj, id: undefined, fondos: Object.fromEntries(Object.entries(S.proj.fondos || {}).map(([k, f]) => [k, { ...f, blobUrl: undefined }])) }) };
-  if (Object.values(S.proj.fondos || {}).some(f => f.blobUrl && !f.assetId)) toast('Aviso: algún fondo no se ha podido guardar y no se conservará con el proyecto.');
+  const blob = new Blob([JSON.stringify(projFileData())], { type: 'application/json' });
+  const r = await pickAndWrite(projFileName(), blob);       // el selector de carpeta se abre directamente con el clic
+  if (r.cancel) { toast('Guardado cancelado: no se ha elegido carpeta.'); return; }
+  let archivo = r.archivo || '';
+  if (r.noPicker) {
+    if (!(await saveFile(projFileName(), blob))) return;
+    archivo = projFileName();
+    toast('Este navegador no deja elegir la carpeta desde la app: el archivo va a la carpeta de descargas, salvo que actives «Preguntar dónde guardar cada archivo» en los ajustes de descargas del navegador.');
+  }
+  if (Object.values(S.proj.fondos || {}).some(f => f.blobUrl && !f.assetId)) toast('Aviso: algún fondo cargado a mano no se conservará con el proyecto.');
+  if (!S.db) { toast(`Proyecto guardado en el archivo «${archivo}».`); return; }
+  const data = { nombre: S.proj.nombre || 'Sin nombre', fecha: new Date().toISOString(), archivo, datos: JSON.stringify({ ...S.proj, id: undefined, fondos: Object.fromEntries(Object.entries(S.proj.fondos || {}).map(([k, f]) => [k, { ...f, blobUrl: undefined }])) }) };
   try {
     if (S.proj.id) await S.db.doc('proyectos/' + S.proj.id).set(data);
     else { const ref = await S.db.collection('proyectos').add(data); S.proj.id = ref.id; }
-    toast('Proyecto guardado.'); renderProjName();
-  } catch (e) { toast('No se pudo guardar: ' + (e.message || e.code)); }
+    if (!r.noPicker) toast(`Proyecto guardado en el archivo «${archivo}» de la carpeta elegida y en «Proyectos guardados».`);
+    renderProjName();
+  } catch (e) { toast('Archivo guardado, pero no se pudo añadir a «Proyectos guardados»: ' + (e.message || e.code)); }
 }
 function renderProjList() {
   const box = $('#projList');
   const b = $('#projBtn'); if (b) b.textContent = `Proyectos guardados${S.projs.length ? ' (' + S.projs.length + ')' : ''} ▾`;
   if (!S.projs.length) { box.innerHTML = '<p class="note">Aún no hay proyectos guardados. Pulsa «Guardar» para conservar el trazado y los datos de cálculo.</p>'; return; }
-  box.innerHTML = `<div class="tablewrap"><table><tbody>${S.projs.map(p => `<tr><td>${esc(p.nombre)}</td><td class="note">${p.fecha ? new Date(p.fecha).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : ''}</td>
+  box.innerHTML = `<div class="tablewrap"><table><tbody>${S.projs.map(p => `<tr><td>${esc(p.nombre)}${p.archivo ? `<div class="note">${esc(p.archivo)}</div>` : ''}</td><td class="note">${p.fecha ? new Date(p.fecha).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : ''}</td>
     <td><button class="btn small" data-load="${esc(p.id)}">Abrir</button></td><td>${S.delConfirm === p.id ? `<button class="btn small" data-del="${esc(p.id)}" style="color:var(--bad)">Confirmar borrado</button>` : `<button class="btn small ghost" data-askdel="${esc(p.id)}" aria-label="Borrar proyecto">✕</button>`}</td></tr>`).join('')}</tbody></table></div>`;
 }
 /* Proyecto vacío: borra del área de trabajo trazado, red existente, entronque, perfil, fondos y edición. No toca las bases ni los proyectos guardados. */
@@ -1961,8 +1983,11 @@ function nuevoProyecto() {
   toast('Proyecto nuevo y vacío. Las bases de apoyos y cables y los proyectos guardados no se han tocado.');
 }
 async function exportProject() {
-  const d = { app: 'Calculo de Apoyos BT', version: VERSION, proyecto: { ...S.proj, id: undefined, fondos: Object.fromEntries(Object.entries(S.proj.fondos || {}).map(([k, f]) => [k, { ...f, blobUrl: undefined }])) } };
-  if (await saveFile(ascii(S.proj.nombre || 'proyecto').replace(/[^A-Za-z0-9_-]+/g, '_') + '.apoyosbt.json', new Blob([JSON.stringify(d)], { type: 'application/json' }))) toast('Proyecto exportado.');
+  const blob = new Blob([JSON.stringify(projFileData())], { type: 'application/json' });
+  const r = await pickAndWrite(projFileName(), blob);
+  if (r.cancel) return;
+  if (r.ok) { toast(`Proyecto exportado a «${r.archivo}».`); return; }
+  if (await saveFile(projFileName(), blob)) toast('Proyecto exportado.');
 }
 async function importProject(file) {
   try { const j = JSON.parse(await file.text());
