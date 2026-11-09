@@ -304,7 +304,7 @@ function drawSub(D) {
       g.lineWidth = Math.max(7, (Number(z.ancho) || 0.4) * sc); g.stroke(); g.globalAlpha = 1;
       path(z.pts); g.strokeStyle = col(zr?.est === 'bad' ? '--bad' : z.estado === 'nuevo' ? '--zanja' : '--exist'); g.lineWidth = 1; g.setLineDash([3, 3]); g.stroke(); g.setLineDash([]); g.lineCap = 'butt';
       if (vis('zanjaTxt')) { const ls = longestSeg(z.pts); const t = subTubo(z.tuboId);
-        const txt = `${z.nombre} · ${z.entubada ? `${z.nTubos}T${t ? t.dExt : ''}` : 'sin tubo'} · ${(ZANJA_TIPOS[z.tipo]?.n || '').toLowerCase()} ${fmt(z.prof, 2)} m${zr ? ` · ${fmt(zr.L, 1)} m${zr.manual ? ' (manual)' : ''}` : ''}`;
+        const txt = `${z.nombre} · ${z.entubada ? `${z.nTubos}T${t ? t.dExt : ''}` : 'sin tubo'} · ${(ZANJA_TIPOS[z.tipo]?.n || '').toLowerCase()} ${fmt(z.prof, 2)} m${zr ? ` · ${fmt(zr.L, 1)} m` : ''}`;
         if (ls.i >= 0) alongText(txt, z.pts[ls.i], z.pts[ls.i + 1], 1, '600 10px ' + col('--f-body'), col(z.estado === 'nuevo' ? '--zanja' : '--exist')); }
       if (vis('arquetas') && zr && z.estado === 'nuevo') zr.arq.filter(a => a.x != null).forEach(a => { const [x, y] = P(a); g.fillStyle = col('--panel'); g.strokeStyle = col('--zanja'); g.lineWidth = 1.5; g.fillRect(x - 4, y - 4, 8, 8); g.strokeRect(x - 4, y - 4, 8, 8); });
     }
@@ -317,7 +317,7 @@ function drawSub(D) {
     if (l.pts.length > 1) {
       path(l.pts); g.strokeStyle = col(lr?.est === 'bad' ? '--bad' : l.estado === 'nuevo' ? '--sub' : '--exist'); g.lineWidth = l.estado === 'nuevo' ? 2.5 : 2; g.setLineDash([12, 4, 2, 4]); g.stroke(); g.setLineDash([]);
       if (vis('subTxt')) { const ls = longestSeg(l.pts); const c = cabOf(l);
-        const txt = l.nombre + (c ? ' · ' + c.designacion.replace(/^XZ1 \(S\) 0,6\/1 kV /, '') : '') + (lr ? ' · ' + instalTxt(lr.entub) + ` · ${fmt(lr.L, 1)} m${lr.manual ? ' (manual)' : ''}` : '');
+        const txt = l.nombre + (c ? ' · ' + c.designacion.replace(/^XZ1 \(S\) 0,6\/1 kV /, '') : '') + (lr ? ' · ' + instalTxt(lr.entub) + ` · ${fmt(lr.L, 1)} m` : '');
         if (ls.i >= 0) alongText(txt, l.pts[ls.i], l.pts[ls.i + 1], -1, 'italic 600 11px ' + col('--f-body'), col(l.estado === 'nuevo' ? '--sub' : '--exist')); }
     } else { const [x, y] = P(l.pts[0]); g.fillStyle = col('--sub'); g.beginPath(); g.arc(x, y, 3, 0, 2 * Math.PI); g.fill(); }
     if (screen && tool !== 'pan' && L === lay) l.pts.forEach((n, i) => { const [x, y] = P(n); vtx(x, y, S.selPt?.layer === lay && S.selPt.li === subObjs(lay).indexOf(l) && S.selPt.i === i); });

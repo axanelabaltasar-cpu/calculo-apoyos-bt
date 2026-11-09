@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.22.0';
+const VERSION = '1.23.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -777,7 +777,7 @@ function drawMap(T) {
   if (nodes.length > 1) {
     if (vis('linea')) { g.strokeStyle = col('--accent'); g.lineWidth = 2.5; g.beginPath(); nodes.forEach((n, i) => { const [x, y] = P(n); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); }
     g.font = '11px ' + col('--f-mono'); g.textAlign = 'center';
-    if (vis('vanos')) for (let i = 0; i < nodes.length - 1; i++) { const sp = !S.drag && S.calc?.spans?.[i]; const a = sp ? sp.a : Math.hypot(nodes[i + 1].x - nodes[i].x, nodes[i + 1].y - nodes[i].y); alongText(fmt(a, 1) + ' m' + (sp?.manual ? ' (manual)' : ''), nodes[i], nodes[i + 1], -1, '11px ' + col('--f-mono'), col('--ink')); }
+    if (vis('vanos')) for (let i = 0; i < nodes.length - 1; i++) { const sp = !S.drag && S.calc?.spans?.[i]; const a = sp ? sp.a : Math.hypot(nodes[i + 1].x - nodes[i].x, nodes[i + 1].y - nodes[i].y); alongText(fmt(a, 1) + ' m', nodes[i], nodes[i + 1], -1, '11px ' + col('--f-mono'), col('--ink')); }
     // Cable del proyecto sobre el vano más largo de la línea nueva
     const cable = S.cables.find(c => c.id === S.proj.cableId);
     if (cable && vis('cable')) { const ls = longestSeg(nodes); if (ls.i >= 0) alongText(shortCable(cable.designacion), nodes[ls.i], nodes[ls.i + 1], 1, '600 11px ' + col('--f-body'), col('--accent')); }
@@ -1463,7 +1463,7 @@ function dxf(c, geo) {
   for (let i = 0; i < N.length - 1; i++) {
     p(0, 'LINE', 8, 'BT_TRAZADO', 10, f3(N[i].x), 20, f3(N[i].y), 30, 0, 11, f3(N[i + 1].x), 21, f3(N[i + 1].y), 31, 0);
     const mx = (N[i].x + N[i + 1].x) / 2, my = (N[i].y + N[i + 1].y) / 2; let ang = Math.atan2(N[i + 1].y - N[i].y, N[i + 1].x - N[i].x) * 180 / Math.PI; if (ang > 90) ang -= 180; if (ang < -90) ang += 180;
-    p(0, 'TEXT', 8, 'BT_TEXTO_VANOS', 10, f3(mx), 20, f3(my + 0.6), 30, 0, 40, 0.8, 1, ascii(`${c.spans[i].a.toFixed(1)} m${c.spans[i].manual ? ' (MANUAL)' : ''}`), 50, ang.toFixed(2), 72, 1, 11, f3(mx), 21, f3(my + 0.6), 31, 0);
+    p(0, 'TEXT', 8, 'BT_TEXTO_VANOS', 10, f3(mx), 20, f3(my + 0.6), 30, 0, 40, 0.8, 1, ascii(`${c.spans[i].a.toFixed(1)} m`), 50, ang.toFixed(2), 72, 1, 11, f3(mx), 21, f3(my + 0.6), 31, 0);
   }
   { const cab = c.cable; let bi = 0, bl = 0; for (let i = 0; i < N.length - 1; i++) { const d = Math.hypot(N[i + 1].x - N[i].x, N[i + 1].y - N[i].y); if (d > bl) { bl = d; bi = i; } }
     if (cab && N.length > 1) { const A = N[bi], B = N[bi + 1]; let an = Math.atan2(B.y - A.y, B.x - A.x) * 180 / Math.PI; if (an > 90) an -= 180; if (an < -90) an += 180; p(0, 'TEXT', 8, 'BT_TEXTO_VANOS', 10, f3((A.x + B.x) / 2), 20, f3((A.y + B.y) / 2 - 1.6), 30, 0, 40, 0.9, 1, ascii(shortCable(cab.designacion)), 50, an.toFixed(2), 72, 1, 11, f3((A.x + B.x) / 2), 21, f3((A.y + B.y) / 2 - 1.6), 31, 0); } }
