@@ -1,0 +1,28 @@
+name: Publicar web
+on:
+  push:
+    branches: [main]
+    paths: ['web/**', '.github/workflows/publicar.yml']
+  workflow_dispatch:
+concurrency: publicar-web
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Comprobar configuración
+        run: |
+          if grep -q PON-AQUI web/.firebaserc; then echo "::error::Falta el ID del proyecto de Firebase en web/.firebaserc (ejecuta subir-a-github.bat)"; exit 1; fi
+          if [ -z "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" ]; then echo "::error::Falta el secreto FIREBASE_SERVICE_ACCOUNT en GitHub"; exit 1; fi
+          echo "Versión: $(cat VERSION)"
+      - name: Publicar en Firebase (web y reglas)
+        working-directory: web
+        env:
+          CUENTA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          printf '%s' "$CUENTA" > "$RUNNER_TEMP/cuenta.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/cuenta.json"
+          npx --yes firebase-tools@13 deploy --only hosting,firestore:rules --non-interactive --message "v$(cat ../VERSION)"
+          rm -f "$RUNNER_TEMP/cuenta.json"

@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.33.0';
+const VERSION = '1.34.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -17,7 +17,8 @@ function exampleProject() {
 const S = { poles: [], cables: [], precios: { holguraCable: 3 }, proj: exampleProject(), calc: null, sel: null, db: null, projs: [], loaded: { apoyos: false, cables: false } };
 
 /* ---------- Base de datos ---------- */
-const LOCAL = !!window.LOCAL_SEED;   // versión para abrir en el PC, fuera de Claude
+const WEB = !!window.WEB_APP;          // versión web (Firebase), con usuario y base en la nube
+const LOCAL = !!window.LOCAL_SEED || WEB;   // versión fuera de Claude (archivo en el PC o web)
 /* Base de datos local (navegador) con la misma interfaz mínima que la base del artefacto */
 function localDb() {
   const KEY = 'calculoApoyosBT.db'; let data;
@@ -50,7 +51,8 @@ async function saveFile(filename, blob) {
   try { await dl.save({ filename, data: blob }); return true; } catch (e) { if (e.code !== 'declined') toast('No se pudo guardar el archivo: ' + (e.message || e.code)); return false; }
 }
 async function initDb() {
-  if (LOCAL) { S.db = localDb(); }
+  if (WEB) { S.db = await webDb().catch(e => { toast('No se pudo abrir la base de datos: ' + (e.message || e.code)); return null; }); }
+  else if (LOCAL) { S.db = localDb(); }
   const timer = setTimeout(() => { if (!S.db) dbMissing(); }, 10000);
   let db = S.db || null;
   if (!db) try { db = await window.claude?.use?.('db'); } catch (e) { db = null; }
@@ -65,7 +67,8 @@ async function initDb() {
   db.collection('proyectos').onSnapshot(qs => { S.projs = qs.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')); renderProjList(); }, () => { });
 }
 function dbMissing() {
-  if (S.dbMissingShown || LOCAL) return; S.dbMissingShown = true;
+  if (S.dbMissingShown || (LOCAL && !WEB)) return; S.dbMissingShown = true;
+  if (WEB) { $('#warnings').insertAdjacentHTML('afterbegin', '<div class="banner bad">No hay conexión con la base de datos. Comprueba internet y recarga la página.</div>'); return; }
   $('#warnings').insertAdjacentHTML('afterbegin', '<div class="banner bad">No hay conexión con la base de datos de apoyos y cables. Abre la aplicación con tu cuenta de claude.ai para cargar las bases y guardar cambios.</div>');
 }
 function numOrStr(v, t) { if (t === 'text') return v; const n = Number(String(v).replace(',', '.')); return isNaN(n) ? 0 : n; }
@@ -2094,6 +2097,7 @@ async function saveProject() {
   if (Object.values(S.proj.fondos || {}).some(f => f.blobUrl && !f.assetId)) toast('Aviso: algún fondo cargado a mano no se conservará con el proyecto.');
   if (!S.db) { toast(`Proyecto guardado en el archivo «${archivo}».`); return; }
   const data = { nombre: S.proj.nombre || 'Sin nombre', fecha: new Date().toISOString(), archivo, datos: JSON.stringify({ ...S.proj, id: undefined, fondos: Object.fromEntries(Object.entries(S.proj.fondos || {}).map(([k, f]) => [k, { ...f, blobUrl: undefined }])) }) };
+  if (data.datos.length > 900000) { toast(`Proyecto guardado en el archivo «${archivo}». Es demasiado grande para «Proyectos guardados» en la nube: ábrelo desde el archivo.`); return; }
   try {
     if (S.proj.id) await S.db.doc('proyectos/' + S.proj.id).set(data);
     else { const ref = await S.db.collection('proyectos').add(data); S.proj.id = ref.id; }
@@ -2128,7 +2132,7 @@ async function exportProject() {
 }
 async function importProject(file) {
   try { const j = JSON.parse(await file.text());
-    if (j.apoyos || j.cables) { if (!S.db?.importAll) return toast('Importar bases solo está disponible en la versión local.'); S.db.importAll(j); return toast('Bases de apoyos y cables importadas.'); }
+    if (j.apoyos || j.cables) { if (!S.db?.importAll) return toast('Importar bases solo está disponible en la versión local.'); try { await S.db.importAll(j); } catch (e) { return toast('No se pudieron importar las bases: ' + (e.message || e.code)); } return toast('Bases de apoyos y cables importadas.'); }
     const d = j.proyecto || j; S.proj = { ...exampleProject(), ...d, ctx: { ...DEF_CTX, ...d.ctx }, id: null };
     S.img = {}; S.sel = null; S.openEx = null; V.fitted = false; loadForm(); refreshAll(); toast('Proyecto abierto desde archivo.');
   } catch (e) { toast('El archivo no es un proyecto válido.'); }
@@ -2141,7 +2145,7 @@ function bindProjects() {
   document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && !panel.hidden) { panel.hidden = true; btn.setAttribute('aria-expanded', 'false'); btn.focus(); } });
   $('#expProj').onclick = exportProject;
   $('#impProjFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importProject(f); e.target.value = ''; });
-  const eb = $('#expBases'); if (eb) { eb.hidden = !LOCAL; eb.onclick = async () => { if (await saveFile('bases_apoyos_cables.json', new Blob([S.db.exportAll()], { type: 'application/json' }))) toast('Bases exportadas.'); }; }
+  const eb = $('#expBases'); if (eb) { eb.hidden = !LOCAL; eb.onclick = async () => { if (await saveFile('bases_apoyos_cables.json', new Blob([await S.db.exportAll()], { type: 'application/json' }))) toast('Bases exportadas.'); }; }
   $('#saveProj').onclick = saveProject;
   $('#newProj').onclick = () => {
     const b = $('#newProj');
@@ -2206,7 +2210,8 @@ function bindTabs() {
 }
 function start() {
   initCollapsibles(); bindPdf(); bindAnexo(); bindCapas();
-  if (LOCAL) { document.title = 'Cálculo de Apoyos BT (local)'; $('#ver').textContent = 'v' + VERSION + ' · local'; }
+  if (WEB) { $('#ver').textContent = 'v' + VERSION; }
+  else if (LOCAL) { document.title = 'Cálculo de Apoyos BT (local)'; $('#ver').textContent = 'v' + VERSION + ' · local'; }
   if (!LOCAL) $('#ver').textContent = 'v' + VERSION;
   loadForm(); bindForm(); bindRows(); bindMap(); bindProjects(); bindDbTables(); bindPrecios(); bindTabs();
   $('#kmlFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importFile(f, 'nuevo'); e.target.value = ''; });

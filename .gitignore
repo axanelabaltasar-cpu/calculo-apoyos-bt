@@ -1,1 +1,8 @@
 test*.js
+# Claves de Firebase: nunca a GitHub
+*serviceAccount*.json
+*-firebase-adminsdk-*.json
+cuenta*.json
+web/.firebase/
+node_modules/
+*.zip

@@ -1,0 +1,12 @@
+rules_version = '2';
+// Cálculo de Apoyos BT: solo el usuario tecnicos@elecanto.es puede leer y escribir.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function tecnicos() {
+      return request.auth != null && request.auth.token.email == 'tecnicos@elecanto.es';
+    }
+    match /{document=**} {
+      allow read, write: if tecnicos();
+    }
+  }
+}
