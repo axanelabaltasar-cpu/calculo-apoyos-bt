@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.13.0';
+const VERSION = '1.14.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -765,6 +765,9 @@ function drawMap(T) {
     g.fillStyle = col('--ink'); g.font = '11px ' + col('--f-mono'); g.textAlign = 'left'; g.fillText(fmt(sl) + ' m', 14, Hh - 22);
   }
   g.textAlign = 'center'; g.font = '600 12px ' + col('--f-body'); g.fillStyle = col('--ink'); halo('N', W - 20, 20); g.beginPath(); g.moveTo(W - 20, 26); g.lineTo(W - 25, 40); g.lineTo(W - 15, 40); g.closePath(); g.fill();
+  if (screen && S.snap) { const [sx, sy] = P(S.snap); g.save(); g.strokeStyle = col('--accent'); g.lineWidth = 2.5; g.setLineDash([5, 3]); g.beginPath(); g.arc(sx, sy, 18, 0, 2 * Math.PI); g.stroke(); g.setLineDash([]);
+    g.beginPath(); g.moveTo(sx - 6, sy); g.lineTo(sx + 6, sy); g.moveTo(sx, sy - 6); g.lineTo(sx, sy + 6); g.stroke();
+    g.font = '600 11px ' + col('--f-body'); g.fillStyle = col('--accent'); g.textAlign = 'left'; halo(S.snap.label, sx + 22, sy - 12); g.restore(); }
   if (screen) { $('#mapInfo').textContent = S.proj.zone ? `ETRS89 · UTM huso ${S.proj.zone}` : 'Coordenadas locales (entrada manual)'; S.mapT = { P, nodes, ex }; }
   return { fondoOmitido };
 }
@@ -820,6 +823,27 @@ function hitSegment(arr, mx, my, tolPx = 10) {
     const s = segDist({ x: mx, y: my }, { x: ax, y: ay }, { x: bx, y: by });
     if (s.d < tolPx && (!best || s.d < best.d)) best = { i, t: s.t, d: s.d };
   }
+  return best;
+}
+/* Puntos de enganche al mover: centros de apoyos (nuevos y existentes), inicio/fin de tramos baja y de la ruta, puntos D-C */
+const SNAP_PX = 14;
+function snapTargets(dp) {
+  const out = [], own = (layer, li, i) => dp.layer === layer && dp.li === li && dp.i === i;
+  const enK = S.proj.entronque?.k;
+  const linkedA1 = (dp.layer === 'exApoyos' && dp.i === enK) || (dp.layer === 'nuevo' && dp.i === 0 && enK != null);
+  if (vis('nuevo')) {
+    const pts = S.proj.modo === 'kml' && S.proj.geo ? S.proj.geo.pts : currentNodes();
+    pts.forEach((p, i) => { if (own('nuevo', 0, i) || (i === 0 && linkedA1)) return; out.push({ x: p.x, y: p.y, label: 'Apoyo A' + (i + 1) }); });
+  }
+  if (vis('exApoyos')) (redEx()?.apoyos || []).forEach((p, i) => { if (own('exApoyos', 0, i) || (i === enK && linkedA1)) return; out.push({ x: p.x, y: p.y, label: 'Apoyo existente E' + (i + 1) }); });
+  if (vis('exLineas')) exLineas().forEach((l, li) => { const n = l.pts.length; [0, n - 1].forEach((i, k) => { if (n < 2 || (k && i === 0) || own('exLineas', li, i)) return; out.push({ x: l.pts[i].x, y: l.pts[i].y, label: (k ? 'Fin' : 'Inicio') + ' de tramo ' + (lineLabel(l) || 'L' + (li + 1)) }); }); });
+  if (vis('ruta') && S.proj.geo?.ruta?.length > 1) { const r = S.proj.geo.ruta; [0, r.length - 1].forEach((i, k) => { if (!own('ruta', 0, i)) out.push({ x: r[i].x, y: r[i].y, label: (k ? 'Fin' : 'Inicio') + ' de ruta' }); }); }
+  if (vis('exDC')) exDC().forEach((p, i) => { if (!own('exDC', 0, i)) out.push({ x: p.x, y: p.y, label: 'Punto D-C' + (dcLabel(p) ? ' ' + dcLabel(p) : '') }); });
+  return out;
+}
+function findSnap(dp, mx, my) {
+  let best = null;
+  for (const t of snapTargets(dp)) { const [x, y] = S.mapT.P(t); const d = Math.hypot(x - mx, y - my); if (d <= SNAP_PX && (!best || d < best.d)) best = { ...t, d }; }
   return best;
 }
 function worldAt(mx, my) { const cv = $('#map'); return { x: V.cx + (mx - cv.clientWidth / 2) / V.sc, y: V.cy - (my - cv.clientHeight / 2) / V.sc }; }
@@ -902,16 +926,18 @@ function bindMap() {
     if (Math.hypot(dx, dy) > 4) drag.moved = true;
     if (!drag.moved) return;
     if (drag.pt) {
-      const rc = cv.getBoundingClientRect(), w = worldAt(ev.clientX - rc.left, ev.clientY - rc.top);
+      const rc = cv.getBoundingClientRect(), mx = ev.clientX - rc.left, my = ev.clientY - rc.top; let w = worldAt(mx, my);
+      const sn = findSnap(drag.pt, mx, my); S.snap = sn; if (sn) w = { x: sn.x, y: sn.y };
       const p = layerPts(drag.pt.layer)[drag.pt.li][drag.pt.i]; p.x = w.x; p.y = w.y;
       if (drag.pt.layer === 'exApoyos' && S.proj.entronque?.k === drag.pt.i && S.proj.geo?.pts?.[0]) { S.proj.geo.pts[0].x = w.x; S.proj.geo.pts[0].y = w.y; }
       if (!drag.raf) drag.raf = requestAnimationFrame(() => { drag && (drag.raf = null); drawMap(); });
     } else { V.cx = drag.cx - dx / V.sc; V.cy = drag.cy + dy / V.sc; drawMap(); }
   });
   cv.addEventListener('pointerup', ev => {
-    const d = drag; drag = null; S.drag = false; if (!d || !S.mapT) return;
+    const d = drag; drag = null; S.drag = false; const snapped = S.snap; S.snap = null; if (!d || !S.mapT) return;
     if (d.pt) {
       if (!d.moved) { S.hist.pop(); updUndo(); drawMap(); return; }
+      if (snapped) toast(`Posicionado en la misma coordenada que: ${snapped.label}.`);
       const p = layerPts(d.pt.layer)[d.pt.li][d.pt.i]; setLL(p);
       if (d.pt.layer === 'exApoyos' && S.proj.entronque?.k === d.pt.i && S.proj.geo?.pts?.[0]) setLL(S.proj.geo.pts[0]);
       invalidateVert(); refreshAll(); return;
