@@ -151,7 +151,7 @@ a.btn{text-decoration:none;display:inline-block}
       <label class="btn small" for="impProjFile">Abrir archivo</label><input id="impProjFile" type="file" accept=".json" hidden>
       <button class="btn small" id="expBases" type="button" hidden>Exportar bases</button>
       <button class="btn small" id="foldAll" type="button">Minimizar / desplegar todo</button>
-      <div class="ver" id="ver">v1.19.0</div>
+      <div class="ver" id="ver">v1.20.0</div>
     </div>
   </header>
   <nav class="tabs" role="tablist">
@@ -364,7 +364,7 @@ a.btn{text-decoration:none;display:inline-block}
       <h3>Red subterránea (ITC-BT-07)</h3>
       <ul>
         <li>Cables de aluminio con aislamiento XLPE, 0,6/1 kV. Sección mínima de fase 16 mm²; neutro según la tabla del apartado 1 (p. ej. 150 → 70 mm², 240 → 120 mm²).</li>
-        <li>Intensidad admisible: tabla 4 (terna de unipolares enterrada, 0,70 m, 25 °C, 1 K·m/W) × factores de temperatura del terreno (tabla 6), resistividad térmica (tabla 7), agrupación de circuitos en la zanja (tabla 8), profundidad (tabla 9) y 0,8 bajo tubo (3.1.3).</li>
+        <li>Intensidad admisible: tabla 4 (terna de unipolares enterrada, 0,70 m, 25 °C, 1 K·m/W) × factores de temperatura del terreno (tabla 6), resistividad térmica (tabla 7), agrupación de circuitos en la zanja (tabla 8), profundidad (tabla 9) y 0,8 si el cable va bajo tubo (3.1.3). Cada línea puede ir bajo tubo o directamente enterrada (por defecto, según su zanja); en calzadas y cruces siempre bajo tubo hormigonado.</li>
         <li>Caída de tensión con la resistencia a 90 °C y la reactancia del cable; el límite es un criterio del proyecto (por defecto 5 %).</li>
         <li>Cortocircuito: densidad máxima de la tabla 16 (Al, XLPE) según la duración.</li>
         <li>Zanjas: profundidad mínima hasta la parte inferior del cable de 0,60 m en acera y 0,80 m en calzada; cruces de calles y carreteras entubados y hormigonados a 0,80 m como mínimo; lecho de arena, protección mecánica y cinta de señalización (a 0,10 m del suelo como mínimo y a 0,25 m por encima del cable).</li>
