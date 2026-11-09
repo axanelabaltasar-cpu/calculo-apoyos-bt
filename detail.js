@@ -359,15 +359,20 @@ async function importTrApoyos(file) {
 }
 async function importTrTramos(file) {
   try {
-    const { lines } = await parseGeoFile(file); if (!lines.length) throw new Error('el archivo no tiene líneas (tramos)');
+    const { lines: todas } = await parseGeoFile(file); if (!todas.length) throw new Error('el archivo no tiene líneas (tramos)');
+    // Fuera los tramos que ya son de la red existente (mismo identificador o mismo trazado que un tramo baja importado)
+    const z0 = setZoneFrom(todas[0].pts[0]), exIds = new Set(exLineas().map(l => tramoId(l)).filter(Boolean));
+    const U0 = l => l.pts.map(p => E.utmFromLatLon(p.lat, p.lon, z0));
+    const lines = todas.filter(l => !((tramoId(l) && exIds.has(tramoId(l))) || exLineas().some(e => overlapFrac(U0(l), e.pts, 2) > 0.6)));
+    const quitados = todas.length - lines.length; if (!lines.length) throw new Error('todos los tramos del archivo son de la red existente');
     const zone = setZoneFrom(lines[0].pts[0]), ruta = encadenarTramos(lines, zone); if (ruta.length < 2) throw new Error('los tramos no tienen al menos dos puntos');
     const opt = { nombre: 'Tramos', pts: ruta.map(p => ({ lat: p.lat, lon: p.lon, alt: p.alt })), conCota: hasAlt(ruta) };
     const tramos = lines.filter(l => l.pts.length > 1).map((l, i) => ({ id: tramoId(l), nombre: l.nombre || `Tramo ${i + 1}`, attrs: l.attrs || {}, pts: l.pts.map(p => ({ lat: p.lat, lon: p.lon, ...E.utmFromLatLon(p.lat, p.lon, zone) })) }));
-    if (S.trImpApoyos?.pts?.length >= 2) { applyTrace(opt, file.name, S.trImpApoyos.pts); S.proj.geo.tramos = tramos; refreshAll(); return; }
+    if (S.trImpApoyos?.pts?.length >= 2) { applyTrace(opt, file.name, S.trImpApoyos.pts); S.proj.geo.tramos = tramos; refreshAll(); if (quitados) toast(`Trazado importado con ${tramos.length} tramo(s) nuevo(s); ${quitados} tramo(s) de la red existente descartado(s).`); return; }
     snapshot();
     S.proj.geo = { zone, pts: [], ruta: ruta.map(({ x, y, lat, lon, alt }) => ({ x, y, lat, lon, alt })), fuente: file.name, tramos }; S.proj.modo = 'kml'; S.proj.rows = [];
     if (opt.conCota) S.proj.perfil = { fuente: file.name, pts: ruta.map(p => ({ x: p.x, y: p.y, z: p.alt })) };
     V.fitted = false; refreshAll();
-    toast(`${lines.length} tramo(s) importado(s): ruta de ${fmt(polyLen(ruta), 1)} m. Importa ahora los apoyos o pulsa «Calcular y optimizar» para colocarlos automáticamente.`);
+    toast(`${lines.length} tramo(s) nuevo(s) importado(s)${quitados ? ` (${quitados} existente(s) descartado(s))` : ''}: ruta de ${fmt(polyLen(ruta), 1)} m. Importa ahora los apoyos o pulsa «Calcular y optimizar» para colocarlos automáticamente.`);
   } catch (e) { toast('No se pudieron importar los tramos: ' + e.message); }
 }

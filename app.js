@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.32.0';
+const VERSION = '1.33.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -1976,7 +1976,10 @@ function anexoFilas() {
   // Línea aérea: un tramo por cada tramo importado (con su identificador); si no hay tramos importados, un tramo por vano
   const c = S.calc, g = c && getGeo(c.nodes), cab = c?.cable, tipoA = aerLinea?.().instal === 'posado' ? 'FACHADA' : 'AEREO';
   const modeloA = A.modelo || modeloConstructivo(cab);
-  let tr = S.proj.geo?.tramos || []; const ru = S.proj.geo?.ruta;
+  // Solo tramos nuevos: fuera los que son de la red existente (mismo identificador o trazado sobre un tramo existente) y los que no siguen la línea nueva
+  const exIds = new Set(exLineas().map(l => tramoId(l)).filter(Boolean)), nodes = c?.nodes || [];
+  const esExistente = t => (t.id && exIds.has(t.id)) || exLineas().some(l => overlapFrac(t.pts, l.pts, 2) > 0.6) || (nodes.length > 1 && overlapFrac(t.pts, nodes, 3) < 0.5);
+  let tr = (S.proj.geo?.tramos || []).filter(t => t.pts.length > 1 && !esExistente(t)); const ru = S.proj.geo?.ruta;
   if (ru?.length > 1 && tr.length) { // en el orden y sentido de la ruta, desde el entronque
     const ch = p => projectOnRuta(ru, p).ch;
     tr = tr.map(t => { const a0 = ch(t.pts[0]), a1 = ch(t.pts[t.pts.length - 1]); return { ...t, pts: a0 <= a1 ? t.pts : [...t.pts].reverse(), k: Math.min(a0, a1) }; }).sort((p, q) => p.k - q.k);
