@@ -38,23 +38,36 @@ nav.tabs button:focus-visible,button:focus-visible,input:focus-visible,select:fo
 .grid{display:grid;grid-template-columns:minmax(0,520px) minmax(0,1fr);gap:16px;margin-top:16px;align-items:start}
 @media (max-width:980px){.grid{grid-template-columns:minmax(0,1fr)}}
 .col{display:flex;flex-direction:column;gap:16px;min-width:0}
-.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;margin-top:16px;align-items:start}
+.split{display:grid;grid-template-columns:minmax(0,var(--colL,1fr)) 10px minmax(0,2fr);column-gap:6px;gap:16px;margin-top:16px;align-items:start}
 .leftcol{gap:16px}
-.rightcol{position:sticky;top:8px;height:calc(100vh - 16px);display:grid;grid-template-rows:minmax(0,1fr) minmax(0,1fr);gap:12px;min-width:0}
+.rightcol{position:sticky;top:6px;height:calc(100vh - 12px);display:grid;grid-template-rows:minmax(0,var(--rowP,2.2fr)) 10px minmax(0,1fr);gap:2px;gap:12px;min-width:0}
 .rightcol>.card{margin:0;min-height:0}
+.splitV,.splitH{position:relative;z-index:6;touch-action:none}
+.splitV{cursor:col-resize;align-self:stretch;position:sticky;top:6px;height:calc(100vh - 12px)}
+.splitH{cursor:row-resize}
+.splitV::after,.splitH::after{content:"";position:absolute;background:var(--line);border-radius:3px;transition:background .15s}
+.splitV::after{left:3px;right:3px;top:40%;bottom:40%}
+.splitH::after{top:3px;bottom:3px;left:40%;right:40%}
+.splitV:hover::after,.splitH:hover::after,.splitV.drag::after,.splitH.drag::after{background:var(--accent)}
 #planoCard{display:flex;flex-direction:column;padding:12px 14px}
 #planoCard h2{margin-bottom:6px}
-#planoCard .mapbox{flex:1;min-height:160px;display:flex}
-#planoCard canvas#map{height:100%;flex:1;min-height:0}
+#planoCard>.cardbody{flex:1 1 0;min-height:0;display:flex;flex-direction:column}
+#planoCard .mapbox{flex:1 1 0;min-height:120px}
+#detailCard>.cardbody{min-height:0}
+#planoCard canvas#map{position:absolute;inset:0;width:100%;height:100%}
 #planoCard #edHint{font-size:.78rem}
 #detailCard{overflow:auto}
+#planoCard{overflow:visible;position:relative;z-index:5}
+#planoCard details.pdfo{position:relative}
+#planoCard details.pdfo[open]>#pdfOpts{position:absolute;bottom:calc(100% + 6px);left:0;width:min(640px,100%);max-height:70vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:12px;z-index:30}
+@media (max-width:1100px){#planoCard details.pdfo[open]>#pdfOpts{position:static;box-shadow:none;max-height:none}}
 #planoCard #exportNote{display:none}
 #detailBody .fields{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
 .dsec{border-top:1px solid var(--line);margin-top:10px;padding-top:8px}
 .kv td{padding:2px 8px 2px 0;border:none;vertical-align:top}
 ol.wiz{margin:6px 0 0;padding-left:0;list-style:none;display:grid;gap:8px} ol.wiz li{border-left:3px solid var(--line);padding:4px 10px} ol.wiz li.cur{border-color:var(--warn)} ol.wiz li.done{border-color:var(--ok);opacity:.8}
 .dsec h4{margin:0 0 6px;font:600 .8rem var(--f-body);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
-@media (max-width:1100px){.split{grid-template-columns:minmax(0,1fr)}.rightcol{position:static;height:auto;grid-template-rows:auto auto;order:-1}#planoCard canvas#map{height:60vh}#planoCard .mapbox{flex:none}}
+@media (max-width:1100px){.split{grid-template-columns:minmax(0,1fr)!important}.splitV,.splitH{display:none}.rightcol{position:static;height:auto!important;grid-template-rows:auto auto!important;order:-1}#planoCard .mapbox{flex:none;height:60vh}}
 
 section.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px 16px;min-width:0}
 section.card h2{font:700 1.05rem var(--f-display);letter-spacing:.03em;text-transform:uppercase;margin:0 0 10px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
@@ -169,7 +182,7 @@ a.btn{text-decoration:none;display:inline-block}
       <label class="btn small" for="impProjFile">Abrir archivo</label><input id="impProjFile" type="file" accept=".json" hidden>
       <button class="btn small" id="expBases" type="button" hidden>Exportar bases</button>
       <button class="btn small" id="foldAll" type="button">Minimizar / desplegar todo</button>
-      <div class="ver" id="ver">v1.24.0</div>
+      <div class="ver" id="ver">v1.25.0</div>
     </div>
   </header>
   <nav class="tabs" role="tablist">
@@ -298,6 +311,7 @@ a.btn{text-decoration:none;display:inline-block}
           <div class="tablewrap"><table id="budTable"></table></div>
         </section>
       </div>
+      <div class="splitV" title="Arrastra para cambiar el ancho del plano (doble clic: restablecer)"></div>
       <div class="rightcol">
         <section class="card" id="planoCard">
           <h2>Plano del trazado <span class="note" id="mapInfo"></span></h2>
@@ -322,8 +336,9 @@ a.btn{text-decoration:none;display:inline-block}
             <span class="row"><button class="btn" id="exportPdf">Descargar plano (PDF)</button><button class="btn primary" id="exportZip">Exportar para Catastro (ZIP)</button></span>
           </div>
           <p class="note" id="exportNote" style="margin-top:6px"></p>
-          <details style="margin-top:6px"><summary class="note">Opciones del plano en PDF</summary><div id="pdfOpts" style="margin-top:8px"></div></details>
+          <details class="pdfo" style="margin-top:6px"><summary class="note">Opciones del plano en PDF</summary><div id="pdfOpts"></div></details>
         </section>
+        <div class="splitH" title="Arrastra para cambiar la altura del plano (doble clic: restablecer)"></div>
         <section class="card" id="detailCard">
           <h2>Elemento seleccionado <span class="note" id="detailInfo"></span></h2>
           <div id="ptEdit" class="exist" hidden></div>

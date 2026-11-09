@@ -287,3 +287,29 @@ function rutaInsert(mx, my) {
   if (ruta.length === 1 && sn?.exK != null && S.proj.entronque) S.proj.entronque.k = sn.exK;
   invalidateVert(); refreshAll(); renderAerAuto();
 }
+
+/* Altura de la columna derecha: ocupa desde su borde superior visible hasta el final de la ventana */
+function ajustaColDerecha() {
+  const rc = document.querySelector('.rightcol'); if (!rc) return;
+  if (innerWidth <= 1100) { rc.style.height = ''; return; }
+  const top = Math.max(6, rc.getBoundingClientRect().top); rc.style.height = Math.max(420, innerHeight - top - 6) + 'px';
+}
+addEventListener('scroll', ajustaColDerecha, { passive: true }); addEventListener('resize', ajustaColDerecha); setTimeout(ajustaColDerecha, 50);
+
+/* Tamaño del plano ajustable a mano: separador vertical (ancho) y horizontal (alto); se recuerda en este navegador */
+(function () {
+  const KEY = 'calculoApoyosBT.layout', split = () => document.querySelector('.split'), rc = () => document.querySelector('.rightcol');
+  const load = () => { try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { return {}; } };
+  const save = o => { try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) { } };
+  const apply = o => { const s = split(), r = rc(); if (!s || !r) return; if (o.colL) s.style.setProperty('--colL', o.colL + 'px'); else s.style.removeProperty('--colL'); if (o.rowP) r.style.setProperty('--rowP', o.rowP + 'px'); else r.style.removeProperty('--rowP'); };
+  const drag = (el, onMove) => { el.addEventListener('pointerdown', ev => { ev.preventDefault(); el.setPointerCapture(ev.pointerId); el.classList.add('drag'); const mv = e => onMove(e), up = () => { el.classList.remove('drag'); el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); save(st); }; el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up); }); };
+  let st = load();
+  addEventListener('DOMContentLoaded', init); if (document.readyState !== 'loading') setTimeout(init, 0);
+  function init() {
+    const v = document.querySelector('.splitV'), h = document.querySelector('.splitH'); if (!v || !h || v.dataset.ok) return; v.dataset.ok = 1; apply(st);
+    drag(v, e => { const s = split().getBoundingClientRect(); st.colL = Math.round(Math.min(s.width - 420, Math.max(300, e.clientX - s.left - 8))); apply(st); });
+    drag(h, e => { const r = rc().getBoundingClientRect(); st.rowP = Math.round(Math.min(r.height - 120, Math.max(220, e.clientY - r.top - 5))); apply(st); });
+    v.addEventListener('dblclick', () => { st = {}; save(st); apply(st); });
+    h.addEventListener('dblclick', () => { delete st.rowP; save(st); apply(st); });
+  }
+})();

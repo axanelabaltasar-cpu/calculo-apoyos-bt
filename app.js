@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.24.0';
+const VERSION = '1.25.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
