@@ -9,7 +9,7 @@
   --bg:#eef0f1; --panel:#ffffff; --ink:#1b2328; --muted:#5b6870; --line:#d3d9dc; --soft:#f5f7f8;
   --accent:#1d5b86; --accent-ink:#ffffff; --accent-soft:#e3eef6;
   --ok:#2f7d4f; --ok-soft:#e1f1e7; --warn:#a66a00; --warn-soft:#fbefd6; --bad:#b3362c; --bad-soft:#f8e1de;
-  --map:#fbfcfc; --grid:#e6eaec; --exist:#6d6a64;
+  --map:#fbfcfc; --grid:#e6eaec; --exist:#6d6a64; --dc:#7a3e8f;
   --f-display:"Barlow Semi Condensed","Arial Narrow",Arial,sans-serif;
   --f-body:"Barlow","Segoe UI",Roboto,Arial,sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
@@ -18,12 +18,12 @@
   --bg:#13181b; --panel:#1b2226; --ink:#e3e8ea; --muted:#94a2a9; --line:#2f393e; --soft:#20282c;
   --accent:#6fb0de; --accent-ink:#0c1a24; --accent-soft:#1d3342;
   --ok:#6cc48f; --ok-soft:#173022; --warn:#e3a94a; --warn-soft:#352812; --bad:#f08277; --bad-soft:#3a1d1a;
-  --map:#161c1f; --grid:#232c30; --exist:#b9b3a8; color-scheme:dark }}
+  --map:#161c1f; --grid:#232c30; --exist:#b9b3a8; --dc:#c493d6; color-scheme:dark }}
 :root[data-theme="dark"]{
   --bg:#13181b; --panel:#1b2226; --ink:#e3e8ea; --muted:#94a2a9; --line:#2f393e; --soft:#20282c;
   --accent:#6fb0de; --accent-ink:#0c1a24; --accent-soft:#1d3342;
   --ok:#6cc48f; --ok-soft:#173022; --warn:#e3a94a; --warn-soft:#352812; --bad:#f08277; --bad-soft:#3a1d1a;
-  --map:#161c1f; --grid:#232c30; --exist:#b9b3a8; color-scheme:dark }
+  --map:#161c1f; --grid:#232c30; --exist:#b9b3a8; --dc:#c493d6; color-scheme:dark }
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45}
 .wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 32px;max-width:1500px;margin:0 auto}
@@ -119,7 +119,7 @@ a.btn{text-decoration:none;display:inline-block}
 <div class="wrap">
   <header class="top">
     <h1><small>Redes aéreas trenzadas · ITC-BT-06</small>Cálculo de Apoyos BT</h1>
-    <div class="row"><button class="btn small" id="foldAll" type="button">Minimizar / desplegar todo</button><div class="ver" id="ver">v1.7.0</div></div>
+    <div class="row"><button class="btn small" id="foldAll" type="button">Minimizar / desplegar todo</button><div class="ver" id="ver">v1.8.0</div></div>
   </header>
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="calc" aria-selected="true">Proyecto</button>
@@ -160,8 +160,9 @@ a.btn{text-decoration:none;display:inline-block}
         <section class="card">
           <h2>Red existente y entronque</h2>
           <div class="row" style="margin-bottom:8px">
-            <label class="btn small" for="exLinFile">Importar líneas existentes</label><input id="exLinFile" type="file" accept=".kmz,.kml,.gpx" hidden>
-            <label class="btn small" for="exApoFile">Importar apoyos existentes</label><input id="exApoFile" type="file" accept=".kmz,.kml,.gpx" hidden>
+            <label class="btn small" for="exApoFile">1 · Importar apoyos</label><input id="exApoFile" type="file" accept=".kmz,.kml,.gpx" hidden>
+            <label class="btn small" for="exLinFile">2 · Importar tramo baja</label><input id="exLinFile" type="file" accept=".kmz,.kml,.gpx" hidden>
+            <label class="btn small" for="exDCFile">3 · Importar puntos D-C</label><input id="exDCFile" type="file" accept=".kmz,.kml,.gpx" hidden>
           </div>
           <div id="exPick" hidden style="margin-bottom:8px"></div>
           <div id="exBody"></div>
@@ -225,7 +226,7 @@ a.btn{text-decoration:none;display:inline-block}
             <button class="btn small" data-tool="move" aria-pressed="false">Mover</button>
             <button class="btn small" data-tool="insert" aria-pressed="false">Insertar</button>
             <button class="btn small" data-tool="delete" aria-pressed="false">Borrar</button>
-            <label class="chk note">Capa <select id="edLayer"><option value="nuevo">Apoyos nuevos</option><option value="exApoyos">Apoyos existentes</option><option value="exLineas">Líneas existentes</option><option value="ruta">Ruta del trazado</option></select></label>
+            <label class="chk note">Capa <select id="edLayer"><option value="nuevo">Apoyos nuevos</option><option value="exApoyos">Apoyos existentes</option><option value="exLineas">Tramos baja existentes</option><option value="exDC">Puntos D-C</option><option value="ruta">Ruta del trazado</option></select></label>
             <button class="btn small" id="edUndo" disabled title="Ctrl+Z">Deshacer</button>
           </div>
           <p class="note" id="edHint" style="margin:4px 0 8px"></p>

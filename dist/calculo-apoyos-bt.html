@@ -9,7 +9,7 @@
   --bg:#eef0f1; --panel:#ffffff; --ink:#1b2328; --muted:#5b6870; --line:#d3d9dc; --soft:#f5f7f8;
   --accent:#1d5b86; --accent-ink:#ffffff; --accent-soft:#e3eef6;
   --ok:#2f7d4f; --ok-soft:#e1f1e7; --warn:#a66a00; --warn-soft:#fbefd6; --bad:#b3362c; --bad-soft:#f8e1de;
-  --map:#fbfcfc; --grid:#e6eaec; --exist:#6d6a64;
+  --map:#fbfcfc; --grid:#e6eaec; --exist:#6d6a64; --dc:#7a3e8f;
   --f-display:"Barlow Semi Condensed","Arial Narrow",Arial,sans-serif;
   --f-body:"Barlow","Segoe UI",Roboto,Arial,sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
@@ -18,12 +18,12 @@
   --bg:#13181b; --panel:#1b2226; --ink:#e3e8ea; --muted:#94a2a9; --line:#2f393e; --soft:#20282c;
   --accent:#6fb0de; --accent-ink:#0c1a24; --accent-soft:#1d3342;
   --ok:#6cc48f; --ok-soft:#173022; --warn:#e3a94a; --warn-soft:#352812; --bad:#f08277; --bad-soft:#3a1d1a;
-  --map:#161c1f; --grid:#232c30; --exist:#b9b3a8; color-scheme:dark }}
+  --map:#161c1f; --grid:#232c30; --exist:#b9b3a8; --dc:#c493d6; color-scheme:dark }}
 :root[data-theme="dark"]{
   --bg:#13181b; --panel:#1b2226; --ink:#e3e8ea; --muted:#94a2a9; --line:#2f393e; --soft:#20282c;
   --accent:#6fb0de; --accent-ink:#0c1a24; --accent-soft:#1d3342;
   --ok:#6cc48f; --ok-soft:#173022; --warn:#e3a94a; --warn-soft:#352812; --bad:#f08277; --bad-soft:#3a1d1a;
-  --map:#161c1f; --grid:#232c30; --exist:#b9b3a8; color-scheme:dark }
+  --map:#161c1f; --grid:#232c30; --exist:#b9b3a8; --dc:#c493d6; color-scheme:dark }
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45}
 .wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 32px;max-width:1500px;margin:0 auto}
@@ -119,7 +119,7 @@ a.btn{text-decoration:none;display:inline-block}
 <div class="wrap">
   <header class="top">
     <h1><small>Redes aéreas trenzadas · ITC-BT-06</small>Cálculo de Apoyos BT</h1>
-    <div class="row"><button class="btn small" id="foldAll" type="button">Minimizar / desplegar todo</button><div class="ver" id="ver">v1.7.0</div></div>
+    <div class="row"><button class="btn small" id="foldAll" type="button">Minimizar / desplegar todo</button><div class="ver" id="ver">v1.8.0</div></div>
   </header>
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="calc" aria-selected="true">Proyecto</button>
@@ -160,8 +160,9 @@ a.btn{text-decoration:none;display:inline-block}
         <section class="card">
           <h2>Red existente y entronque</h2>
           <div class="row" style="margin-bottom:8px">
-            <label class="btn small" for="exLinFile">Importar líneas existentes</label><input id="exLinFile" type="file" accept=".kmz,.kml,.gpx" hidden>
-            <label class="btn small" for="exApoFile">Importar apoyos existentes</label><input id="exApoFile" type="file" accept=".kmz,.kml,.gpx" hidden>
+            <label class="btn small" for="exApoFile">1 · Importar apoyos</label><input id="exApoFile" type="file" accept=".kmz,.kml,.gpx" hidden>
+            <label class="btn small" for="exLinFile">2 · Importar tramo baja</label><input id="exLinFile" type="file" accept=".kmz,.kml,.gpx" hidden>
+            <label class="btn small" for="exDCFile">3 · Importar puntos D-C</label><input id="exDCFile" type="file" accept=".kmz,.kml,.gpx" hidden>
           </div>
           <div id="exPick" hidden style="margin-bottom:8px"></div>
           <div id="exBody"></div>
@@ -225,7 +226,7 @@ a.btn{text-decoration:none;display:inline-block}
             <button class="btn small" data-tool="move" aria-pressed="false">Mover</button>
             <button class="btn small" data-tool="insert" aria-pressed="false">Insertar</button>
             <button class="btn small" data-tool="delete" aria-pressed="false">Borrar</button>
-            <label class="chk note">Capa <select id="edLayer"><option value="nuevo">Apoyos nuevos</option><option value="exApoyos">Apoyos existentes</option><option value="exLineas">Líneas existentes</option><option value="ruta">Ruta del trazado</option></select></label>
+            <label class="chk note">Capa <select id="edLayer"><option value="nuevo">Apoyos nuevos</option><option value="exApoyos">Apoyos existentes</option><option value="exLineas">Tramos baja existentes</option><option value="exDC">Puntos D-C</option><option value="ruta">Ruta del trazado</option></select></label>
             <button class="btn small" id="edUndo" disabled title="Ctrl+Z">Deshacer</button>
           </div>
           <p class="note" id="edHint" style="margin:4px 0 8px"></p>
@@ -724,7 +725,7 @@ return { utmFromLatLon, latLonFromUtm, calcular, presupuesto, nodesFromManual, b
 })();
 const ANEXO_TPL = "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";
 /* ===== Aplicación ===== */
-const VERSION = '1.7.0';
+const VERSION = '1.8.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -1159,7 +1160,7 @@ function applyExApoyos(points, fname) {
 /* ===== Panel de red existente, entronque y verificación ===== */
 function renderEntronque() {
   const box = $('#exBody'), R = redEx(), en = S.proj.entronque;
-  if (!R || (!R.lineas.length && !R.apoyos?.length)) { box.innerHTML = '<p class="note">Importa por separado las líneas existentes y los apoyos existentes (KMZ/KML; puedes importar varios archivos). Después eliges el apoyo de entronque y verificas sus datos, los de los apoyos contiguos y los de las líneas que pasan por él.</p>'; return; }
+  if (!R || (!R.lineas.length && !R.apoyos?.length && !R.puntosDC?.length)) { box.innerHTML = '<p class="note">Importa por separado los tres archivos de la red existente: apoyos, tramo baja y puntos D-C (KMZ/KML; puedes importar varios de cada tipo). Después eliges el apoyo de entronque y verificas sus datos, los de los apoyos contiguos y los de los tramos que pasan por él. De los puntos D-C solo se rotula parte del CUPS.</p>'; return; }
   ensureEntronque();
   if (!S.proj.rows.length) { S.proj.rows.push(Object.assign(newRow(), { vano: 0 })); S.proj.rows.push(newRow()); }
   const ex = exNodes();
@@ -1167,7 +1168,7 @@ function renderEntronque() {
   const poleOpts = sel => `<option value="">Elegir modelo…</option>` + S.poles.map(p => `<option value="${esc(p.id)}" ${sel === p.id ? 'selected' : ''}>${poleLabel(p)}</option>`).join('');
   const cabOpts = sel => `<option value="">Elegir cable…</option>` + S.cables.map(c => `<option value="${esc(c.id)}" ${sel === c.id ? 'selected' : ''}>${esc(c.designacion)}</option>`).join('');
   const est = verifEstado(), it = est.it;
-  let html = `<div class="row" style="gap:6px">${fuentes(R.lineas, 'líneas')} ${fuentes(R.apoyos || [], 'apoyos')}</div>
+  let html = `<div class="row" style="gap:6px">${fuentes(R.apoyos || [], 'apoyos')} ${fuentes(R.lineas, 'tramos')} ${fuentes(R.puntosDC || [], 'puntos D-C')}</div>
     ${!R.apoyos?.length ? '<p class="note" style="margin-top:6px">Sin archivo de apoyos existentes: se toman como apoyos los vértices de las líneas.</p>' : ''}
     <div class="fields" style="margin-top:10px">
       <label class="f">Apoyo de entronque<select id="en_k"><option value="">Sin elegir</option>${ex.length <= 800 ? ex.map((p, i) => `<option value="${i}" ${en.k === i ? 'selected' : ''}>E${i + 1}${p.nombre ? ' · ' + esc(p.nombre) : ''}</option>`).join('') : (en.k != null ? `<option value="${en.k}" selected>E${en.k + 1}</option>` : '')}</select></label>
@@ -1202,6 +1203,7 @@ function renderEntronque() {
     <div class="tablewrap" style="margin-top:6px;max-height:260px;overflow:auto"><table class="vt"><thead><tr><th>Elemento</th><th>Texto en el plano</th></tr></thead><tbody>
     ${exLineas().map((l, li) => `<tr><td>Línea · ${esc(l.nombre)}</td><td><input type="text" data-lab-l="${li}" value="${esc(l.etiqueta ?? l.nombre ?? '')}"></td></tr>`).join('')}
     ${(R.apoyos || []).map((a, i) => `<tr><td>Apoyo E${i + 1}${a.nombre ? ' · ' + esc(a.nombre) : ''}</td><td><input type="text" data-lab-a="${i}" value="${esc(exLabel(i))}"></td></tr>`).join('')}
+    ${(R.puntosDC || []).map((d, i) => `<tr><td>Punto D-C · ${d.cups ? esc(d.cups) : '<span class="chip warn">sin CUPS</span>'}</td><td><input type="text" data-lab-dc="${i}" value="${esc(dcLabel(d))}"></td></tr>`).join('')}
     </tbody></table></div><p class="note">En las líneas se añade detrás el cable verificado. Deja un texto vacío para no rotularlo.</p></details>
     <div class="row" style="margin-top:8px"><button class="btn small ghost" id="en_del">Quitar toda la red existente</button></div>`;
   box.innerHTML = html;
@@ -1209,12 +1211,14 @@ function renderEntronque() {
 function bindEntronque() {
   $('#exLinFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importFile(f, 'exLineas'); e.target.value = ''; });
   $('#exApoFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importFile(f, 'exApoyos'); e.target.value = ''; });
+  $('#exDCFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importFile(f, 'exDC'); e.target.value = ''; });
   const box = $('#exBody');
   box.addEventListener('change', ev => {
     const t = ev.target, en = S.proj.entronque; if (!en) return;
     if (t.id === 'en_k') return setEntronque(t.value === '' ? null : Number(t.value));
     if (t.id === 'en_depth') en.depth = Number(t.value);
     if (t.dataset.labL != null) { const l = exLineas()[Number(t.dataset.labL)]; if (l) l.etiqueta = t.value; drawMap(); return; }
+    if (t.dataset.labDc != null) { const d = exDC()[Number(t.dataset.labDc)]; if (d) d.etiqueta = t.value; drawMap(); return; }
     if (t.dataset.labA != null) { const a = redEx().apoyos[Number(t.dataset.labA)]; if (a) a.etiqueta = t.value; drawMap(); return; }
     if (t.dataset.vl) {
       const L = verifData().lineas[t.dataset.id] || (verifData().lineas[t.dataset.id] = {});
@@ -1236,7 +1240,9 @@ function bindEntronque() {
     if (b.id === 'en_del') { snapshot(); S.proj.redEx = null; S.proj.entronque = null; S.proj.verif = null; if (!S.proj.geo) S.proj.zone = null; S.pickEntronque = false; V.fitted = false; refreshAll(); }
     if (b.dataset.delsrc) {
       snapshot(); const R = redEx(), f = b.dataset.delsrc;
-      if (b.dataset.tipo === 'líneas') R.lineas = R.lineas.filter(l => l.fuente !== f); else { R.apoyos = R.apoyos.filter(a => a.fuente !== f); if (S.proj.entronque) S.proj.entronque.k = null; }
+      if (b.dataset.tipo === 'tramos') R.lineas = R.lineas.filter(l => l.fuente !== f);
+      else if (b.dataset.tipo === 'puntos D-C') R.puntosDC = (R.puntosDC || []).filter(a => a.fuente !== f);
+      else { R.apoyos = R.apoyos.filter(a => a.fuente !== f); if (S.proj.entronque) S.proj.entronque.k = null; }
       invalidateVert(); refreshAll();
     }
   });
@@ -1266,6 +1272,12 @@ function initCollapsibles() {
   };
 }
 
+/* Puntos D-C: solo se rotula parte del CUPS (7 caracteres a partir del 11.º) */
+function exDC() { return redEx()?.puntosDC || []; }
+const CUPS_RE = /ES[\s.-]?(?:\d[\s.-]?){16}[A-Z]{2}(?:[\s.-]?\d[A-Z])?/i;
+function findCups(txt) { const m = String(txt || '').match(CUPS_RE); return m ? m[0].replace(/[\s.-]/g, '').toUpperCase() : ''; }
+function cupsCorto(c) { c = String(c || '').replace(/\s/g, ''); return c.length >= 17 ? c.substring(10, 17) : ''; }
+function dcLabel(p) { return p.etiqueta != null ? p.etiqueta : cupsCorto(p.cups); }
 function exLineas() { return redEx()?.lineas || []; }
 /* Apoyos existentes: los importados; si no hay, los vértices de las líneas existentes */
 function exNodes() {
@@ -1317,7 +1329,7 @@ const V = { sc: null, cx: 0, cy: 0, fitted: false };
 function allPts() {
   const n = S.calc?.nodes || (S.proj.rows.length > 1 ? currentNodes() : []);
   const ruta = S.proj.geo?.ruta || [];
-  const ex = [...exNodes(), ...exLineas().flatMap(l => l.pts)];
+  const ex = [...exNodes(), ...exLineas().flatMap(l => l.pts), ...exDC()];
   const base = [...n, ...ruta];
   if (!base.length) return ex;
   const xs = base.map(p => p.x), ys = base.map(p => p.y), m = 300;
@@ -1340,7 +1352,7 @@ function lineLabel(l) {
   const d = lineData(l.id); const cab = d.v.cableId && d.cab ? shortCable(d.cab.designacion) : '';
   return [base, cab].filter(Boolean).join(' · ');
 }
-const PRINT_COLORS = { '--map': '#ffffff', '--ink': '#1b2328', '--muted': '#4c5960', '--accent': '#1d5b86', '--exist': '#6d6a64', '--panel': '#ffffff', '--grid': '#e6eaec', '--ok': '#2f7d4f', '--warn': '#a66a00', '--bad': '#b3362c', '--f-body': 'Arial, sans-serif', '--f-mono': 'Consolas, monospace' };
+const PRINT_COLORS = { '--dc': '#7a3e8f', '--map': '#ffffff', '--ink': '#1b2328', '--muted': '#4c5960', '--accent': '#1d5b86', '--exist': '#6d6a64', '--panel': '#ffffff', '--grid': '#e6eaec', '--ok': '#2f7d4f', '--warn': '#a66a00', '--bad': '#b3362c', '--f-body': 'Arial, sans-serif', '--f-mono': 'Consolas, monospace' };
 /* Dibuja el plano. Sin argumento, en el lienzo de la pantalla; con T = {cv, W, H, dpr, sc, cx, cy, print}, en otro lienzo (PDF) */
 function drawMap(T) {
   const screen = !T;
@@ -1351,7 +1363,7 @@ function drawMap(T) {
   g.fillStyle = col('--map'); g.fillRect(0, 0, W, Hh);
   const nodes = S.drag ? currentNodes() : (S.calc?.nodes || (S.proj.rows.length > 1 ? currentNodes() : []));
   const ex = exNodes(), lines = exLineas(), ruta = S.proj.geo?.ruta || [];
-  if (nodes.length < 2 && ex.length < 1 && !lines.length) {
+  if (nodes.length < 2 && ex.length < 1 && !lines.length && !exDC().length) {
     if (screen) S.mapT = null; g.fillStyle = col('--muted'); g.font = '13px ' + col('--f-body'); g.textAlign = 'center';
     g.fillText('Proyecto vacío: importa el trazado, la red existente o crea el trazado con coordenadas.', W / 2, Hh / 2); return;
   }
@@ -1403,6 +1415,16 @@ function drawMap(T) {
     const lab = exLabel(i);
     if (lab && (sc > 0.6 || isEn || !screen)) { g.fillStyle = col('--exist'); g.font = '600 11px ' + col('--f-body'); g.textAlign = 'right'; halo(lab, x - 8, y - 7); }
   });
+  // Puntos D-C: rombo y CUPS abreviado
+  exDC().forEach((d, i) => {
+    const [x, y] = P(d); if (!inView(x, y)) return;
+    const isSel = screen && S.selPt?.layer === 'exDC' && S.selPt.i === i;
+    g.fillStyle = col('--dc'); g.strokeStyle = isSel ? col('--ink') : col('--panel'); g.lineWidth = isSel ? 2.5 : 1.5;
+    g.beginPath(); g.moveTo(x, y - 6); g.lineTo(x + 6, y); g.lineTo(x, y + 6); g.lineTo(x - 6, y); g.closePath(); g.fill(); g.stroke();
+    const lab = dcLabel(d);
+    if (lab && (sc > 0.5 || !screen)) { g.fillStyle = col('--dc'); g.font = '600 10px ' + col('--f-mono'); g.textAlign = 'left'; halo(lab, x + 8, y + 4); }
+    else if (!d.cups && screen) { g.fillStyle = col('--bad'); g.font = '600 10px ' + col('--f-body'); g.textAlign = 'left'; halo('sin CUPS', x + 8, y + 4); }
+  });
   if (nodes.length > 1) {
     g.strokeStyle = col('--accent'); g.lineWidth = 2.5; g.beginPath(); nodes.forEach((n, i) => { const [x, y] = P(n); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke();
     g.font = '11px ' + col('--f-mono'); g.textAlign = 'center';
@@ -1443,7 +1465,7 @@ function zoomAt(f, mx, my) {
 }
 
 /* ===== Edición en el plano ===== */
-const LAYERS = { nuevo: 'Apoyos nuevos', exApoyos: 'Apoyos existentes', exLineas: 'Líneas existentes', ruta: 'Ruta del trazado' };
+const LAYERS = { nuevo: 'Apoyos nuevos', exApoyos: 'Apoyos existentes', exLineas: 'Tramos baja existentes', exDC: 'Puntos D-C', ruta: 'Ruta del trazado' };
 S.tool = 'pan'; S.editLayer = 'nuevo'; S.hist = [];
 function snapshot() {
   S.hist.push(JSON.stringify({ geo: S.proj.geo, rows: S.proj.rows, redEx: S.proj.redEx, entronque: S.proj.entronque, verif: S.proj.verif, modo: S.proj.modo, zone: S.proj.zone, rumbo0: S.proj.ctx.rumbo0 }));
@@ -1467,6 +1489,7 @@ function layerPts(layer) {
   if (layer === 'nuevo') return S.proj.modo === 'kml' && S.proj.geo ? [S.proj.geo.pts] : [];
   if (layer === 'exApoyos') return redEx()?.apoyos?.length ? [redEx().apoyos] : [];
   if (layer === 'exLineas') return exLineas().map(l => l.pts);
+  if (layer === 'exDC') return exDC().length ? [exDC()] : [];
   if (layer === 'ruta') return S.proj.geo?.ruta ? [S.proj.geo.ruta] : [];
   return [];
 }
@@ -1502,6 +1525,10 @@ function editClick(mx, my) {
     } else if (layer === 'exApoyos') {
       const R = redEx() || (S.proj.redEx = { lineas: [], apoyos: [] }); if (!S.proj.zone) return toast('Importa primero algún elemento con coordenadas para fijar el huso UTM.');
       snapshot(); const np = { x: w.x, y: w.y, nombre: '' }; setLL(np); R.apoyos = R.apoyos || []; R.apoyos.push(np); invalidateVert(); toast(`Apoyo existente E${R.apoyos.length} añadido.`);
+    } else if (layer === 'exDC') {
+      const R = redEx() || (S.proj.redEx = { lineas: [], apoyos: [] }); if (!S.proj.zone) return toast('Importa primero algún elemento con coordenadas para fijar el huso UTM.');
+      snapshot(); const np = { id: uid('d'), x: w.x, y: w.y, nombre: '', cups: '', fuente: 'añadido en el plano' }; setLL(np); R.puntosDC = R.puntosDC || []; R.puntosDC.push(np);
+      S.selPt = { layer: 'exDC', li: 0, i: R.puntosDC.length - 1 }; toast('Punto D-C añadido: escribe su CUPS abajo.');
     } else if (layer === 'exLineas' || layer === 'ruta') {
       const arrs = layerPts(layer); let hit = null, li = -1;
       arrs.forEach((arr, k) => { const h = hitSegment(arr, mx, my); if (h && (!hit || h.d < hit.d)) { hit = h; li = k; } });
@@ -1521,6 +1548,8 @@ function editClick(mx, my) {
       snapshot(); const en = S.proj.entronque;
       if (en?.k === h.i) en.k = null; else if (en?.k > h.i) en.k--;
       redEx().apoyos.splice(h.i, 1); invalidateVert(); toast(`Apoyo existente E${h.i + 1} borrado.`);
+    } else if (layer === 'exDC') {
+      snapshot(); redEx().puntosDC.splice(h.i, 1); toast('Punto D-C borrado.');
     } else {
       const arr = layerPts(layer)[h.li]; snapshot();
       if (arr.length <= 2) { if (layer === 'exLineas') { exLineas().splice(h.li, 1); toast('Línea existente borrada (le quedaban dos vértices).'); } else { S.proj.geo.ruta = null; toast('Ruta borrada.'); } }
@@ -1571,6 +1600,7 @@ function bindMap() {
     if (S.pickEntronque) { const k = near(S.mapT.ex); if (k >= 0) { S.pickEntronque = false; setEntronque(k); } return; }
     const i = near(S.mapT.nodes);
     if (i >= 0) { S.sel = S.sel === i ? null : i; S.selPt = S.sel == null ? null : { layer: 'nuevo', li: 0, i }; renderRows(); renderResults(); renderPtEdit(); return; }
+    const kd = near(exDC()); if (kd >= 0) { S.selPt = { layer: 'exDC', li: 0, i: kd }; renderPtEdit(); drawMap(); return; }
     const k = near(S.mapT.ex); if (k >= 0 && redEx()?.apoyos?.length) { S.selPt = { layer: 'exApoyos', li: 0, i: k }; renderPtEdit(); drawMap(); return; }
     let hl = null; exLineas().forEach((l, li) => { const h = hitSegment(l.pts, mx, my, 8); if (h && (!hl || h.d < hl.d)) hl = { ...h, li }; });
     if (hl) { S.selPt = { layer: 'exLineas', li: hl.li, i: hl.t < 0.5 ? hl.i : hl.i + 1 }; renderPtEdit(); drawMap(); return; }
@@ -1599,6 +1629,8 @@ function bindMap() {
     const p = sp.layer === 'nuevo' ? (ensureGeoPts(), S.proj.geo.pts[sp.i]) : layerPts(sp.layer)[sp.li]?.[sp.i]; if (!p) return;
     snapshot();
     if (t.id === 'pe_lab') { p.etiqueta = t.value; drawMap(); renderEntronque(); return; }
+    if (t.id === 'pe_cups') { p.cups = t.value.replace(/[\s.-]/g, '').toUpperCase(); if (p.etiqueta != null && p.etiqueta === cupsCorto('')) delete p.etiqueta; drawMap(); renderPtEdit(); renderEntronque(); return; }
+    if (t.id === 'pe_dcl') { p.etiqueta = t.value === cupsCorto(p.cups) ? undefined : t.value; if (p.etiqueta === undefined) delete p.etiqueta; drawMap(); renderEntronque(); return; }
     if (t.id === 'pe_ll') { const l = exLineas()[sp.li]; if (l) l.etiqueta = t.value; drawMap(); renderEntronque(); return; }
     if (t.id === 'pe_x') p.x = Number(t.value); if (t.id === 'pe_y') p.y = Number(t.value); if (t.id === 'pe_n') p.nombre = t.value;
     setLL(p);
@@ -1613,19 +1645,22 @@ function renderEdBar() {
   const hint = { pan: 'Arrastra para mover el plano. Pulsa un apoyo para seleccionarlo y editar sus coordenadas.', move: `Arrastra un punto de «${LAYERS[S.editLayer]}» para moverlo.`, insert: S.editLayer === 'nuevo' ? 'Pulsa sobre un vano para intercalar un apoyo, o fuera del trazado para añadirlo al final.' : S.editLayer === 'exApoyos' ? 'Pulsa en el plano para añadir un apoyo existente.' : 'Pulsa sobre un tramo para insertar un vértice.', delete: `Pulsa un punto de «${LAYERS[S.editLayer]}» para borrarlo.` }[S.tool];
   $('#edHint').textContent = hint; updUndo();
 }
+function p0dc(sp) { return exDC()[sp.i]?.nombre || ''; }
 function renderPtEdit() {
   const box = $('#ptEdit'), sp = S.selPt;
   if (!sp) { box.hidden = true; return; }
   let p, label;
   if (sp.layer === 'nuevo') { const n = (S.proj.modo === 'kml' && S.proj.geo) ? S.proj.geo.pts[sp.i] : currentNodes()[sp.i]; p = n; label = `Apoyo nuevo A${sp.i + 1}`; }
-  else { p = layerPts(sp.layer)[sp.li]?.[sp.i]; label = sp.layer === 'exApoyos' ? `Apoyo existente E${sp.i + 1}` : sp.layer === 'ruta' ? `Vértice ${sp.i + 1} de la ruta` : `Línea existente «${exLineas()[sp.li]?.nombre || ''}» · vértice ${sp.i + 1}`; }
+  else { p = layerPts(sp.layer)[sp.li]?.[sp.i]; label = sp.layer === 'exDC' ? `Punto D-C${p0dc(sp) ? ' · ' + esc(p0dc(sp)) : ''}` : sp.layer === 'exApoyos' ? `Apoyo existente E${sp.i + 1}` : sp.layer === 'ruta' ? `Vértice ${sp.i + 1} de la ruta` : `Línea existente «${exLineas()[sp.li]?.nombre || ''}» · vértice ${sp.i + 1}`; }
   if (!p) { box.hidden = true; return; }
   box.hidden = false;
   box.innerHTML = `<b>${label}</b>${isEntronqueA1(sp.layer === 'nuevo' ? sp.i : -1) ? ' · es el apoyo de entronque: edítalo como apoyo existente' : ''}
     <div class="fields" style="margin-top:6px"><label class="f">${S.proj.zone ? `X UTM (huso ${S.proj.zone})` : 'X local (m)'}<input id="pe_x" class="num" type="number" step="0.01" value="${p.x.toFixed(2)}" ${isEntronqueA1(sp.layer === 'nuevo' ? sp.i : -1) ? 'disabled' : ''}></label>
     <label class="f">${S.proj.zone ? 'Y UTM' : 'Y local (m)'}<input id="pe_y" class="num" type="number" step="0.01" value="${p.y.toFixed(2)}" ${isEntronqueA1(sp.layer === 'nuevo' ? sp.i : -1) ? 'disabled' : ''}></label>
-    ${sp.layer === 'nuevo' || sp.layer === 'exApoyos' ? `<label class="f full">Nombre<input id="pe_n" type="text" value="${esc(p.nombre || '')}"></label>` : ''}
+    ${sp.layer === 'nuevo' || sp.layer === 'exApoyos' || sp.layer === 'exDC' ? `<label class="f full">Nombre<input id="pe_n" type="text" value="${esc(p.nombre || '')}"></label>` : ''}
     ${sp.layer === 'exApoyos' ? `<label class="f full">Texto en el plano<input id="pe_lab" type="text" value="${esc(exLabel(sp.i))}" placeholder="E${sp.i + 1}"><span class="hint">Vacío: no se rotula. Por defecto: E${sp.i + 1}</span></label>` : ''}
+    ${sp.layer === 'exDC' ? `<label class="f full">CUPS<input id="pe_cups" type="text" value="${esc(p.cups || '')}" placeholder="ES0000000000000000XX"></label>
+      <label class="f full">Texto en el plano<input id="pe_dcl" type="text" value="${esc(dcLabel(p))}" placeholder="${esc(cupsCorto(p.cups))}"><span class="hint">Por defecto: caracteres 11 a 17 del CUPS (${esc(cupsCorto(p.cups) || '—')}).</span></label>` : ''}
     ${sp.layer === 'exLineas' ? `<label class="f full">Texto de la línea en el plano<input id="pe_ll" type="text" value="${esc(exLineas()[sp.li]?.etiqueta ?? exLineas()[sp.li]?.nombre ?? '')}"><span class="hint">El cable verificado se añade detrás. Vacío: solo el cable.</span></label>` : ''}</div>
     ${p.lat != null ? `<p class="note mono" style="margin:6px 0 0">${p.lat.toFixed(7)}, ${p.lon.toFixed(7)}</p>` : ''}`;
 }
@@ -1651,11 +1686,13 @@ async function parseGeoFile(file) {
     const pt = el => ({ lat: Number(el.getAttribute('lat')), lon: Number(el.getAttribute('lon')), alt: tag(el, 'ele')[0] ? Number(tag(el, 'ele')[0].textContent) : null, nombre: [...el.children].find(c => c.localName === 'name')?.textContent || '' });
     tag(doc, 'trk').forEach(t => { const pts = tag(t, 'trkpt').map(pt); if (pts.length >= 2) lines.push({ nombre: nameOf(t) || 'Track', pts }); });
     tag(doc, 'rte').forEach(t => { const pts = tag(t, 'rtept').map(pt); if (pts.length >= 2) lines.push({ nombre: nameOf(t) || 'Ruta', pts }); });
-    tag(doc, 'wpt').forEach(w => points.push(pt(w)));
+    tag(doc, 'wpt').forEach(w => points.push({ ...pt(w), raw: w.textContent }));
   } else {
     const parseCoords = s => s.trim().split(/\s+/).map(t => t.split(',').map(Number)).filter(a => a.length >= 2 && !isNaN(a[0]) && !isNaN(a[1])).map(([lon, lat, alt]) => ({ lat, lon, alt: isNaN(alt) ? null : alt }));
     tag(doc, 'LineString').forEach(ls => { const pts = parseCoords(tag(ls, 'coordinates')[0]?.textContent || ''); if (pts.length >= 2) lines.push({ nombre: nameOf(ls) || `Línea ${lines.length + 1}`, pts }); });
-    tag(doc, 'Point').forEach(pe => { const c = parseCoords(tag(pe, 'coordinates')[0]?.textContent || '')[0]; if (c) points.push({ ...c, nombre: nameOf(pe) }); });
+    tag(doc, 'Point').forEach(pe => { const c = parseCoords(tag(pe, 'coordinates')[0]?.textContent || '')[0]; const pm = pe.closest('Placemark') || pe;
+      const ed = [...tag(pm, 'Data'), ...tag(pm, 'SimpleData')].map(d => (d.getAttribute('name') || '') + ' ' + (d.textContent || '')).join(' ');
+      if (c) points.push({ ...c, nombre: nameOf(pe), raw: [nameOf(pe), ed, tag(pm, 'description')[0]?.textContent || ''].join(' ') }); });
   }
   lines.forEach(l => l.conCota = hasAlt(l.pts));
   return { lines, points };
@@ -1677,6 +1714,7 @@ async function importFile(file, destino) {
     const { lines, points } = await parseGeoFile(file);
     if (destino === 'exLineas') return applyExLineas(lines, file.name);
     if (destino === 'exApoyos') return applyExApoyos(points, file.name);
+    if (destino === 'exDC') return applyExDC(points, file.name);
     // Trazado nuevo: ruta + marcadores de apoyos en el mismo archivo
     if (!lines.length && points.length < 2) throw new Error('No se ha encontrado la ruta ni los marcadores de los apoyos');
     const go = l => applyTrace(l || { nombre: 'Apoyos', pts: points, sinDividir: true, conCota: hasAlt(points) }, file.name, l && points.length ? points : null);
@@ -1743,6 +1781,17 @@ function geoInfoHtml() {
 }
 
 /* ===== Importación de la red existente ===== */
+function applyExDC(points, fname) {
+  if (!points.length) return toast('El archivo no contiene puntos D-C (marcadores).');
+  const zone = setZoneFrom(points[0]);
+  const R = redEx() || (S.proj.redEx = { lineas: [], apoyos: [] });
+  snapshot();
+  const nuevos = points.map(p => ({ id: uid('d'), lat: p.lat, lon: p.lon, nombre: p.nombre || '', cups: findCups(p.raw || p.nombre), fuente: fname, ...E.utmFromLatLon(p.lat, p.lon, zone) }));
+  R.puntosDC = (R.puntosDC || []).filter(a => a.fuente !== fname).concat(nuevos);
+  V.fitted = false; refreshAll();
+  const sin = nuevos.filter(p => !p.cups).length;
+  toast(`${nuevos.length} punto(s) D-C importado(s) de ${fname}.` + (sin ? ` ${sin} sin CUPS reconocible: escríbelo seleccionando el punto en el plano.` : ''));
+}
 function ensureEntronque() {
   if (!S.proj.entronque) S.proj.entronque = { k: null, cableId: (S.cables.find(c => /3x95/.test(c.designacion)) || S.cables[0] || {}).id || '', tense: 500, depth: S.proj.ctx.depthAmarre };
 }
@@ -1914,7 +1963,7 @@ const ascii = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[
 function dxf(c, geo) {
   const L = [];
   const p = (...a) => { for (let k = 0; k < a.length; k += 2) L.push(String(a[k]), String(a[k + 1])); };
-  const layers = [['BT_TRAZADO', 5], ['BT_APOYOS', 1], ['BT_TEXTO_APOYOS', 7], ['BT_TEXTO_VANOS', 8], ['BT_EXISTENTE', 30], ['BT_LINEA_EXISTENTE', 30], ['BT_APOYOS_EXISTENTES', 30], ['BT_TEXTO_EXISTENTE', 30], ['BT_RUTA', 4]];
+  const layers = [['BT_TRAZADO', 5], ['BT_APOYOS', 1], ['BT_TEXTO_APOYOS', 7], ['BT_TEXTO_VANOS', 8], ['BT_EXISTENTE', 30], ['BT_LINEA_EXISTENTE', 30], ['BT_APOYOS_EXISTENTES', 30], ['BT_TEXTO_EXISTENTE', 30], ['BT_RUTA', 4], ['BT_PUNTOS_DC', 6], ['BT_TEXTO_PUNTOS_DC', 6]];
   p(0, 'SECTION', 2, 'HEADER', 9, '$ACADVER', 1, 'AC1009', 9, '$INSUNITS', 70, 6, 0, 'ENDSEC');
   p(0, 'SECTION', 2, 'TABLES', 0, 'TABLE', 2, 'LTYPE', 70, 1, 0, 'LTYPE', 2, 'CONTINUOUS', 70, 0, 3, 'Solid line', 72, 65, 73, 0, 40, 0, 0, 'ENDTAB');
   p(0, 'TABLE', 2, 'LAYER', 70, layers.length); layers.forEach(([n, colr]) => p(0, 'LAYER', 2, n, 70, 0, 62, colr, 6, 'CONTINUOUS')); p(0, 'ENDTAB', 0, 'ENDSEC');
@@ -1924,8 +1973,10 @@ function dxf(c, geo) {
   if (geo) exLineas().forEach(l => { const lab = lineLabel(l); if (lab && l.pts.length > 1) { let bi = 0, bl = 0; for (let i = 0; i < l.pts.length - 1; i++) { const d = Math.hypot(l.pts[i + 1].x - l.pts[i].x, l.pts[i + 1].y - l.pts[i].y); if (d > bl) { bl = d; bi = i; } } const A = l.pts[bi], B = l.pts[bi + 1]; let an = Math.atan2(B.y - A.y, B.x - A.x) * 180 / Math.PI; if (an > 90) an -= 180; if (an < -90) an += 180; p(0, 'TEXT', 8, 'BT_TEXTO_EXISTENTE', 10, f3((A.x + B.x) / 2), 20, f3((A.y + B.y) / 2 + 1), 30, 0, 40, 1, 1, ascii(lab), 50, an.toFixed(2), 72, 1, 11, f3((A.x + B.x) / 2), 21, f3((A.y + B.y) / 2 + 1), 31, 0); } });
   if (geo) exLineas().forEach(l => { for (let i = 0; i < l.pts.length - 1; i++) p(0, 'LINE', 8, 'BT_LINEA_EXISTENTE', 10, f3(l.pts[i].x), 20, f3(l.pts[i].y), 30, 0, 11, f3(l.pts[i + 1].x), 21, f3(l.pts[i + 1].y), 31, 0); });
   if (geo && S.proj.geo?.ruta) { const r = S.proj.geo.ruta; for (let i = 0; i < r.length - 1; i++) p(0, 'LINE', 8, 'BT_RUTA', 10, f3(r[i].x), 20, f3(r[i].y), 30, 0, 11, f3(r[i + 1].x), 21, f3(r[i + 1].y), 31, 0); }
+  if (geo && !ex.length) exDC().forEach(d => { p(0, 'CIRCLE', 8, 'BT_PUNTOS_DC', 10, f3(d.x), 20, f3(d.y), 30, 0, 40, 0.3); const lb = dcLabel(d); if (lb) p(0, 'TEXT', 8, 'BT_TEXTO_PUNTOS_DC', 10, f3(d.x + 0.8), 20, f3(d.y - 0.4), 30, 0, 40, 0.8, 1, ascii(lb)); });
   for (let i = 0; i < ex.length; i++) {
     p(0, 'CIRCLE', 8, 'BT_APOYOS_EXISTENTES', 10, f3(ex[i].x), 20, f3(ex[i].y), 30, 0, 40, 0.4);
+    if (i === 0 && geo) exDC().forEach(d => { p(0, 'CIRCLE', 8, 'BT_PUNTOS_DC', 10, f3(d.x), 20, f3(d.y), 30, 0, 40, 0.3); const lb = dcLabel(d); if (lb) p(0, 'TEXT', 8, 'BT_TEXTO_PUNTOS_DC', 10, f3(d.x + 0.8), 20, f3(d.y - 0.4), 30, 0, 40, 0.8, 1, ascii(lb)); });
     if (exLabel(i)) p(0, 'TEXT', 8, 'BT_TEXTO_EXISTENTE', 10, f3(ex[i].x - 3), 20, f3(ex[i].y + 1), 30, 0, 40, 1, 1, ascii(exLabel(i)));
   }
   for (let i = 0; i < N.length - 1; i++) {
@@ -1956,6 +2007,7 @@ function kml(c, g) {
   const lines = exLineas();
   const exK = (lines.length || ex.length) ? `<Folder><name>Red existente</name>${lines.map(l => `<Placemark><name>${esc(lineLabel(l) || l.nombre)}</name><styleUrl>#existente</styleUrl><LineString><tessellate>1</tessellate><coordinates>${l.pts.map(p => `${p.lon.toFixed(8)},${p.lat.toFixed(8)},0`).join(' ')}</coordinates></LineString></Placemark>`).join('\n')}
 ${ex.map((p, i) => `<Placemark><name>${esc(exLabel(i) || 'E' + (i + 1))}${p.nombre && exLabel(i) !== p.nombre ? ' · ' + esc(p.nombre) : ''}</name><styleUrl>#exApoyo</styleUrl><Point><coordinates>${p.lon.toFixed(8)},${p.lat.toFixed(8)},0</coordinates></Point></Placemark>`).join('\n')}</Folder>` : '';
+  const dcK = exDC().length ? `<Folder><name>Puntos D-C</name>${exDC().map(d => `<Placemark><name>${esc(dcLabel(d) || d.nombre || 'D-C')}</name><styleUrl>#puntoDC</styleUrl>${d.cups ? `<description>CUPS ${esc(d.cups)}</description>` : ''}<Point><coordinates>${d.lon.toFixed(8)},${d.lat.toFixed(8)},0</coordinates></Point></Placemark>`).join('\n')}</Folder>` : '';
   return `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${esc(S.proj.nombre)}</name>
 ${st('ok', 'ff4f7d2f')}${st('warn', 'ff006aa6')}${st('bad', 'ff2c36b3')}
@@ -1963,6 +2015,8 @@ ${st('ok', 'ff4f7d2f')}${st('warn', 'ff006aa6')}${st('bad', 'ff2c36b3')}
 <Style id="existente"><LineStyle><color>ff737373</color><width>3</width></LineStyle></Style>
 <Style id="exApoyo"><IconStyle><color>ff737373</color><scale>0.7</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle></Style>
 ${exK}
+${dcK}
+<Style id="puntoDC"><IconStyle><color>ff8f3e7a</color><scale>0.7</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle></Style>
 <Placemark><name>Línea BT nueva · ${esc(c.cable.designacion)}</name><styleUrl>#linea</styleUrl><LineString><tessellate>1</tessellate><coordinates>${pts.map(p => `${p.lon.toFixed(8)},${p.lat.toFixed(8)},0`).join(' ')}</coordinates></LineString></Placemark>
 <Folder><name>Apoyos nuevos</name>
 ${pm}
@@ -1974,6 +2028,7 @@ function geojson(c, g) {
   const ex = exNodes();
   exLineas().forEach(l => feats.push({ type: 'Feature', properties: { capa: 'linea_existente', nombre: l.nombre, fuente: l.fuente }, geometry: { type: 'LineString', coordinates: l.pts.map(p => [+p.lon.toFixed(8), +p.lat.toFixed(8)]) } }));
   ex.forEach((p, i) => feats.push({ type: 'Feature', properties: { capa: 'apoyo_existente', apoyo: 'E' + (i + 1), nombre: p.nombre || null, entronque: S.proj.entronque?.k === i }, geometry: { type: 'Point', coordinates: [+p.lon.toFixed(8), +p.lat.toFixed(8)] } }));
+  exDC().forEach(d => feats.push({ type: 'Feature', properties: { capa: 'punto_dc', cups: d.cups || null, texto: dcLabel(d) || null, nombre: d.nombre || null }, geometry: { type: 'Point', coordinates: [+d.lon.toFixed(8), +d.lat.toFixed(8)] } }));
   if (S.proj.geo?.ruta) feats.push({ type: 'Feature', properties: { capa: 'ruta' }, geometry: { type: 'LineString', coordinates: S.proj.geo.ruta.map(p => [+p.lon.toFixed(8), +p.lat.toFixed(8)]) } });
   return JSON.stringify({ type: 'FeatureCollection', name: S.proj.nombre, features: feats }, null, 1);
 }
@@ -1996,7 +2051,7 @@ function leeme(c, g, fondosIncl) {
     g ? `Sistema de coordenadas: ETRS89 / UTM huso ${z}N (EPSG:258${z}), el mismo que usa la cartografia catastral en la peninsula.`
       : 'ATENCION: trazado introducido a mano y sin conectar a una linea existente. El DXF esta en coordenadas locales (origen en A1) y no se puede superponer al Catastro. Importa un KML/KMZ o conecta el trazado a la linea existente.', '',
     'ARCHIVOS',
-    `- ${base}.dxf: trazado, apoyos y textos por capas (BT_TRAZADO, BT_APOYOS, BT_TEXTO_APOYOS, BT_TEXTO_VANOS, BT_EXISTENTE${exNodes().length && g ? ', BT_LINEA_EXISTENTE, BT_APOYOS_EXISTENTES, BT_TEXTO_EXISTENTE' : ''}${S.proj.geo?.ruta && g ? ', BT_RUTA' : ''}). Unidades: metros.`,
+    `- ${base}.dxf: trazado, apoyos y textos por capas (BT_TRAZADO, BT_APOYOS, BT_TEXTO_APOYOS, BT_TEXTO_VANOS, BT_EXISTENTE${exNodes().length && g ? ', BT_LINEA_EXISTENTE, BT_APOYOS_EXISTENTES, BT_TEXTO_EXISTENTE' : ''}${exDC().length && g ? ', BT_PUNTOS_DC, BT_TEXTO_PUNTOS_DC' : ''}${S.proj.geo?.ruta && g ? ', BT_RUTA' : ''}). Unidades: metros.`,
     g ? `- ${base}.kml: linea nueva, apoyos${exNodes().length ? ' y linea existente' : ''} para Google Earth (WGS84).` : null,
     g ? `- ${base}.geojson: las mismas capas para QGIS (WGS84).` : null,
     ...fondosIncl.map(f => `- ${f.file} + ${f.wf}: fondo de ${f.nombre} georreferenciado (archivo de mundo en EPSG:258${z}).`),
@@ -2293,9 +2348,12 @@ async function exportPdf() {
     txt('LEYENDA', lx, ly + 3, 7, FB);
     const leg = [
       ['sq', acc, 'Apoyo nuevo (A)'], ['line', acc, 'Línea nueva: ' + shortCable(S.cables.find(x => x.id === S.proj.cableId)?.designacion || '')],
-      ['circ', exi, 'Apoyo existente'], ['dash', exi, 'Línea existente'], ['circ', acc, 'Apoyo de entronque']];
+      ['circ', exi, 'Apoyo existente'], ['dash', exi, 'Tramo baja existente'], ['circ', acc, 'Apoyo de entronque']];
+    if (exDC().length) leg.push(['diam', rgb(0.478, 0.243, 0.561), 'Punto D-C (CUPS, caracteres 11-17)']);
+    const lstep = leg.length > 5 ? 4.0 : 4.6;
     leg.forEach((it, k) => {
-      const yy = ly + 8 + k * 4.6, [kind, colr, label] = it;
+      const yy = ly + 8 + k * lstep, [kind, colr, label] = it;
+      if (kind === 'diam') page.drawRectangle({ x: X(lx + 1.2), y: Y(yy + 1.5), width: X(2), height: X(2), color: colr, rotate: PDFLib.degrees(45) });
       if (kind === 'sq') page.drawRectangle({ x: X(lx), y: Y(yy + 1), width: X(2.4), height: X(2.4), color: rgb(0.184, 0.49, 0.31) });
       if (kind === 'circ') page.drawCircle({ x: X(lx + 1.2), y: Y(yy - 0.2), size: X(1.2), color: colr });
       if (kind === 'line') page.drawLine({ start: { x: X(lx - 0.5), y: Y(yy - 0.2) }, end: { x: X(lx + 3), y: Y(yy - 0.2) }, thickness: 1.6, color: colr });

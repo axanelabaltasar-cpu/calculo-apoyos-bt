@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.7.0';
+const VERSION = '1.8.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -434,7 +434,7 @@ function applyExApoyos(points, fname) {
 /* ===== Panel de red existente, entronque y verificación ===== */
 function renderEntronque() {
   const box = $('#exBody'), R = redEx(), en = S.proj.entronque;
-  if (!R || (!R.lineas.length && !R.apoyos?.length)) { box.innerHTML = '<p class="note">Importa por separado las líneas existentes y los apoyos existentes (KMZ/KML; puedes importar varios archivos). Después eliges el apoyo de entronque y verificas sus datos, los de los apoyos contiguos y los de las líneas que pasan por él.</p>'; return; }
+  if (!R || (!R.lineas.length && !R.apoyos?.length && !R.puntosDC?.length)) { box.innerHTML = '<p class="note">Importa por separado los tres archivos de la red existente: apoyos, tramo baja y puntos D-C (KMZ/KML; puedes importar varios de cada tipo). Después eliges el apoyo de entronque y verificas sus datos, los de los apoyos contiguos y los de los tramos que pasan por él. De los puntos D-C solo se rotula parte del CUPS.</p>'; return; }
   ensureEntronque();
   if (!S.proj.rows.length) { S.proj.rows.push(Object.assign(newRow(), { vano: 0 })); S.proj.rows.push(newRow()); }
   const ex = exNodes();
@@ -442,7 +442,7 @@ function renderEntronque() {
   const poleOpts = sel => `<option value="">Elegir modelo…</option>` + S.poles.map(p => `<option value="${esc(p.id)}" ${sel === p.id ? 'selected' : ''}>${poleLabel(p)}</option>`).join('');
   const cabOpts = sel => `<option value="">Elegir cable…</option>` + S.cables.map(c => `<option value="${esc(c.id)}" ${sel === c.id ? 'selected' : ''}>${esc(c.designacion)}</option>`).join('');
   const est = verifEstado(), it = est.it;
-  let html = `<div class="row" style="gap:6px">${fuentes(R.lineas, 'líneas')} ${fuentes(R.apoyos || [], 'apoyos')}</div>
+  let html = `<div class="row" style="gap:6px">${fuentes(R.apoyos || [], 'apoyos')} ${fuentes(R.lineas, 'tramos')} ${fuentes(R.puntosDC || [], 'puntos D-C')}</div>
     ${!R.apoyos?.length ? '<p class="note" style="margin-top:6px">Sin archivo de apoyos existentes: se toman como apoyos los vértices de las líneas.</p>' : ''}
     <div class="fields" style="margin-top:10px">
       <label class="f">Apoyo de entronque<select id="en_k"><option value="">Sin elegir</option>${ex.length <= 800 ? ex.map((p, i) => `<option value="${i}" ${en.k === i ? 'selected' : ''}>E${i + 1}${p.nombre ? ' · ' + esc(p.nombre) : ''}</option>`).join('') : (en.k != null ? `<option value="${en.k}" selected>E${en.k + 1}</option>` : '')}</select></label>
@@ -477,6 +477,7 @@ function renderEntronque() {
     <div class="tablewrap" style="margin-top:6px;max-height:260px;overflow:auto"><table class="vt"><thead><tr><th>Elemento</th><th>Texto en el plano</th></tr></thead><tbody>
     ${exLineas().map((l, li) => `<tr><td>Línea · ${esc(l.nombre)}</td><td><input type="text" data-lab-l="${li}" value="${esc(l.etiqueta ?? l.nombre ?? '')}"></td></tr>`).join('')}
     ${(R.apoyos || []).map((a, i) => `<tr><td>Apoyo E${i + 1}${a.nombre ? ' · ' + esc(a.nombre) : ''}</td><td><input type="text" data-lab-a="${i}" value="${esc(exLabel(i))}"></td></tr>`).join('')}
+    ${(R.puntosDC || []).map((d, i) => `<tr><td>Punto D-C · ${d.cups ? esc(d.cups) : '<span class="chip warn">sin CUPS</span>'}</td><td><input type="text" data-lab-dc="${i}" value="${esc(dcLabel(d))}"></td></tr>`).join('')}
     </tbody></table></div><p class="note">En las líneas se añade detrás el cable verificado. Deja un texto vacío para no rotularlo.</p></details>
     <div class="row" style="margin-top:8px"><button class="btn small ghost" id="en_del">Quitar toda la red existente</button></div>`;
   box.innerHTML = html;
@@ -484,12 +485,14 @@ function renderEntronque() {
 function bindEntronque() {
   $('#exLinFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importFile(f, 'exLineas'); e.target.value = ''; });
   $('#exApoFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importFile(f, 'exApoyos'); e.target.value = ''; });
+  $('#exDCFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importFile(f, 'exDC'); e.target.value = ''; });
   const box = $('#exBody');
   box.addEventListener('change', ev => {
     const t = ev.target, en = S.proj.entronque; if (!en) return;
     if (t.id === 'en_k') return setEntronque(t.value === '' ? null : Number(t.value));
     if (t.id === 'en_depth') en.depth = Number(t.value);
     if (t.dataset.labL != null) { const l = exLineas()[Number(t.dataset.labL)]; if (l) l.etiqueta = t.value; drawMap(); return; }
+    if (t.dataset.labDc != null) { const d = exDC()[Number(t.dataset.labDc)]; if (d) d.etiqueta = t.value; drawMap(); return; }
     if (t.dataset.labA != null) { const a = redEx().apoyos[Number(t.dataset.labA)]; if (a) a.etiqueta = t.value; drawMap(); return; }
     if (t.dataset.vl) {
       const L = verifData().lineas[t.dataset.id] || (verifData().lineas[t.dataset.id] = {});
@@ -511,7 +514,9 @@ function bindEntronque() {
     if (b.id === 'en_del') { snapshot(); S.proj.redEx = null; S.proj.entronque = null; S.proj.verif = null; if (!S.proj.geo) S.proj.zone = null; S.pickEntronque = false; V.fitted = false; refreshAll(); }
     if (b.dataset.delsrc) {
       snapshot(); const R = redEx(), f = b.dataset.delsrc;
-      if (b.dataset.tipo === 'líneas') R.lineas = R.lineas.filter(l => l.fuente !== f); else { R.apoyos = R.apoyos.filter(a => a.fuente !== f); if (S.proj.entronque) S.proj.entronque.k = null; }
+      if (b.dataset.tipo === 'tramos') R.lineas = R.lineas.filter(l => l.fuente !== f);
+      else if (b.dataset.tipo === 'puntos D-C') R.puntosDC = (R.puntosDC || []).filter(a => a.fuente !== f);
+      else { R.apoyos = R.apoyos.filter(a => a.fuente !== f); if (S.proj.entronque) S.proj.entronque.k = null; }
       invalidateVert(); refreshAll();
     }
   });
@@ -541,6 +546,12 @@ function initCollapsibles() {
   };
 }
 
+/* Puntos D-C: solo se rotula parte del CUPS (7 caracteres a partir del 11.º) */
+function exDC() { return redEx()?.puntosDC || []; }
+const CUPS_RE = /ES[\s.-]?(?:\d[\s.-]?){16}[A-Z]{2}(?:[\s.-]?\d[A-Z])?/i;
+function findCups(txt) { const m = String(txt || '').match(CUPS_RE); return m ? m[0].replace(/[\s.-]/g, '').toUpperCase() : ''; }
+function cupsCorto(c) { c = String(c || '').replace(/\s/g, ''); return c.length >= 17 ? c.substring(10, 17) : ''; }
+function dcLabel(p) { return p.etiqueta != null ? p.etiqueta : cupsCorto(p.cups); }
 function exLineas() { return redEx()?.lineas || []; }
 /* Apoyos existentes: los importados; si no hay, los vértices de las líneas existentes */
 function exNodes() {
@@ -592,7 +603,7 @@ const V = { sc: null, cx: 0, cy: 0, fitted: false };
 function allPts() {
   const n = S.calc?.nodes || (S.proj.rows.length > 1 ? currentNodes() : []);
   const ruta = S.proj.geo?.ruta || [];
-  const ex = [...exNodes(), ...exLineas().flatMap(l => l.pts)];
+  const ex = [...exNodes(), ...exLineas().flatMap(l => l.pts), ...exDC()];
   const base = [...n, ...ruta];
   if (!base.length) return ex;
   const xs = base.map(p => p.x), ys = base.map(p => p.y), m = 300;
@@ -615,7 +626,7 @@ function lineLabel(l) {
   const d = lineData(l.id); const cab = d.v.cableId && d.cab ? shortCable(d.cab.designacion) : '';
   return [base, cab].filter(Boolean).join(' · ');
 }
-const PRINT_COLORS = { '--map': '#ffffff', '--ink': '#1b2328', '--muted': '#4c5960', '--accent': '#1d5b86', '--exist': '#6d6a64', '--panel': '#ffffff', '--grid': '#e6eaec', '--ok': '#2f7d4f', '--warn': '#a66a00', '--bad': '#b3362c', '--f-body': 'Arial, sans-serif', '--f-mono': 'Consolas, monospace' };
+const PRINT_COLORS = { '--dc': '#7a3e8f', '--map': '#ffffff', '--ink': '#1b2328', '--muted': '#4c5960', '--accent': '#1d5b86', '--exist': '#6d6a64', '--panel': '#ffffff', '--grid': '#e6eaec', '--ok': '#2f7d4f', '--warn': '#a66a00', '--bad': '#b3362c', '--f-body': 'Arial, sans-serif', '--f-mono': 'Consolas, monospace' };
 /* Dibuja el plano. Sin argumento, en el lienzo de la pantalla; con T = {cv, W, H, dpr, sc, cx, cy, print}, en otro lienzo (PDF) */
 function drawMap(T) {
   const screen = !T;
@@ -626,7 +637,7 @@ function drawMap(T) {
   g.fillStyle = col('--map'); g.fillRect(0, 0, W, Hh);
   const nodes = S.drag ? currentNodes() : (S.calc?.nodes || (S.proj.rows.length > 1 ? currentNodes() : []));
   const ex = exNodes(), lines = exLineas(), ruta = S.proj.geo?.ruta || [];
-  if (nodes.length < 2 && ex.length < 1 && !lines.length) {
+  if (nodes.length < 2 && ex.length < 1 && !lines.length && !exDC().length) {
     if (screen) S.mapT = null; g.fillStyle = col('--muted'); g.font = '13px ' + col('--f-body'); g.textAlign = 'center';
     g.fillText('Proyecto vacío: importa el trazado, la red existente o crea el trazado con coordenadas.', W / 2, Hh / 2); return;
   }
@@ -678,6 +689,16 @@ function drawMap(T) {
     const lab = exLabel(i);
     if (lab && (sc > 0.6 || isEn || !screen)) { g.fillStyle = col('--exist'); g.font = '600 11px ' + col('--f-body'); g.textAlign = 'right'; halo(lab, x - 8, y - 7); }
   });
+  // Puntos D-C: rombo y CUPS abreviado
+  exDC().forEach((d, i) => {
+    const [x, y] = P(d); if (!inView(x, y)) return;
+    const isSel = screen && S.selPt?.layer === 'exDC' && S.selPt.i === i;
+    g.fillStyle = col('--dc'); g.strokeStyle = isSel ? col('--ink') : col('--panel'); g.lineWidth = isSel ? 2.5 : 1.5;
+    g.beginPath(); g.moveTo(x, y - 6); g.lineTo(x + 6, y); g.lineTo(x, y + 6); g.lineTo(x - 6, y); g.closePath(); g.fill(); g.stroke();
+    const lab = dcLabel(d);
+    if (lab && (sc > 0.5 || !screen)) { g.fillStyle = col('--dc'); g.font = '600 10px ' + col('--f-mono'); g.textAlign = 'left'; halo(lab, x + 8, y + 4); }
+    else if (!d.cups && screen) { g.fillStyle = col('--bad'); g.font = '600 10px ' + col('--f-body'); g.textAlign = 'left'; halo('sin CUPS', x + 8, y + 4); }
+  });
   if (nodes.length > 1) {
     g.strokeStyle = col('--accent'); g.lineWidth = 2.5; g.beginPath(); nodes.forEach((n, i) => { const [x, y] = P(n); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke();
     g.font = '11px ' + col('--f-mono'); g.textAlign = 'center';
@@ -718,7 +739,7 @@ function zoomAt(f, mx, my) {
 }
 
 /* ===== Edición en el plano ===== */
-const LAYERS = { nuevo: 'Apoyos nuevos', exApoyos: 'Apoyos existentes', exLineas: 'Líneas existentes', ruta: 'Ruta del trazado' };
+const LAYERS = { nuevo: 'Apoyos nuevos', exApoyos: 'Apoyos existentes', exLineas: 'Tramos baja existentes', exDC: 'Puntos D-C', ruta: 'Ruta del trazado' };
 S.tool = 'pan'; S.editLayer = 'nuevo'; S.hist = [];
 function snapshot() {
   S.hist.push(JSON.stringify({ geo: S.proj.geo, rows: S.proj.rows, redEx: S.proj.redEx, entronque: S.proj.entronque, verif: S.proj.verif, modo: S.proj.modo, zone: S.proj.zone, rumbo0: S.proj.ctx.rumbo0 }));
@@ -742,6 +763,7 @@ function layerPts(layer) {
   if (layer === 'nuevo') return S.proj.modo === 'kml' && S.proj.geo ? [S.proj.geo.pts] : [];
   if (layer === 'exApoyos') return redEx()?.apoyos?.length ? [redEx().apoyos] : [];
   if (layer === 'exLineas') return exLineas().map(l => l.pts);
+  if (layer === 'exDC') return exDC().length ? [exDC()] : [];
   if (layer === 'ruta') return S.proj.geo?.ruta ? [S.proj.geo.ruta] : [];
   return [];
 }
@@ -777,6 +799,10 @@ function editClick(mx, my) {
     } else if (layer === 'exApoyos') {
       const R = redEx() || (S.proj.redEx = { lineas: [], apoyos: [] }); if (!S.proj.zone) return toast('Importa primero algún elemento con coordenadas para fijar el huso UTM.');
       snapshot(); const np = { x: w.x, y: w.y, nombre: '' }; setLL(np); R.apoyos = R.apoyos || []; R.apoyos.push(np); invalidateVert(); toast(`Apoyo existente E${R.apoyos.length} añadido.`);
+    } else if (layer === 'exDC') {
+      const R = redEx() || (S.proj.redEx = { lineas: [], apoyos: [] }); if (!S.proj.zone) return toast('Importa primero algún elemento con coordenadas para fijar el huso UTM.');
+      snapshot(); const np = { id: uid('d'), x: w.x, y: w.y, nombre: '', cups: '', fuente: 'añadido en el plano' }; setLL(np); R.puntosDC = R.puntosDC || []; R.puntosDC.push(np);
+      S.selPt = { layer: 'exDC', li: 0, i: R.puntosDC.length - 1 }; toast('Punto D-C añadido: escribe su CUPS abajo.');
     } else if (layer === 'exLineas' || layer === 'ruta') {
       const arrs = layerPts(layer); let hit = null, li = -1;
       arrs.forEach((arr, k) => { const h = hitSegment(arr, mx, my); if (h && (!hit || h.d < hit.d)) { hit = h; li = k; } });
@@ -796,6 +822,8 @@ function editClick(mx, my) {
       snapshot(); const en = S.proj.entronque;
       if (en?.k === h.i) en.k = null; else if (en?.k > h.i) en.k--;
       redEx().apoyos.splice(h.i, 1); invalidateVert(); toast(`Apoyo existente E${h.i + 1} borrado.`);
+    } else if (layer === 'exDC') {
+      snapshot(); redEx().puntosDC.splice(h.i, 1); toast('Punto D-C borrado.');
     } else {
       const arr = layerPts(layer)[h.li]; snapshot();
       if (arr.length <= 2) { if (layer === 'exLineas') { exLineas().splice(h.li, 1); toast('Línea existente borrada (le quedaban dos vértices).'); } else { S.proj.geo.ruta = null; toast('Ruta borrada.'); } }
@@ -846,6 +874,7 @@ function bindMap() {
     if (S.pickEntronque) { const k = near(S.mapT.ex); if (k >= 0) { S.pickEntronque = false; setEntronque(k); } return; }
     const i = near(S.mapT.nodes);
     if (i >= 0) { S.sel = S.sel === i ? null : i; S.selPt = S.sel == null ? null : { layer: 'nuevo', li: 0, i }; renderRows(); renderResults(); renderPtEdit(); return; }
+    const kd = near(exDC()); if (kd >= 0) { S.selPt = { layer: 'exDC', li: 0, i: kd }; renderPtEdit(); drawMap(); return; }
     const k = near(S.mapT.ex); if (k >= 0 && redEx()?.apoyos?.length) { S.selPt = { layer: 'exApoyos', li: 0, i: k }; renderPtEdit(); drawMap(); return; }
     let hl = null; exLineas().forEach((l, li) => { const h = hitSegment(l.pts, mx, my, 8); if (h && (!hl || h.d < hl.d)) hl = { ...h, li }; });
     if (hl) { S.selPt = { layer: 'exLineas', li: hl.li, i: hl.t < 0.5 ? hl.i : hl.i + 1 }; renderPtEdit(); drawMap(); return; }
@@ -874,6 +903,8 @@ function bindMap() {
     const p = sp.layer === 'nuevo' ? (ensureGeoPts(), S.proj.geo.pts[sp.i]) : layerPts(sp.layer)[sp.li]?.[sp.i]; if (!p) return;
     snapshot();
     if (t.id === 'pe_lab') { p.etiqueta = t.value; drawMap(); renderEntronque(); return; }
+    if (t.id === 'pe_cups') { p.cups = t.value.replace(/[\s.-]/g, '').toUpperCase(); if (p.etiqueta != null && p.etiqueta === cupsCorto('')) delete p.etiqueta; drawMap(); renderPtEdit(); renderEntronque(); return; }
+    if (t.id === 'pe_dcl') { p.etiqueta = t.value === cupsCorto(p.cups) ? undefined : t.value; if (p.etiqueta === undefined) delete p.etiqueta; drawMap(); renderEntronque(); return; }
     if (t.id === 'pe_ll') { const l = exLineas()[sp.li]; if (l) l.etiqueta = t.value; drawMap(); renderEntronque(); return; }
     if (t.id === 'pe_x') p.x = Number(t.value); if (t.id === 'pe_y') p.y = Number(t.value); if (t.id === 'pe_n') p.nombre = t.value;
     setLL(p);
@@ -888,19 +919,22 @@ function renderEdBar() {
   const hint = { pan: 'Arrastra para mover el plano. Pulsa un apoyo para seleccionarlo y editar sus coordenadas.', move: `Arrastra un punto de «${LAYERS[S.editLayer]}» para moverlo.`, insert: S.editLayer === 'nuevo' ? 'Pulsa sobre un vano para intercalar un apoyo, o fuera del trazado para añadirlo al final.' : S.editLayer === 'exApoyos' ? 'Pulsa en el plano para añadir un apoyo existente.' : 'Pulsa sobre un tramo para insertar un vértice.', delete: `Pulsa un punto de «${LAYERS[S.editLayer]}» para borrarlo.` }[S.tool];
   $('#edHint').textContent = hint; updUndo();
 }
+function p0dc(sp) { return exDC()[sp.i]?.nombre || ''; }
 function renderPtEdit() {
   const box = $('#ptEdit'), sp = S.selPt;
   if (!sp) { box.hidden = true; return; }
   let p, label;
   if (sp.layer === 'nuevo') { const n = (S.proj.modo === 'kml' && S.proj.geo) ? S.proj.geo.pts[sp.i] : currentNodes()[sp.i]; p = n; label = `Apoyo nuevo A${sp.i + 1}`; }
-  else { p = layerPts(sp.layer)[sp.li]?.[sp.i]; label = sp.layer === 'exApoyos' ? `Apoyo existente E${sp.i + 1}` : sp.layer === 'ruta' ? `Vértice ${sp.i + 1} de la ruta` : `Línea existente «${exLineas()[sp.li]?.nombre || ''}» · vértice ${sp.i + 1}`; }
+  else { p = layerPts(sp.layer)[sp.li]?.[sp.i]; label = sp.layer === 'exDC' ? `Punto D-C${p0dc(sp) ? ' · ' + esc(p0dc(sp)) : ''}` : sp.layer === 'exApoyos' ? `Apoyo existente E${sp.i + 1}` : sp.layer === 'ruta' ? `Vértice ${sp.i + 1} de la ruta` : `Línea existente «${exLineas()[sp.li]?.nombre || ''}» · vértice ${sp.i + 1}`; }
   if (!p) { box.hidden = true; return; }
   box.hidden = false;
   box.innerHTML = `<b>${label}</b>${isEntronqueA1(sp.layer === 'nuevo' ? sp.i : -1) ? ' · es el apoyo de entronque: edítalo como apoyo existente' : ''}
     <div class="fields" style="margin-top:6px"><label class="f">${S.proj.zone ? `X UTM (huso ${S.proj.zone})` : 'X local (m)'}<input id="pe_x" class="num" type="number" step="0.01" value="${p.x.toFixed(2)}" ${isEntronqueA1(sp.layer === 'nuevo' ? sp.i : -1) ? 'disabled' : ''}></label>
     <label class="f">${S.proj.zone ? 'Y UTM' : 'Y local (m)'}<input id="pe_y" class="num" type="number" step="0.01" value="${p.y.toFixed(2)}" ${isEntronqueA1(sp.layer === 'nuevo' ? sp.i : -1) ? 'disabled' : ''}></label>
-    ${sp.layer === 'nuevo' || sp.layer === 'exApoyos' ? `<label class="f full">Nombre<input id="pe_n" type="text" value="${esc(p.nombre || '')}"></label>` : ''}
+    ${sp.layer === 'nuevo' || sp.layer === 'exApoyos' || sp.layer === 'exDC' ? `<label class="f full">Nombre<input id="pe_n" type="text" value="${esc(p.nombre || '')}"></label>` : ''}
     ${sp.layer === 'exApoyos' ? `<label class="f full">Texto en el plano<input id="pe_lab" type="text" value="${esc(exLabel(sp.i))}" placeholder="E${sp.i + 1}"><span class="hint">Vacío: no se rotula. Por defecto: E${sp.i + 1}</span></label>` : ''}
+    ${sp.layer === 'exDC' ? `<label class="f full">CUPS<input id="pe_cups" type="text" value="${esc(p.cups || '')}" placeholder="ES0000000000000000XX"></label>
+      <label class="f full">Texto en el plano<input id="pe_dcl" type="text" value="${esc(dcLabel(p))}" placeholder="${esc(cupsCorto(p.cups))}"><span class="hint">Por defecto: caracteres 11 a 17 del CUPS (${esc(cupsCorto(p.cups) || '—')}).</span></label>` : ''}
     ${sp.layer === 'exLineas' ? `<label class="f full">Texto de la línea en el plano<input id="pe_ll" type="text" value="${esc(exLineas()[sp.li]?.etiqueta ?? exLineas()[sp.li]?.nombre ?? '')}"><span class="hint">El cable verificado se añade detrás. Vacío: solo el cable.</span></label>` : ''}</div>
     ${p.lat != null ? `<p class="note mono" style="margin:6px 0 0">${p.lat.toFixed(7)}, ${p.lon.toFixed(7)}</p>` : ''}`;
 }
@@ -926,11 +960,13 @@ async function parseGeoFile(file) {
     const pt = el => ({ lat: Number(el.getAttribute('lat')), lon: Number(el.getAttribute('lon')), alt: tag(el, 'ele')[0] ? Number(tag(el, 'ele')[0].textContent) : null, nombre: [...el.children].find(c => c.localName === 'name')?.textContent || '' });
     tag(doc, 'trk').forEach(t => { const pts = tag(t, 'trkpt').map(pt); if (pts.length >= 2) lines.push({ nombre: nameOf(t) || 'Track', pts }); });
     tag(doc, 'rte').forEach(t => { const pts = tag(t, 'rtept').map(pt); if (pts.length >= 2) lines.push({ nombre: nameOf(t) || 'Ruta', pts }); });
-    tag(doc, 'wpt').forEach(w => points.push(pt(w)));
+    tag(doc, 'wpt').forEach(w => points.push({ ...pt(w), raw: w.textContent }));
   } else {
     const parseCoords = s => s.trim().split(/\s+/).map(t => t.split(',').map(Number)).filter(a => a.length >= 2 && !isNaN(a[0]) && !isNaN(a[1])).map(([lon, lat, alt]) => ({ lat, lon, alt: isNaN(alt) ? null : alt }));
     tag(doc, 'LineString').forEach(ls => { const pts = parseCoords(tag(ls, 'coordinates')[0]?.textContent || ''); if (pts.length >= 2) lines.push({ nombre: nameOf(ls) || `Línea ${lines.length + 1}`, pts }); });
-    tag(doc, 'Point').forEach(pe => { const c = parseCoords(tag(pe, 'coordinates')[0]?.textContent || '')[0]; if (c) points.push({ ...c, nombre: nameOf(pe) }); });
+    tag(doc, 'Point').forEach(pe => { const c = parseCoords(tag(pe, 'coordinates')[0]?.textContent || '')[0]; const pm = pe.closest('Placemark') || pe;
+      const ed = [...tag(pm, 'Data'), ...tag(pm, 'SimpleData')].map(d => (d.getAttribute('name') || '') + ' ' + (d.textContent || '')).join(' ');
+      if (c) points.push({ ...c, nombre: nameOf(pe), raw: [nameOf(pe), ed, tag(pm, 'description')[0]?.textContent || ''].join(' ') }); });
   }
   lines.forEach(l => l.conCota = hasAlt(l.pts));
   return { lines, points };
@@ -952,6 +988,7 @@ async function importFile(file, destino) {
     const { lines, points } = await parseGeoFile(file);
     if (destino === 'exLineas') return applyExLineas(lines, file.name);
     if (destino === 'exApoyos') return applyExApoyos(points, file.name);
+    if (destino === 'exDC') return applyExDC(points, file.name);
     // Trazado nuevo: ruta + marcadores de apoyos en el mismo archivo
     if (!lines.length && points.length < 2) throw new Error('No se ha encontrado la ruta ni los marcadores de los apoyos');
     const go = l => applyTrace(l || { nombre: 'Apoyos', pts: points, sinDividir: true, conCota: hasAlt(points) }, file.name, l && points.length ? points : null);
@@ -1018,6 +1055,17 @@ function geoInfoHtml() {
 }
 
 /* ===== Importación de la red existente ===== */
+function applyExDC(points, fname) {
+  if (!points.length) return toast('El archivo no contiene puntos D-C (marcadores).');
+  const zone = setZoneFrom(points[0]);
+  const R = redEx() || (S.proj.redEx = { lineas: [], apoyos: [] });
+  snapshot();
+  const nuevos = points.map(p => ({ id: uid('d'), lat: p.lat, lon: p.lon, nombre: p.nombre || '', cups: findCups(p.raw || p.nombre), fuente: fname, ...E.utmFromLatLon(p.lat, p.lon, zone) }));
+  R.puntosDC = (R.puntosDC || []).filter(a => a.fuente !== fname).concat(nuevos);
+  V.fitted = false; refreshAll();
+  const sin = nuevos.filter(p => !p.cups).length;
+  toast(`${nuevos.length} punto(s) D-C importado(s) de ${fname}.` + (sin ? ` ${sin} sin CUPS reconocible: escríbelo seleccionando el punto en el plano.` : ''));
+}
 function ensureEntronque() {
   if (!S.proj.entronque) S.proj.entronque = { k: null, cableId: (S.cables.find(c => /3x95/.test(c.designacion)) || S.cables[0] || {}).id || '', tense: 500, depth: S.proj.ctx.depthAmarre };
 }
@@ -1189,7 +1237,7 @@ const ascii = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[
 function dxf(c, geo) {
   const L = [];
   const p = (...a) => { for (let k = 0; k < a.length; k += 2) L.push(String(a[k]), String(a[k + 1])); };
-  const layers = [['BT_TRAZADO', 5], ['BT_APOYOS', 1], ['BT_TEXTO_APOYOS', 7], ['BT_TEXTO_VANOS', 8], ['BT_EXISTENTE', 30], ['BT_LINEA_EXISTENTE', 30], ['BT_APOYOS_EXISTENTES', 30], ['BT_TEXTO_EXISTENTE', 30], ['BT_RUTA', 4]];
+  const layers = [['BT_TRAZADO', 5], ['BT_APOYOS', 1], ['BT_TEXTO_APOYOS', 7], ['BT_TEXTO_VANOS', 8], ['BT_EXISTENTE', 30], ['BT_LINEA_EXISTENTE', 30], ['BT_APOYOS_EXISTENTES', 30], ['BT_TEXTO_EXISTENTE', 30], ['BT_RUTA', 4], ['BT_PUNTOS_DC', 6], ['BT_TEXTO_PUNTOS_DC', 6]];
   p(0, 'SECTION', 2, 'HEADER', 9, '$ACADVER', 1, 'AC1009', 9, '$INSUNITS', 70, 6, 0, 'ENDSEC');
   p(0, 'SECTION', 2, 'TABLES', 0, 'TABLE', 2, 'LTYPE', 70, 1, 0, 'LTYPE', 2, 'CONTINUOUS', 70, 0, 3, 'Solid line', 72, 65, 73, 0, 40, 0, 0, 'ENDTAB');
   p(0, 'TABLE', 2, 'LAYER', 70, layers.length); layers.forEach(([n, colr]) => p(0, 'LAYER', 2, n, 70, 0, 62, colr, 6, 'CONTINUOUS')); p(0, 'ENDTAB', 0, 'ENDSEC');
@@ -1199,8 +1247,10 @@ function dxf(c, geo) {
   if (geo) exLineas().forEach(l => { const lab = lineLabel(l); if (lab && l.pts.length > 1) { let bi = 0, bl = 0; for (let i = 0; i < l.pts.length - 1; i++) { const d = Math.hypot(l.pts[i + 1].x - l.pts[i].x, l.pts[i + 1].y - l.pts[i].y); if (d > bl) { bl = d; bi = i; } } const A = l.pts[bi], B = l.pts[bi + 1]; let an = Math.atan2(B.y - A.y, B.x - A.x) * 180 / Math.PI; if (an > 90) an -= 180; if (an < -90) an += 180; p(0, 'TEXT', 8, 'BT_TEXTO_EXISTENTE', 10, f3((A.x + B.x) / 2), 20, f3((A.y + B.y) / 2 + 1), 30, 0, 40, 1, 1, ascii(lab), 50, an.toFixed(2), 72, 1, 11, f3((A.x + B.x) / 2), 21, f3((A.y + B.y) / 2 + 1), 31, 0); } });
   if (geo) exLineas().forEach(l => { for (let i = 0; i < l.pts.length - 1; i++) p(0, 'LINE', 8, 'BT_LINEA_EXISTENTE', 10, f3(l.pts[i].x), 20, f3(l.pts[i].y), 30, 0, 11, f3(l.pts[i + 1].x), 21, f3(l.pts[i + 1].y), 31, 0); });
   if (geo && S.proj.geo?.ruta) { const r = S.proj.geo.ruta; for (let i = 0; i < r.length - 1; i++) p(0, 'LINE', 8, 'BT_RUTA', 10, f3(r[i].x), 20, f3(r[i].y), 30, 0, 11, f3(r[i + 1].x), 21, f3(r[i + 1].y), 31, 0); }
+  if (geo && !ex.length) exDC().forEach(d => { p(0, 'CIRCLE', 8, 'BT_PUNTOS_DC', 10, f3(d.x), 20, f3(d.y), 30, 0, 40, 0.3); const lb = dcLabel(d); if (lb) p(0, 'TEXT', 8, 'BT_TEXTO_PUNTOS_DC', 10, f3(d.x + 0.8), 20, f3(d.y - 0.4), 30, 0, 40, 0.8, 1, ascii(lb)); });
   for (let i = 0; i < ex.length; i++) {
     p(0, 'CIRCLE', 8, 'BT_APOYOS_EXISTENTES', 10, f3(ex[i].x), 20, f3(ex[i].y), 30, 0, 40, 0.4);
+    if (i === 0 && geo) exDC().forEach(d => { p(0, 'CIRCLE', 8, 'BT_PUNTOS_DC', 10, f3(d.x), 20, f3(d.y), 30, 0, 40, 0.3); const lb = dcLabel(d); if (lb) p(0, 'TEXT', 8, 'BT_TEXTO_PUNTOS_DC', 10, f3(d.x + 0.8), 20, f3(d.y - 0.4), 30, 0, 40, 0.8, 1, ascii(lb)); });
     if (exLabel(i)) p(0, 'TEXT', 8, 'BT_TEXTO_EXISTENTE', 10, f3(ex[i].x - 3), 20, f3(ex[i].y + 1), 30, 0, 40, 1, 1, ascii(exLabel(i)));
   }
   for (let i = 0; i < N.length - 1; i++) {
@@ -1231,6 +1281,7 @@ function kml(c, g) {
   const lines = exLineas();
   const exK = (lines.length || ex.length) ? `<Folder><name>Red existente</name>${lines.map(l => `<Placemark><name>${esc(lineLabel(l) || l.nombre)}</name><styleUrl>#existente</styleUrl><LineString><tessellate>1</tessellate><coordinates>${l.pts.map(p => `${p.lon.toFixed(8)},${p.lat.toFixed(8)},0`).join(' ')}</coordinates></LineString></Placemark>`).join('\n')}
 ${ex.map((p, i) => `<Placemark><name>${esc(exLabel(i) || 'E' + (i + 1))}${p.nombre && exLabel(i) !== p.nombre ? ' · ' + esc(p.nombre) : ''}</name><styleUrl>#exApoyo</styleUrl><Point><coordinates>${p.lon.toFixed(8)},${p.lat.toFixed(8)},0</coordinates></Point></Placemark>`).join('\n')}</Folder>` : '';
+  const dcK = exDC().length ? `<Folder><name>Puntos D-C</name>${exDC().map(d => `<Placemark><name>${esc(dcLabel(d) || d.nombre || 'D-C')}</name><styleUrl>#puntoDC</styleUrl>${d.cups ? `<description>CUPS ${esc(d.cups)}</description>` : ''}<Point><coordinates>${d.lon.toFixed(8)},${d.lat.toFixed(8)},0</coordinates></Point></Placemark>`).join('\n')}</Folder>` : '';
   return `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${esc(S.proj.nombre)}</name>
 ${st('ok', 'ff4f7d2f')}${st('warn', 'ff006aa6')}${st('bad', 'ff2c36b3')}
@@ -1238,6 +1289,8 @@ ${st('ok', 'ff4f7d2f')}${st('warn', 'ff006aa6')}${st('bad', 'ff2c36b3')}
 <Style id="existente"><LineStyle><color>ff737373</color><width>3</width></LineStyle></Style>
 <Style id="exApoyo"><IconStyle><color>ff737373</color><scale>0.7</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle></Style>
 ${exK}
+${dcK}
+<Style id="puntoDC"><IconStyle><color>ff8f3e7a</color><scale>0.7</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle></Style>
 <Placemark><name>Línea BT nueva · ${esc(c.cable.designacion)}</name><styleUrl>#linea</styleUrl><LineString><tessellate>1</tessellate><coordinates>${pts.map(p => `${p.lon.toFixed(8)},${p.lat.toFixed(8)},0`).join(' ')}</coordinates></LineString></Placemark>
 <Folder><name>Apoyos nuevos</name>
 ${pm}
@@ -1249,6 +1302,7 @@ function geojson(c, g) {
   const ex = exNodes();
   exLineas().forEach(l => feats.push({ type: 'Feature', properties: { capa: 'linea_existente', nombre: l.nombre, fuente: l.fuente }, geometry: { type: 'LineString', coordinates: l.pts.map(p => [+p.lon.toFixed(8), +p.lat.toFixed(8)]) } }));
   ex.forEach((p, i) => feats.push({ type: 'Feature', properties: { capa: 'apoyo_existente', apoyo: 'E' + (i + 1), nombre: p.nombre || null, entronque: S.proj.entronque?.k === i }, geometry: { type: 'Point', coordinates: [+p.lon.toFixed(8), +p.lat.toFixed(8)] } }));
+  exDC().forEach(d => feats.push({ type: 'Feature', properties: { capa: 'punto_dc', cups: d.cups || null, texto: dcLabel(d) || null, nombre: d.nombre || null }, geometry: { type: 'Point', coordinates: [+d.lon.toFixed(8), +d.lat.toFixed(8)] } }));
   if (S.proj.geo?.ruta) feats.push({ type: 'Feature', properties: { capa: 'ruta' }, geometry: { type: 'LineString', coordinates: S.proj.geo.ruta.map(p => [+p.lon.toFixed(8), +p.lat.toFixed(8)]) } });
   return JSON.stringify({ type: 'FeatureCollection', name: S.proj.nombre, features: feats }, null, 1);
 }
@@ -1271,7 +1325,7 @@ function leeme(c, g, fondosIncl) {
     g ? `Sistema de coordenadas: ETRS89 / UTM huso ${z}N (EPSG:258${z}), el mismo que usa la cartografia catastral en la peninsula.`
       : 'ATENCION: trazado introducido a mano y sin conectar a una linea existente. El DXF esta en coordenadas locales (origen en A1) y no se puede superponer al Catastro. Importa un KML/KMZ o conecta el trazado a la linea existente.', '',
     'ARCHIVOS',
-    `- ${base}.dxf: trazado, apoyos y textos por capas (BT_TRAZADO, BT_APOYOS, BT_TEXTO_APOYOS, BT_TEXTO_VANOS, BT_EXISTENTE${exNodes().length && g ? ', BT_LINEA_EXISTENTE, BT_APOYOS_EXISTENTES, BT_TEXTO_EXISTENTE' : ''}${S.proj.geo?.ruta && g ? ', BT_RUTA' : ''}). Unidades: metros.`,
+    `- ${base}.dxf: trazado, apoyos y textos por capas (BT_TRAZADO, BT_APOYOS, BT_TEXTO_APOYOS, BT_TEXTO_VANOS, BT_EXISTENTE${exNodes().length && g ? ', BT_LINEA_EXISTENTE, BT_APOYOS_EXISTENTES, BT_TEXTO_EXISTENTE' : ''}${exDC().length && g ? ', BT_PUNTOS_DC, BT_TEXTO_PUNTOS_DC' : ''}${S.proj.geo?.ruta && g ? ', BT_RUTA' : ''}). Unidades: metros.`,
     g ? `- ${base}.kml: linea nueva, apoyos${exNodes().length ? ' y linea existente' : ''} para Google Earth (WGS84).` : null,
     g ? `- ${base}.geojson: las mismas capas para QGIS (WGS84).` : null,
     ...fondosIncl.map(f => `- ${f.file} + ${f.wf}: fondo de ${f.nombre} georreferenciado (archivo de mundo en EPSG:258${z}).`),
@@ -1568,9 +1622,12 @@ async function exportPdf() {
     txt('LEYENDA', lx, ly + 3, 7, FB);
     const leg = [
       ['sq', acc, 'Apoyo nuevo (A)'], ['line', acc, 'Línea nueva: ' + shortCable(S.cables.find(x => x.id === S.proj.cableId)?.designacion || '')],
-      ['circ', exi, 'Apoyo existente'], ['dash', exi, 'Línea existente'], ['circ', acc, 'Apoyo de entronque']];
+      ['circ', exi, 'Apoyo existente'], ['dash', exi, 'Tramo baja existente'], ['circ', acc, 'Apoyo de entronque']];
+    if (exDC().length) leg.push(['diam', rgb(0.478, 0.243, 0.561), 'Punto D-C (CUPS, caracteres 11-17)']);
+    const lstep = leg.length > 5 ? 4.0 : 4.6;
     leg.forEach((it, k) => {
-      const yy = ly + 8 + k * 4.6, [kind, colr, label] = it;
+      const yy = ly + 8 + k * lstep, [kind, colr, label] = it;
+      if (kind === 'diam') page.drawRectangle({ x: X(lx + 1.2), y: Y(yy + 1.5), width: X(2), height: X(2), color: colr, rotate: PDFLib.degrees(45) });
       if (kind === 'sq') page.drawRectangle({ x: X(lx), y: Y(yy + 1), width: X(2.4), height: X(2.4), color: rgb(0.184, 0.49, 0.31) });
       if (kind === 'circ') page.drawCircle({ x: X(lx + 1.2), y: Y(yy - 0.2), size: X(1.2), color: colr });
       if (kind === 'line') page.drawLine({ start: { x: X(lx - 0.5), y: Y(yy - 0.2) }, end: { x: X(lx + 3), y: Y(yy - 0.2) }, thickness: 1.6, color: colr });
