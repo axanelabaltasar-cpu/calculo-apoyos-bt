@@ -9,7 +9,7 @@
   --bg:#eef0f1; --panel:#ffffff; --ink:#1b2328; --muted:#5b6870; --line:#d3d9dc; --soft:#f5f7f8;
   --accent:#1d5b86; --accent-ink:#ffffff; --accent-soft:#e3eef6;
   --ok:#2f7d4f; --ok-soft:#e1f1e7; --warn:#a66a00; --warn-soft:#fbefd6; --bad:#b3362c; --bad-soft:#f8e1de;
-  --map:#fbfcfc; --grid:#e6eaec; --exist:#6d6a64; --dc:#7a3e8f;
+  --map:#fbfcfc; --grid:#e6eaec; --exist:#6d6a64; --dc:#7a3e8f; --sub:#c2410c; --zanja:#9a6526;
   --f-display:"Barlow Semi Condensed","Arial Narrow",Arial,sans-serif;
   --f-body:"Barlow","Segoe UI",Roboto,Arial,sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
@@ -18,12 +18,12 @@
   --bg:#13181b; --panel:#1b2226; --ink:#e3e8ea; --muted:#94a2a9; --line:#2f393e; --soft:#20282c;
   --accent:#6fb0de; --accent-ink:#0c1a24; --accent-soft:#1d3342;
   --ok:#6cc48f; --ok-soft:#173022; --warn:#e3a94a; --warn-soft:#352812; --bad:#f08277; --bad-soft:#3a1d1a;
-  --map:#161c1f; --grid:#232c30; --exist:#b9b3a8; --dc:#c493d6; color-scheme:dark }}
+  --map:#161c1f; --grid:#232c30; --exist:#b9b3a8; --dc:#c493d6; --sub:#f08a4b; --zanja:#d3a265; color-scheme:dark }}
 :root[data-theme="dark"]{
   --bg:#13181b; --panel:#1b2226; --ink:#e3e8ea; --muted:#94a2a9; --line:#2f393e; --soft:#20282c;
   --accent:#6fb0de; --accent-ink:#0c1a24; --accent-soft:#1d3342;
   --ok:#6cc48f; --ok-soft:#173022; --warn:#e3a94a; --warn-soft:#352812; --bad:#f08277; --bad-soft:#3a1d1a;
-  --map:#161c1f; --grid:#232c30; --exist:#b9b3a8; --dc:#c493d6; color-scheme:dark }
+  --map:#161c1f; --grid:#232c30; --exist:#b9b3a8; --dc:#c493d6; --sub:#f08a4b; --zanja:#d3a265; color-scheme:dark }
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45}
 .wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 32px;max-width:1500px;margin:0 auto}
@@ -68,6 +68,10 @@ td.n,th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabula
 td input,td select{padding:3px 5px;font-size:.8rem}
 td input.num{width:72px}
 tr.sel td{background:var(--accent-soft)}
+.subt td,.subt th{white-space:nowrap} .subt select{max-width:22ch}
+h3.sub{font:600 .95rem var(--f-display);margin:14px 0 6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+ul.checks{margin:4px 0 8px;padding-left:20px;font-size:.85rem} ul.checks li.ok::marker{color:var(--ok)} ul.checks li.warn{color:var(--warn)} ul.checks li.bad{color:var(--bad)}
+#subResults details{border-top:1px solid var(--line);padding:4px 0} #subResults summary{cursor:pointer;font-size:.9rem}
 .chip{display:inline-block;font:600 .7rem var(--f-body);letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:99px}
 .chip.ok{background:var(--ok-soft);color:var(--ok)} .chip.warn{background:var(--warn-soft);color:var(--warn)} .chip.bad{background:var(--bad-soft);color:var(--bad)} .chip.info{background:var(--accent-soft);color:var(--accent)}
 .bar{height:6px;background:var(--grid);border-radius:3px;overflow:hidden;min-width:60px}
@@ -147,13 +151,14 @@ a.btn{text-decoration:none;display:inline-block}
       <label class="btn small" for="impProjFile">Abrir archivo</label><input id="impProjFile" type="file" accept=".json" hidden>
       <button class="btn small" id="expBases" type="button" hidden>Exportar bases</button>
       <button class="btn small" id="foldAll" type="button">Minimizar / desplegar todo</button>
-      <div class="ver" id="ver">v1.17.0</div>
+      <div class="ver" id="ver">v1.18.0</div>
     </div>
   </header>
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="calc" aria-selected="true">Proyecto</button>
     <button role="tab" data-tab="apoyos" aria-selected="false">Base de apoyos</button>
     <button role="tab" data-tab="cables" aria-selected="false">Base de cables</button>
+    <button role="tab" data-tab="subbase" aria-selected="false">Base subterránea</button>
     <button role="tab" data-tab="precios" aria-selected="false">Precios auxiliares</button>
     <button role="tab" data-tab="norma" aria-selected="false">Criterios de cálculo</button>
   </nav>
@@ -189,7 +194,7 @@ a.btn{text-decoration:none;display:inline-block}
             <button class="btn small" data-tool="insert" aria-pressed="false">Insertar</button>
             <button class="btn small" data-tool="delete" aria-pressed="false">Borrar</button>
             <button class="btn small" data-tool="text" aria-pressed="false">Editar texto</button>
-            <label class="chk note">Capa <select id="edLayer"><option value="nuevo">Apoyos nuevos</option><option value="exApoyos">Apoyos existentes</option><option value="exLineas">Tramos baja existentes</option><option value="exDC">Puntos D-C</option><option value="ruta">Ruta del trazado</option></select></label>
+            <label class="chk note">Capa <select id="edLayer"><option value="nuevo">Apoyos nuevos</option><option value="exApoyos">Apoyos existentes</option><option value="exLineas">Tramos baja existentes</option><option value="exDC">Puntos D-C</option><option value="ruta">Ruta del trazado</option><option value="subNueva">Líneas subterráneas nuevas</option><option value="subEx">Líneas subterráneas existentes</option><option value="zanjaNueva">Zanjas nuevas</option><option value="zanjaEx">Zanjas existentes</option></select></label>
             <button class="btn small" id="edUndo" disabled title="Ctrl+Z">Deshacer</button>
             <button class="btn small" id="capasBtn" aria-expanded="false" aria-controls="capasPanel">Capas</button>
           </div>
@@ -206,6 +211,11 @@ a.btn{text-decoration:none;display:inline-block}
           </div>
           <p class="note" id="exportNote" style="margin-top:6px"></p>
           <details style="margin-top:6px"><summary class="note">Opciones del plano en PDF</summary><div id="pdfOpts" style="margin-top:8px"></div></details>
+        </section>
+
+        <section class="card wide" id="subCard">
+          <h2>Red subterránea · ITC-BT-07</h2>
+          <div id="subBody"></div>
         </section>
 
     <div class="grid">
@@ -322,6 +332,20 @@ a.btn{text-decoration:none;display:inline-block}
     </section>
   </div>
 
+  <!-- ============ BASE SUBTERRÁNEA ============ -->
+  <div id="tab-subbase" hidden>
+    <section class="card" style="margin-top:16px">
+      <h2>Cables subterráneos <span class="row"><button class="btn small" id="addSubCable">Añadir cable</button></span></h2>
+      <p class="note">Cables de aluminio con aislamiento XLPE, 0,6/1 kV (UNE-HD 603), en terna de unipolares más neutro. «I máx. enterrada» es la de la tabla 4 del ITC-BT-07 (terna enterrada a 0,70 m, 25 °C y 1 K·m/W); el cálculo le aplica los factores de corrección. Ø exterior de cada cable unipolar para comprobar el tubo; R a 20 °C y X para la caída de tensión. Precio por metro de circuito completo (3 fases + neutro). Los diámetros por defecto son aproximados: ajústalos al catálogo de tu proveedor.</p>
+      <div class="tablewrap dbtable" style="margin-top:8px"><table id="subCableTable"></table></div>
+    </section>
+    <section class="card" style="margin-top:16px">
+      <h2>Tubos <span class="row"><button class="btn small" id="addTubo">Añadir tubo</button></span></h2>
+      <p class="note">Tubos para canalizaciones enterradas según ITC-BT-21 (UNE-EN 61386-24, resistencia a compresión 450 N). Precio por metro de tubo.</p>
+      <div class="tablewrap dbtable" style="margin-top:8px"><table id="tuboTable"></table></div>
+    </section>
+  </div>
+
   <!-- ============ PRECIOS ============ -->
   <div id="tab-precios" hidden>
     <section class="card" style="margin-top:16px;max-width:640px">
@@ -337,6 +361,16 @@ a.btn{text-decoration:none;display:inline-block}
       <h2>Criterios de cálculo aplicados</h2>
       <h3>Normativa</h3>
       <p>Reglamento Electrotécnico para Baja Tensión (RD 842/2002), ITC-BT-06 «Redes aéreas para distribución en baja tensión», apartados 1 a 3. Conductores según UNE 21030-1. Postes de hormigón armado vibrado tipo HV y HVH según UNE 207016.</p>
+      <h3>Red subterránea (ITC-BT-07)</h3>
+      <ul>
+        <li>Cables de aluminio con aislamiento XLPE, 0,6/1 kV. Sección mínima de fase 16 mm²; neutro según la tabla del apartado 1 (p. ej. 150 → 70 mm², 240 → 120 mm²).</li>
+        <li>Intensidad admisible: tabla 4 (terna de unipolares enterrada, 0,70 m, 25 °C, 1 K·m/W) × factores de temperatura del terreno (tabla 6), resistividad térmica (tabla 7), agrupación de circuitos en la zanja (tabla 8), profundidad (tabla 9) y 0,8 bajo tubo (3.1.3).</li>
+        <li>Caída de tensión con la resistencia a 90 °C y la reactancia del cable; el límite es un criterio del proyecto (por defecto 5 %).</li>
+        <li>Cortocircuito: densidad máxima de la tabla 16 (Al, XLPE) según la duración.</li>
+        <li>Zanjas: profundidad mínima hasta la parte inferior del cable de 0,60 m en acera y 0,80 m en calzada; cruces de calles y carreteras entubados y hormigonados a 0,80 m como mínimo; lecho de arena, protección mecánica y cinta de señalización (a 0,10 m del suelo como mínimo y a 0,25 m por encima del cable).</li>
+        <li>Tubos: un circuito por tubo; Ø interior ≥ 2 veces el Ø aparente del circuito (1,5 excepcionalmente); arquetas en los cambios de dirección y como máximo cada 40 m en recta.</li>
+        <li>La separación entre circuitos para la tabla 8 se toma, por defecto, igual al Ø exterior del tubo; puede fijarse en cada zanja.</li>
+      </ul>
       <h3>Acciones</h3>
       <ul>
         <li>Viento: 50 daN/m² sobre conductores (diámetro aparente del haz) y 100 daN/m² sobre las caras planas de los postes HV y HVH.</li>
@@ -747,7 +781,7 @@ return { utmFromLatLon, latLonFromUtm, calcular, presupuesto, nodesFromManual, b
 })();
 const ANEXO_TPL = "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";
 /* ===== Aplicación ===== */
-const VERSION = '1.17.0';
+const VERSION = '1.18.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -771,6 +805,7 @@ function localDb() {
   const KEY = 'calculoApoyosBT.db'; let data;
   try { data = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { data = null; }
   if (!data) { data = {}; (window.LOCAL_SEED || []).forEach(o => { (data[o.collection] = data[o.collection] || {})[o.doc_id] = o.data; }); }
+  else { const falta = new Set((window.LOCAL_SEED || []).map(o => o.collection).filter(c => !data[c])); (window.LOCAL_SEED || []).forEach(o => { if (falta.has(o.collection)) (data[o.collection] = data[o.collection] || {})[o.doc_id] = o.data; }); if (falta.size) try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { } }
   const subs = [];
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { toast('No se pudo guardar en el navegador: ' + e.message); } subs.forEach(f => f()); };
   const snapColl = c => ({ docs: Object.entries(data[c] || {}).map(([id, v]) => ({ id, data: () => ({ ...v }) })) });
@@ -784,8 +819,8 @@ function localDb() {
       async set(v) { (data[c] = data[c] || {})[id] = v; save(); },
       async update(v) { (data[c] = data[c] || {})[id] = { ...(data[c][id] || {}), ...v }; save(); },
       async delete() { if (data[c]) delete data[c][id]; save(); } }; },
-    exportAll: () => JSON.stringify({ app: 'Calculo de Apoyos BT', version: VERSION, apoyos: data.apoyos, cables: data.cables, config: data.config }, null, 1),
-    importAll(j) { for (const k of ['apoyos', 'cables', 'config']) if (j[k]) data[k] = j[k]; save(); }
+    exportAll: () => JSON.stringify({ app: 'Calculo de Apoyos BT', version: VERSION, apoyos: data.apoyos, cables: data.cables, cablesSub: data.cablesSub, tubos: data.tubos, config: data.config }, null, 1),
+    importAll(j) { for (const k of ['apoyos', 'cables', 'cablesSub', 'tubos', 'config']) if (j[k]) data[k] = j[k]; save(); }
   };
   if (!localStorage.getItem(KEY)) save();
   return api;
@@ -803,7 +838,7 @@ async function initDb() {
   if (!db) try { db = await window.claude?.use?.('db'); } catch (e) { db = null; }
   clearTimeout(timer);
   if (!db) { dbMissing(); return; }
-  S.db = db;
+  S.db = db; initSubDb(db);
   db.collection('apoyos').onSnapshot(qs => { S.poles = qs.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden || 0) - (b.orden || 0)); S.loaded.apoyos = true; renderPoleTable(); renderEntronque(); recalc(); },
     e => toast('No se pudo leer la base de apoyos: ' + (e.message || e.code)));
   db.collection('cables').onSnapshot(qs => { S.cables = qs.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden || 0) - (b.orden || 0)); S.loaded.cables = true; fillCableSelect(); renderCableTable(); if (S.proj.entronque && !S.proj.entronque.cableId) S.proj.entronque.cableId = (S.cables.find(c => /3x95/.test(c.designacion)) || S.cables[0] || {}).id || ''; renderEntronque(); recalc(); },
@@ -935,6 +970,7 @@ function autoValidaEntronque() {
 }
 
 function recalc() {
+  subCalc();
   const cable = S.cables.find(c => c.id === S.proj.cableId);
   const zh = $('#zonaHint'); zh.textContent = S.proj.geo?.altMax != null ? `Cota máxima del KML: ${fmt(S.proj.geo.altMax)} m` : '';
   if (!cable || !S.poles.length || S.proj.rows.length < 2) { S.calc = null; renderResults(); return; }
@@ -987,7 +1023,9 @@ function renderResults() {
   $('#budTable').innerHTML = `<thead><tr><th>Concepto</th><th>Ud</th><th class="n">Cantidad</th><th class="n">Coste</th><th class="n">Venta</th></tr></thead><tbody>
     ${b.lineas.map(l => `<tr><td>${esc(l.concepto)} ${l.sinPrecio ? '<span class="chip warn">sin precio</span>' : ''}</td><td>${l.ud}</td><td class="n">${fmt(l.cant, l.ud === 'ud' ? 0 : 1)}</td><td class="n">${eur(l.coste)}</td><td class="n">${eur(l.venta)}</td></tr>`).join('')}
     <tr><td colspan="3"><b>Total</b></td><td class="n"><b>${eur(b.tot.coste)}</b></td><td class="n"><b>${eur(b.tot.venta)}</b></td></tr>
-    <tr><td colspan="3">Margen</td><td class="n" colspan="2">${eur(b.tot.venta - b.tot.coste)}${b.tot.venta ? ' · ' + fmt((b.tot.venta - b.tot.coste) / b.tot.venta * 100, 1) + ' %' : ''}</td></tr></tbody>`;
+    <tr><td colspan="3">Margen</td><td class="n" colspan="2">${eur(b.tot.venta - b.tot.coste)}${b.tot.venta ? ' · ' + fmt((b.tot.venta - b.tot.coste) / b.tot.venta * 100, 1) + ' %' : ''}</td></tr>
+    ${(() => { const sb = S.subCalc?.bud; if (!sb?.lineas.length) return ''; return `<tr><td colspan="5"><b>Red subterránea</b></td></tr>${sb.lineas.map(l => `<tr><td>${esc(l.concepto)} ${l.sinPrecio ? '<span class="chip warn">sin precio</span>' : ''}</td><td>${l.ud}</td><td class="n">${fmt(l.cant, l.ud === 'ud' ? 0 : 1)}</td><td class="n">${eur(l.coste)}</td><td class="n">${eur(l.venta)}</td></tr>`).join('')}
+    <tr><td colspan="3"><b>Total con red subterránea</b></td><td class="n"><b>${eur(b.tot.coste + sb.tot.coste)}</b></td><td class="n"><b>${eur(b.tot.venta + sb.tot.venta)}</b></td></tr>`; })()}</tbody>`;
 
   const L = c.spans.reduce((t, s) => t + s.a, 0), nBad = c.results.filter((r, i) => statusOf(r, i).cls === 'bad').length;
   $('#kpis').innerHTML = [
@@ -1068,7 +1106,7 @@ ${c.results.map((r, i) => { const sel = r.existenteCheck?.ok ? r.existenteCheck 
 ${informeRedEx()}
 <h2>6. Presupuesto</h2><table><thead><tr><th>Concepto</th><th>Ud</th><th>Cantidad</th><th>Coste</th><th>Venta</th></tr></thead><tbody>
 ${b.lineas.map(l => `<tr>${td(esc(l.concepto))}${td(l.ud)}${tn(fmt(l.cant, l.ud === 'ud' ? 0 : 1))}${tn(eur(l.coste))}${tn(eur(l.venta))}</tr>`).join('')}
-<tr><th colspan="3">Total</th>${tn('<b>' + eur(b.tot.coste) + '</b>')}${tn('<b>' + eur(b.tot.venta) + '</b>')}</tr></tbody></table></body></html>`;
+<tr><th colspan="3">Total</th>${tn('<b>' + eur(b.tot.coste) + '</b>')}${tn('<b>' + eur(b.tot.venta) + '</b>')}</tr></tbody></table>${informeSub()}</body></html>`;
 }
 /* ---------- Nodos (coordenadas) ---------- */
 /* Apoyos de la línea existente (con coordenadas UTM) */
@@ -1373,7 +1411,7 @@ function allPts() {
   const n = S.calc?.nodes || (S.proj.rows.length > 1 ? currentNodes() : []);
   const ruta = S.proj.geo?.ruta || [];
   const ex = [...exNodes(), ...exLineas().flatMap(l => l.pts), ...exDC()];
-  const base = [...n, ...ruta];
+  const base = [...n, ...ruta, ...subAllPts()];
   if (!base.length) return ex;
   const xs = base.map(p => p.x), ys = base.map(p => p.y), m = 300;
   const x0 = Math.min(...xs) - m, x1 = Math.max(...xs) + m, y0 = Math.min(...ys) - m, y1 = Math.max(...ys) + m;
@@ -1438,7 +1476,7 @@ function lineLabel(l) {
   return [base, cab].filter(Boolean).join(' · ');
 }
 function esfLabel(i) { const a = redEx()?.apoyos?.[i]; if (!a) return ''; const v = esfuerzoApoyo(a); if (!v) return ''; return /dan/i.test(v) ? v : `${v} daN`; }
-const PRINT_COLORS = { '--dc': '#7a3e8f', '--map': '#ffffff', '--ink': '#1b2328', '--muted': '#4c5960', '--accent': '#1d5b86', '--exist': '#6d6a64', '--panel': '#ffffff', '--grid': '#e6eaec', '--ok': '#2f7d4f', '--warn': '#a66a00', '--bad': '#b3362c', '--f-body': 'Arial, sans-serif', '--f-mono': 'Consolas, monospace' };
+const PRINT_COLORS = { '--sub': '#c2410c', '--zanja': '#9a6526', '--dc': '#7a3e8f', '--map': '#ffffff', '--ink': '#1b2328', '--muted': '#4c5960', '--accent': '#1d5b86', '--exist': '#6d6a64', '--panel': '#ffffff', '--grid': '#e6eaec', '--ok': '#2f7d4f', '--warn': '#a66a00', '--bad': '#b3362c', '--f-body': 'Arial, sans-serif', '--f-mono': 'Consolas, monospace' };
 /* Dibuja el plano. Sin argumento, en el lienzo de la pantalla; con T = {cv, W, H, dpr, sc, cx, cy, print}, en otro lienzo (PDF) */
 function drawMap(T) {
   const screen = !T;
@@ -1449,7 +1487,7 @@ function drawMap(T) {
   g.fillStyle = col('--map'); g.fillRect(0, 0, W, Hh);
   const nodes = S.drag ? currentNodes() : (S.calc?.nodes || (S.proj.rows.length > 1 ? currentNodes() : []));
   const ex = exNodes(), lines = exLineas(), ruta = S.proj.geo?.ruta || [];
-  if (nodes.length < 2 && ex.length < 1 && !lines.length && !exDC().length) {
+  if (nodes.length < 2 && ex.length < 1 && !lines.length && !exDC().length && !subAllPts().length) {
     if (screen) S.mapT = null; g.fillStyle = col('--muted'); g.font = '13px ' + col('--f-body'); g.textAlign = 'center';
     g.fillText('Proyecto vacío: importa el trazado, la red existente o crea el trazado con coordenadas.', W / 2, Hh / 2); return;
   }
@@ -1486,6 +1524,7 @@ function drawMap(T) {
     g.strokeStyle = col('--accent'); g.globalAlpha = 0.45; g.lineWidth = 1.5; g.setLineDash([2, 4]); g.beginPath(); ruta.forEach((n, i) => { const [x, y] = P(n); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); g.setLineDash([]); g.globalAlpha = 1;
     if (screen && tool !== 'pan' && L === 'ruta') ruta.forEach((n, i) => { const [x, y] = P(n); vtx(x, y, S.selPt?.layer === 'ruta' && S.selPt.i === i); });
   }
+  drawSub({ g, P, screen, col, halo, alongText, longestSeg, vtx, sc, L, tool });
   // Líneas existentes con su texto (y su cable verificado)
   if (vis('exLineas')) lines.forEach((l, li) => {
     g.strokeStyle = col('--exist'); g.lineWidth = 3; g.setLineDash([8, 5]); g.beginPath(); l.pts.forEach((n, i) => { const [x, y] = P(n); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); g.setLineDash([]);
@@ -1560,12 +1599,12 @@ function zoomAt(f, mx, my) {
 const LAYERS = { nuevo: 'Apoyos nuevos', exApoyos: 'Apoyos existentes', exLineas: 'Tramos baja existentes', exDC: 'Puntos D-C', ruta: 'Ruta del trazado' };
 S.tool = 'pan'; S.editLayer = 'nuevo'; S.hist = [];
 function snapshot() {
-  S.hist.push(JSON.stringify({ geo: S.proj.geo, rows: S.proj.rows, redEx: S.proj.redEx, entronque: S.proj.entronque, verif: S.proj.verif, modo: S.proj.modo, zone: S.proj.zone, rumbo0: S.proj.ctx.rumbo0 }));
+  S.hist.push(JSON.stringify({ geo: S.proj.geo, rows: S.proj.rows, redEx: S.proj.redEx, entronque: S.proj.entronque, verif: S.proj.verif, modo: S.proj.modo, zone: S.proj.zone, rumbo0: S.proj.ctx.rumbo0, sub: S.proj.sub || null }));
   if (S.hist.length > 60) S.hist.shift(); updUndo();
 }
 function undo() {
   const h = S.hist.pop(); if (!h) return; const d = JSON.parse(h);
-  Object.assign(S.proj, { geo: d.geo, rows: d.rows, redEx: d.redEx, entronque: d.entronque, verif: d.verif, modo: d.modo, zone: d.zone }); S.proj.ctx.rumbo0 = d.rumbo0;
+  Object.assign(S.proj, { geo: d.geo, rows: d.rows, redEx: d.redEx, entronque: d.entronque, verif: d.verif, modo: d.modo, zone: d.zone, sub: d.sub || null }); S.subDraw = null; S.proj.ctx.rumbo0 = d.rumbo0;
   invalidateVert(); S.selPt = null; updUndo(); refreshAll(); toast('Cambio deshecho.');
 }
 function updUndo() { const b = $('#edUndo'); if (b) b.disabled = !S.hist.length; }
@@ -1583,6 +1622,7 @@ function layerPts(layer) {
   if (layer === 'exLineas') return exLineas().map(l => l.pts);
   if (layer === 'exDC') return exDC().length ? [exDC()] : [];
   if (layer === 'ruta') return S.proj.geo?.ruta ? [S.proj.geo.ruta] : [];
+  if (isSubLayer(layer)) return subObjs(layer).map(o => o.pts);
   return [];
 }
 function hitPoint(layer, mx, my, tolPx = 12) {
@@ -1617,6 +1657,7 @@ function snapTargets(dp) {
   if (vis('exLineas')) exLineas().forEach((l, li) => { const n = l.pts.length; [0, n - 1].forEach((i, k) => { if (n < 2 || (k && i === 0) || own('exLineas', li, i)) return; out.push({ x: l.pts[i].x, y: l.pts[i].y, label: (k ? 'Fin' : 'Inicio') + ' de tramo ' + (lineLabel(l) || 'L' + (li + 1)) }); }); });
   if (vis('ruta') && S.proj.geo?.ruta?.length > 1) { const r = S.proj.geo.ruta; [0, r.length - 1].forEach((i, k) => { if (!own('ruta', 0, i)) out.push({ x: r[i].x, y: r[i].y, label: (k ? 'Fin' : 'Inicio') + ' de ruta' }); }); }
   if (vis('exDC')) exDC().forEach((p, i) => { if (!own('exDC', 0, i)) out.push({ x: p.x, y: p.y, label: 'Punto D-C' + (dcLabel(p) ? ' ' + dcLabel(p) : '') }); });
+  out.push(...subSnapTargets(dp));
   return out;
 }
 function findSnap(dp, mx, my) {
@@ -1629,6 +1670,7 @@ function isEntronqueA1(i) { return i === 0 && S.proj.entronque?.k != null && exN
 function editClick(mx, my) {
   const layer = S.editLayer, tool = S.tool, w = worldAt(mx, my);
   if ((tool === 'insert' || tool === 'delete') && !vis(layer)) return toast(`La capa «${LAYERS[layer]}» está oculta. Muéstrala en «Capas» para editarla.`);
+  if (tool === 'insert' && isSubLayer(layer)) return subInsert(layer, mx, my);
   if (tool === 'insert') {
     if (layer === 'nuevo') {
       ensureGeoPts(); const pts = S.proj.geo.pts; const h = hitSegment(pts, mx, my);
@@ -1655,7 +1697,9 @@ function editClick(mx, my) {
     const pick = (lay, list) => { if (!vis(lay)) return null; let best = null; list.forEach((n, i) => { const [x, y] = S.mapT.P(n); const d = Math.hypot(x - mx, y - my); if (d < 14 && (!best || d < best.d)) best = { lay, i, d }; }); return best; };
     let hit = pick('exDC', exDC()) || (redEx()?.apoyos?.length ? pick('exApoyos', exNodes()) : null) || pick('nuevo', S.mapT.nodes || []);
     if (!hit && vis('exLineas')) { let hl = null; exLineas().forEach((l, li) => { const h = hitSegment(l.pts, mx, my, 10); if (h && (!hl || h.d < hl.d)) hl = { ...h, li }; }); if (hl) hit = { lay: 'exLineas', li: hl.li, i: hl.i }; }
-    if (!hit) return toast('Pulsa sobre un apoyo, un tramo existente o un punto D-C para editar su texto.');
+    if (!hit) { let hs = null; Object.keys(SUB_LAYERS).forEach(lay => { if (!vis(lay)) return; subObjs(lay).forEach(o => { const h = hitSegment(o.pts, mx, my, 10); if (h && (!hs || h.d < hs.d)) hs = { ...h, o }; }); });
+      if (hs) { const s2 = SUB(), kz = s2.zanjas.indexOf(hs.o), kl = s2.lineas.indexOf(hs.o); const el = kz >= 0 ? $(`#subBody tr[data-zk="${kz}"] input[data-z="nombre"]`) : $(`#subBody tr[data-lk="${kl}"] input[data-l="nombre"]`); if (el) { el.scrollIntoView({ block: 'center' }); el.focus(); el.select(); } return; } }
+    if (!hit) return toast('Pulsa sobre un apoyo, un tramo existente, un punto D-C, una línea subterránea o una zanja para editar su texto.');
     S.selPt = { layer: hit.lay, li: hit.li || 0, i: hit.i }; renderPtEdit(); drawMap();
     const f = { exDC: '#pe_dcl', exApoyos: '#pe_lab', exLineas: '#pe_ll', nuevo: '#pe_n' }[hit.lay]; const el = $(f);
     if (el) { el.focus(); el.select(); el.scrollIntoView({ block: 'nearest' }); }
@@ -1674,6 +1718,7 @@ function editClick(mx, my) {
       redEx().apoyos.splice(h.i, 1); invalidateVert(); toast(`Apoyo existente E${h.i + 1} borrado.`);
     } else if (layer === 'exDC') {
       snapshot(); redEx().puntosDC.splice(h.i, 1); toast('Punto D-C borrado.');
+    } else if (isSubLayer(layer)) { subDelete(layer, h);
     } else {
       const arr = layerPts(layer)[h.li]; snapshot();
       if (arr.length <= 2) { if (layer === 'exLineas') { exLineas().splice(h.li, 1); toast('Línea existente borrada (le quedaban dos vértices).'); } else { S.proj.geo.ruta = null; toast('Ruta borrada.'); } }
@@ -1743,10 +1788,10 @@ function bindMap() {
   // Barra de edición
   $('#edBar').addEventListener('click', ev => {
     const b = ev.target.closest('button'); if (!b) return;
-    if (b.dataset.tool) { S.tool = b.dataset.tool; renderEdBar(); drawMap(); }
+    if (b.dataset.tool) { if (S.subDraw) subEndDraw(); S.tool = b.dataset.tool; renderEdBar(); drawMap(); }
     if (b.id === 'edUndo') undo();
   });
-  $('#edLayer').addEventListener('change', e => { S.editLayer = e.target.value; S.selPt = null; renderEdBar(); renderPtEdit(); drawMap(); });
+  $('#edLayer').addEventListener('change', e => { if (S.subDraw) subEndDraw(); S.editLayer = e.target.value; S.selPt = null; renderEdBar(); renderPtEdit(); drawMap(); });
   document.addEventListener('keydown', ev => {
     if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'z' && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName)) { ev.preventDefault(); undo(); }
     if (ev.key === 'Escape' && S.tool !== 'pan') { S.tool = 'pan'; renderEdBar(); drawMap(); }
@@ -1770,7 +1815,7 @@ function renderEdBar() {
   document.querySelectorAll('#edBar [data-tool]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tool === S.tool)));
   $('#edLayer').value = S.editLayer; $('#map').style.cursor = S.tool === 'pan' ? 'grab' : S.tool === 'move' ? 'move' : S.tool === 'text' ? 'text' : 'crosshair';
   $('#edLayer').disabled = S.tool === 'text' || S.tool === 'pan';
-  const hint = { pan: 'Arrastra para mover el plano. Pulsa un apoyo para seleccionarlo y editar sus coordenadas.', move: `Arrastra un punto de «${LAYERS[S.editLayer]}» para moverlo.`, insert: S.editLayer === 'nuevo' ? 'Pulsa sobre un vano para intercalar un apoyo, o fuera del trazado para añadirlo al final.' : S.editLayer === 'exApoyos' ? 'Pulsa en el plano para añadir un apoyo existente.' : 'Pulsa sobre un tramo para insertar un vértice.', delete: `Pulsa un punto de «${LAYERS[S.editLayer]}» para borrarlo.`, text: 'Pulsa un apoyo existente, un tramo baja, un punto D-C o un apoyo nuevo para cambiar el texto que se rotula en el plano.' }[S.tool];
+  const hint = { pan: 'Arrastra para mover el plano. Pulsa un apoyo para seleccionarlo y editar sus coordenadas.', move: `Arrastra un punto de «${LAYERS[S.editLayer]}» para moverlo.`, insert: S.editLayer === 'nuevo' ? 'Pulsa sobre un vano para intercalar un apoyo, o fuera del trazado para añadirlo al final.' : S.editLayer === 'exApoyos' ? 'Pulsa en el plano para añadir un apoyo existente.' : isSubLayer(S.editLayer) ? 'Pulsa sobre un tramo para intercalar un vértice, o en vacío para dibujar uno nuevo punto a punto. Termina pulsando otra vez el último punto o con Intro.' : 'Pulsa sobre un tramo para insertar un vértice.', delete: `Pulsa un punto de «${LAYERS[S.editLayer]}» para borrarlo.`, text: 'Pulsa un apoyo existente, un tramo baja, un punto D-C o un apoyo nuevo para cambiar el texto que se rotula en el plano.' }[S.tool];
   $('#edHint').textContent = hint; updUndo();
 }
 function p0dc(sp) { return exDC()[sp.i]?.nombre || ''; }
@@ -1779,7 +1824,7 @@ function renderPtEdit() {
   if (!sp) { box.hidden = true; return; }
   let p, label;
   if (sp.layer === 'nuevo') { const n = (S.proj.modo === 'kml' && S.proj.geo) ? S.proj.geo.pts[sp.i] : currentNodes()[sp.i]; p = n; label = `Apoyo nuevo A${sp.i + 1}`; }
-  else { p = layerPts(sp.layer)[sp.li]?.[sp.i]; label = sp.layer === 'exDC' ? `Punto D-C${p0dc(sp) ? ' · ' + esc(p0dc(sp)) : ''}` : sp.layer === 'exApoyos' ? `Apoyo existente E${sp.i + 1}` : sp.layer === 'ruta' ? `Vértice ${sp.i + 1} de la ruta` : `Línea existente «${exLineas()[sp.li]?.nombre || ''}» · vértice ${sp.i + 1}`; }
+  else { p = layerPts(sp.layer)[sp.li]?.[sp.i]; label = sp.layer === 'exDC' ? `Punto D-C${p0dc(sp) ? ' · ' + esc(p0dc(sp)) : ''}` : sp.layer === 'exApoyos' ? `Apoyo existente E${sp.i + 1}` : sp.layer === 'ruta' ? `Vértice ${sp.i + 1} de la ruta` : isSubLayer(sp.layer) ? `${esc(subObjs(sp.layer)[sp.li]?.nombre || '')} · vértice ${sp.i + 1}` : `Línea existente «${exLineas()[sp.li]?.nombre || ''}» · vértice ${sp.i + 1}`; }
   if (!p) { box.hidden = true; return; }
   box.hidden = false;
   box.innerHTML = `<b>${label}</b>${isEntronqueA1(sp.layer === 'nuevo' ? sp.i : -1) ? ' · es el apoyo de entronque: edítalo como apoyo existente' : ''}
@@ -2020,7 +2065,7 @@ function refreshAll() {
   $('#geoInfo').hidden = !(S.proj.modo === 'kml' && S.proj.geo); $('#geoInfo').innerHTML = geoInfoHtml();
   const tm = $('#toManual'); if (tm) tm.onclick = toManual;
   renderRows(); renderEntronque(); recalc(); renderFondos(); renderPerfilInfo(); renderPtEdit(); updUndo();
-  renderCapas(); renderProjName(); scheduleAuto();
+  renderCapas(); renderProjName(); renderSub(); scheduleAuto();
 }
 
 /* ---------- Plano: vista con desplazamiento y zoom ---------- */
@@ -2169,7 +2214,7 @@ const ascii = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[
 function dxf(c, geo) {
   const L = [];
   const p = (...a) => { for (let k = 0; k < a.length; k += 2) L.push(String(a[k]), String(a[k + 1])); };
-  const layers = [['BT_TRAZADO', 5], ['BT_APOYOS', 1], ['BT_TEXTO_APOYOS', 7], ['BT_TEXTO_VANOS', 8], ['BT_EXISTENTE', 30], ['BT_LINEA_EXISTENTE', 30], ['BT_APOYOS_EXISTENTES', 30], ['BT_TEXTO_EXISTENTE', 30], ['BT_RUTA', 4], ['BT_PUNTOS_DC', 6], ['BT_TEXTO_PUNTOS_DC', 6]];
+  const layers = [['BT_TRAZADO', 5], ['BT_APOYOS', 1], ['BT_TEXTO_APOYOS', 7], ['BT_TEXTO_VANOS', 8], ['BT_EXISTENTE', 30], ['BT_LINEA_EXISTENTE', 30], ['BT_APOYOS_EXISTENTES', 30], ['BT_TEXTO_EXISTENTE', 30], ['BT_RUTA', 4], ['BT_PUNTOS_DC', 6], ['BT_TEXTO_PUNTOS_DC', 6], ...subDxfLayers()];
   p(0, 'SECTION', 2, 'HEADER', 9, '$ACADVER', 1, 'AC1009', 9, '$INSUNITS', 70, 6, 0, 'ENDSEC');
   p(0, 'SECTION', 2, 'TABLES', 0, 'TABLE', 2, 'LTYPE', 70, 1, 0, 'LTYPE', 2, 'CONTINUOUS', 70, 0, 3, 'Solid line', 72, 65, 73, 0, 40, 0, 0, 'ENDTAB');
   p(0, 'TABLE', 2, 'LAYER', 70, layers.length); layers.forEach(([n, colr]) => p(0, 'LAYER', 2, n, 70, 0, 62, colr, 6, 'CONTINUOUS')); p(0, 'ENDTAB', 0, 'ENDSEC');
@@ -2200,6 +2245,7 @@ function dxf(c, geo) {
     const e = n.existente; if (e?.activo) (e.conductores || []).filter(cd => !cd.deLinea || !ex.length).forEach(cd => { const u = { x: Math.sin(cd.az * Math.PI / 180), y: Math.cos(cd.az * Math.PI / 180) }; p(0, 'LINE', 8, 'BT_EXISTENTE', 10, f3(n.x), 20, f3(n.y), 30, 0, 11, f3(n.x + u.x * 10), 21, f3(n.y + u.y * 10), 31, 0); });
   });
   if (!geo) p(0, 'TEXT', 8, 'BT_TEXTO_APOYOS', 10, f3(N[0].x), 20, f3(N[0].y - 4), 30, 0, 40, 1, 1, 'COORDENADAS LOCALES - SIN GEORREFERENCIAR');
+  subDxf(p, f3);
   p(0, 'ENDSEC', 0, 'EOF');
   return L.join('\r\n') + '\r\n';
 }
@@ -2224,6 +2270,7 @@ ${exK}
 ${dcK}
 <Style id="puntoDC"><IconStyle><color>ff8f3e7a</color><scale>0.7</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle></Style>
 <Placemark><name>Línea BT nueva · ${esc(c.cable.designacion)}</name><styleUrl>#linea</styleUrl><LineString><tessellate>1</tessellate><coordinates>${pts.map(p => `${p.lon.toFixed(8)},${p.lat.toFixed(8)},0`).join(' ')}</coordinates></LineString></Placemark>
+${subKml()}
 <Folder><name>Apoyos nuevos</name>
 ${pm}
 </Folder></Document></kml>`;
@@ -2236,6 +2283,7 @@ function geojson(c, g) {
   ex.forEach((p, i) => feats.push({ type: 'Feature', properties: { capa: 'apoyo_existente', apoyo: 'E' + (i + 1), nombre: p.nombre || null, entronque: S.proj.entronque?.k === i }, geometry: { type: 'Point', coordinates: [+p.lon.toFixed(8), +p.lat.toFixed(8)] } }));
   exDC().forEach(d => feats.push({ type: 'Feature', properties: { capa: 'punto_dc', cups: d.cups || null, texto: dcLabel(d) || null, nombre: d.nombre || null }, geometry: { type: 'Point', coordinates: [+d.lon.toFixed(8), +d.lat.toFixed(8)] } }));
   if (S.proj.geo?.ruta) feats.push({ type: 'Feature', properties: { capa: 'ruta' }, geometry: { type: 'LineString', coordinates: S.proj.geo.ruta.map(p => [+p.lon.toFixed(8), +p.lat.toFixed(8)]) } });
+  feats.push(...subGeoFeats());
   return JSON.stringify({ type: 'FeatureCollection', name: S.proj.nombre, features: feats }, null, 1);
 }
 function csv(c, g) {
@@ -2288,7 +2336,8 @@ async function fondoBlob(f) {
   return null;
 }
 async function exportZip() {
-  const c = S.calc; if (!c) { toast('No hay resultados que exportar.'); return; }
+  const c = S.calc; if (!c && subHasData()) return exportZipSub();
+  if (!c) { toast('No hay resultados que exportar.'); return; }
   const ve = verifEstado(); if (ve.faltan.length) { toast('No se puede exportar: falta verificar ' + ve.faltan.join(', ') + '. Hazlo en «Red existente y entronque».'); return; }
   const g = getGeo(c.nodes), zip = new JSZip(), base = fileBase(g);
   zip.file(base + '.dxf', dxf(c, g));
@@ -2305,7 +2354,7 @@ async function exportZip() {
     const fa = anexoFaltan(); if (fa.length) { toast('Proyecto en Galicia: completa el ANEXO I antes de exportar (falta ' + fa.join(', ') + ').'); return; }
     zip.file(anexoNombre(), await anexoXlsx());
   }
-  zip.file(base + '_apoyos.csv', csv(c, g)); if (c.conPerfil) zip.file(base + '_perfil.csv', perfilCsv(c)); zip.file(base + '_anexo_calculo.html', informe(c)); zip.file('LEEME.txt', leeme(c, g, incl));
+  zip.file(base + '_apoyos.csv', csv(c, g)); if (c.conPerfil) zip.file(base + '_perfil.csv', perfilCsv(c)); zip.file(base + '_anexo_calculo.html', informe(c)); if (subHasData()) zip.file(base + '_red_subterranea.csv', subCsv()); zip.file('LEEME.txt', leeme(c, g, incl));
   const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
   if (await saveFile(base + '.zip', blob)) toast('Paquete guardado.');
 }
@@ -2516,7 +2565,7 @@ function bindPdf() {
 async function exportPdf() {
   if (typeof PDFLib === 'undefined') { toast('No se ha podido cargar el generador de PDF. Comprueba la conexión a internet.'); return; }
   const c = S.calc, nodes = c?.nodes || currentNodes();
-  if (nodes.length < 2 && !exNodes().length) { toast('No hay nada que dibujar en el plano.'); return; }
+  if (nodes.length < 2 && !exNodes().length && !subAllPts().length) { toast('No hay nada que dibujar en el plano.'); return; }
   const btn = $('#exportPdf'); btn.disabled = true; const prevTxt = btn.textContent; btn.textContent = 'Generando PDF…';
   try {
     const o = pdfOpts(), { PDFDocument, StandardFonts, rgb } = PDFLib;
@@ -2556,15 +2605,17 @@ async function exportPdf() {
       ['sq', acc, 'Apoyo nuevo (A)'], ['line', acc, 'Línea nueva: ' + shortCable(S.cables.find(x => x.id === S.proj.cableId)?.designacion || '')],
       ['circ', exi, 'Apoyo existente'], ['dash', exi, 'Tramo baja existente'], ['circ', acc, 'Apoyo de entronque']];
     if (exDC().length) leg.push(['diam', rgb(0.478, 0.243, 0.561), 'Punto D-C (CUPS, caracteres 12-18)']);
+    if (subHasData()) { const sv = SUB(); if (sv.lineas.some(l => l.estado === 'nuevo')) leg.push(['dash', rgb(0.761, 0.255, 0.047), 'Línea subterránea nueva']); if (sv.lineas.some(l => l.estado !== 'nuevo')) leg.push(['dash', exi, 'Línea subterránea existente']); if (sv.zanjas.length) leg.push(['line', rgb(0.604, 0.396, 0.149), 'Zanja (cuadros: arquetas)']); }
     const lstep = leg.length > 5 ? 4.0 : 4.6;
     leg.forEach((it, k) => {
-      const yy = ly + 8 + k * lstep, [kind, colr, label] = it;
+      const cols = leg.length > 6 ? 2 : 1, kk = k % Math.ceil(leg.length / cols), lx = m + 3 + Math.floor(k / Math.ceil(leg.length / cols)) * 39;
+      const yy = ly + 8 + kk * lstep, [kind, colr, label] = it;
       if (kind === 'diam') page.drawRectangle({ x: X(lx + 1.2), y: Y(yy + 1.5), width: X(2), height: X(2), color: colr, rotate: PDFLib.degrees(45) });
       if (kind === 'sq') page.drawRectangle({ x: X(lx), y: Y(yy + 1), width: X(2.4), height: X(2.4), color: rgb(0.184, 0.49, 0.31) });
       if (kind === 'circ') page.drawCircle({ x: X(lx + 1.2), y: Y(yy - 0.2), size: X(1.2), color: colr });
       if (kind === 'line') page.drawLine({ start: { x: X(lx - 0.5), y: Y(yy - 0.2) }, end: { x: X(lx + 3), y: Y(yy - 0.2) }, thickness: 1.6, color: colr });
       if (kind === 'dash') page.drawLine({ start: { x: X(lx - 0.5), y: Y(yy - 0.2) }, end: { x: X(lx + 3), y: Y(yy - 0.2) }, thickness: 1.6, color: colr, dashArray: [3, 2] });
-      txt(fit(label, 70, 6.5), lx + 5, yy + 0.8, 6.5);
+      txt(fit(label, leg.length > 6 ? 33 : 70, 6.5), lx + 5, yy + 0.8, 6.5);
     });
     // Barra de escala
     const bx = m + 82, by = ly + 12, step = niceStep(N * 0.03), segMm = step * 1000 / N;
@@ -2751,8 +2802,8 @@ function renderProjList() {
 /* Proyecto vacío: borra del área de trabajo trazado, red existente, entronque, perfil, fondos y edición. No toca las bases ni los proyectos guardados. */
 function nuevoProyecto() {
   const fondos = S.proj.fondos || {}; Object.values(fondos).forEach(f => { if (f?.blobUrl) try { URL.revokeObjectURL(f.blobUrl); } catch (e) { } });
-  S.proj = { id: null, nombre: '', modo: 'manual', rows: [], geo: null, ctx: { ...DEF_CTX }, cableId: S.proj.cableId || '', zone: null, redEx: null, entronque: null, perfil: null, fondos: {} };
-  Object.assign(S, { img: {}, sel: null, selPt: null, openEx: null, pickEntronque: false, hist: [], calc: null, mapT: null, tool: 'pan', editLayer: 'nuevo', delConfirm: null });
+  S.proj = { id: null, nombre: '', modo: 'manual', rows: [], geo: null, ctx: { ...DEF_CTX }, cableId: S.proj.cableId || '', zone: null, redEx: null, entronque: null, perfil: null, fondos: {}, sub: null };
+  Object.assign(S, { img: {}, sel: null, selPt: null, openEx: null, pickEntronque: false, hist: [], calc: null, mapT: null, tool: 'pan', editLayer: 'nuevo', delConfirm: null, subDraw: null, subCalc: null });
   V.fitted = false; V.sc = null;
   ['#kmlPick', '#exPick'].forEach(id => { const el = $(id); if (el) { el.hidden = true; el.innerHTML = ''; } });
   const m = $('#perfilAutoMsg'); if (m) m.textContent = '';
@@ -2840,7 +2891,7 @@ function bindPrecios() {
 function bindTabs() {
   document.querySelectorAll('nav.tabs button').forEach(b => b.addEventListener('click', () => {
     document.querySelectorAll('nav.tabs button').forEach(x => x.setAttribute('aria-selected', x === b));
-    ['calc', 'apoyos', 'cables', 'precios', 'norma'].forEach(t => $('#tab-' + t).hidden = t !== b.dataset.tab);
+    ['calc', 'apoyos', 'cables', 'subbase', 'precios', 'norma'].forEach(t => $('#tab-' + t).hidden = t !== b.dataset.tab);
     if (b.dataset.tab === 'calc') drawMap();
   }));
 }
@@ -2850,12 +2901,518 @@ function start() {
   if (!LOCAL) $('#ver').textContent = 'v' + VERSION;
   loadForm(); bindForm(); bindRows(); bindMap(); bindProjects(); bindDbTables(); bindPrecios(); bindTabs();
   $('#kmlFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importFile(f, 'nuevo'); e.target.value = ''; });
-  bindEntronque(); bindCoordForm(); bindPerfilAuto();
+  bindEntronque(); bindCoordForm(); bindPerfilAuto(); bindSub(); bindSubBases(); renderSubBases();
   $('#perfilFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importFile(f, 'perfil'); e.target.value = ''; });
   $('#exportZip').onclick = exportZip;
   $('#exportNote').textContent = 'Incluye DXF en ETRS89 UTM con la línea nueva y la existente, KML, GeoJSON, los fondos cargados con su archivo de mundo, tabla CSV y anexo de cálculo.';
   renderPrecios(); renderPoleTable(); renderCableTable(); renderProjList(); refreshAll();
   initDb();
+}
+
+/* =====================================================================
+   RED SUBTERRÁNEA DE BAJA TENSIÓN — ITC-BT-07 (REBT, RD 842/2002)
+   Líneas subterráneas (nuevas y existentes) y zanjas con sus tubos.
+   ===================================================================== */
+
+/* ---------- Tablas del ITC-BT-07 ---------- */
+// Tabla 4: intensidad máxima admisible (A), Al, terna de unipolares XLPE, enterrada (25 °C, 1 K·m/W, 0,70 m)
+const SUB_T4 = { 16: 97, 25: 125, 35: 150, 50: 180, 70: 220, 95: 260, 120: 295, 150: 330, 185: 375, 240: 430, 300: 485, 400: 550, 500: 615, 630: 690 };
+// Apartado 1: sección mínima del neutro con cuatro conductores (Al)
+const SUB_NEUTRO = [[16, 16], [25, 16], [35, 16], [50, 25], [70, 35], [95, 50], [120, 70], [150, 70], [185, 95], [240, 120], [300, 150], [400, 185]];
+// Tabla 6: temperatura del terreno (XLPE, 90 °C)
+const SUB_FT = [[10, 1.11], [15, 1.07], [20, 1.04], [25, 1], [30, 0.96], [35, 0.92], [40, 0.88], [45, 0.83], [50, 0.78]];
+// Tabla 7: resistividad térmica del terreno (unipolares)
+const SUB_FR = [[0.8, 1.09], [0.85, 1.06], [0.9, 1.04], [1, 1], [1.1, 0.96], [1.2, 0.93], [1.4, 0.87], [1.65, 0.81], [2, 0.75], [2.5, 0.68], [2.8, 0.66]];
+// Tabla 8: agrupación de ternas enterradas (columnas = nº de circuitos en la zanja)
+const SUB_FA_N = [2, 3, 4, 5, 6, 8, 10, 12];
+const SUB_FA = { '0': [0.80, 0.70, 0.64, 0.60, 0.56, 0.53, 0.50, 0.47], '0.07': [0.85, 0.75, 0.68, 0.64, 0.60, 0.56, 0.53, 0.50], '0.1': [0.85, 0.76, 0.69, 0.65, 0.62, 0.58, 0.55, 0.53],
+  '0.15': [0.87, 0.77, 0.72, 0.68, 0.66, 0.62, 0.59, 0.57], '0.2': [0.88, 0.79, 0.74, 0.70, 0.68, 0.64, 0.62, 0.60], '0.25': [0.89, 0.80, 0.76, 0.72, 0.70, 0.66, 0.64, 0.62] };
+// Tabla 9: profundidad de instalación
+const SUB_FP = [[0.4, 1.03], [0.5, 1.02], [0.6, 1.01], [0.7, 1], [0.8, 0.99], [0.9, 0.98], [1, 0.97], [1.2, 0.95]];
+// Tabla 16: densidad de corriente de cortocircuito, Al XLPE (A/mm²)
+const SUB_DCC = [[0.1, 294], [0.2, 203], [0.3, 170], [0.5, 132], [1, 93], [1.5, 76], [2, 66], [2.5, 59], [3, 54]];
+const SUB_F_TUBO = 0.8;          // 3.1.3: terna en el mismo tubo
+const ZANJA_TIPOS = {
+  acera: { n: 'Acera', min: 0.60 }, calzada: { n: 'Calzada', min: 0.80, horm: true }, cruce: { n: 'Cruce de calle o carretera', min: 0.80, horm: true }, tierra: { n: 'Tierra o campo', min: 0.60 }
+};
+const SUB_SEP = [['auto', 'Según Ø del tubo'], ['0', 'En contacto'], ['0.07', '0,07 m'], ['0.1', '0,10 m'], ['0.15', '0,15 m'], ['0.2', '0,20 m'], ['0.25', '0,25 m']];
+const SUB_PAR = { U: 400, dUmax: 5, tTerreno: 25, rho: 1, icc: 0, tcc: 0.5, reservaMin: 1 };
+
+/* Valores por defecto de las bases (se usan si la base está vacía y se cargan la primera vez) */
+const SUB_DEF_CABLES = [
+  { id: 'XZ1-AL-3x50+1x50', designacion: 'XZ1 (S) 0,6/1 kV Al 3x50+1x50', secFase: 50, secNeutro: 50, diamExt: 13.0, Imax: 180, R20: 0.641, X: 0.08, coste: 0, venta: 0, activo: true, orden: 10 },
+  { id: 'XZ1-AL-3x95+1x50', designacion: 'XZ1 (S) 0,6/1 kV Al 3x95+1x50', secFase: 95, secNeutro: 50, diamExt: 16.2, Imax: 260, R20: 0.320, X: 0.08, coste: 0, venta: 0, activo: true, orden: 20 },
+  { id: 'XZ1-AL-3x150+1x95', designacion: 'XZ1 (S) 0,6/1 kV Al 3x150+1x95', secFase: 150, secNeutro: 95, diamExt: 19.8, Imax: 330, R20: 0.206, X: 0.08, coste: 0, venta: 0, activo: true, orden: 30 },
+  { id: 'XZ1-AL-3x240+1x150', designacion: 'XZ1 (S) 0,6/1 kV Al 3x240+1x150', secFase: 240, secNeutro: 150, diamExt: 24.6, Imax: 430, R20: 0.125, X: 0.08, coste: 0, venta: 0, activo: true, orden: 40 }
+];
+const SUB_DEF_TUBOS = [
+  { id: 'TPE-90', designacion: 'Tubo PE corrugado doble pared 90 mm 450 N', dExt: 90, dInt: 76, coste: 0, venta: 0, activo: true, orden: 10 },
+  { id: 'TPE-110', designacion: 'Tubo PE corrugado doble pared 110 mm 450 N', dExt: 110, dInt: 94, coste: 0, venta: 0, activo: true, orden: 20 },
+  { id: 'TPE-125', designacion: 'Tubo PE corrugado doble pared 125 mm 450 N', dExt: 125, dInt: 107, coste: 0, venta: 0, activo: true, orden: 30 },
+  { id: 'TPE-160', designacion: 'Tubo PE corrugado doble pared 160 mm 450 N', dExt: 160, dInt: 136, coste: 0, venta: 0, activo: true, orden: 40 },
+  { id: 'TPE-200', designacion: 'Tubo PE corrugado doble pared 200 mm 450 N', dExt: 200, dInt: 172, coste: 0, venta: 0, activo: true, orden: 50 }
+];
+const SUB_PRECIOS = [
+  ['zanjaAceraCoste', 'Zanja en acera · coste (€/m)'], ['zanjaAceraVenta', 'Zanja en acera · venta (€/m)'],
+  ['zanjaCalzadaCoste', 'Zanja en calzada · coste (€/m)'], ['zanjaCalzadaVenta', 'Zanja en calzada · venta (€/m)'],
+  ['zanjaCruceCoste', 'Cruce de calle o carretera · coste (€/m)'], ['zanjaCruceVenta', 'Cruce de calle o carretera · venta (€/m)'],
+  ['zanjaTierraCoste', 'Zanja en tierra · coste (€/m)'], ['zanjaTierraVenta', 'Zanja en tierra · venta (€/m)'],
+  ['arquetaCoste', 'Arqueta registrable · coste (€/ud)'], ['arquetaVenta', 'Arqueta registrable · venta (€/ud)'],
+  ['pasoASCoste', 'Paso aéreo-subterráneo (tubo de protección y accesorios) · coste (€/ud)'], ['pasoASVenta', 'Paso aéreo-subterráneo · venta (€/ud)']
+];
+const SUB_PRECIO_TIPO = { acera: 'Acera', calzada: 'Calzada', cruce: 'Cruce', tierra: 'Tierra' };
+
+/* ---------- Estado ---------- */
+S.cablesSub = []; S.tubos = []; S.subLoaded = { c: false, t: false };
+function SUB() {
+  const s = S.proj.sub || (S.proj.sub = { lineas: [], zanjas: [], par: {} });
+  s.par = { ...SUB_PAR, ...(s.par || {}) }; s.lineas = s.lineas || []; s.zanjas = s.zanjas || [];
+  s.lineas.forEach(l => { if (!l.id) l.id = uid('s'); }); s.zanjas.forEach(z => { if (!z.id) z.id = uid('z'); });
+  return s;
+}
+function subHasData() { const s = S.proj.sub; return !!(s && (s.lineas?.length || s.zanjas?.length)); }
+function cablesSub() { return (S.cablesSub.length ? S.cablesSub : SUB_DEF_CABLES).filter(c => c.activo !== false); }
+function tubosSub() { return (S.tubos.length ? S.tubos : SUB_DEF_TUBOS).filter(t => t.activo !== false); }
+const subCable = id => cablesSub().find(c => c.id === id) || (S.cablesSub.length ? S.cablesSub : SUB_DEF_CABLES).find(c => c.id === id) || null;
+const subTubo = id => tubosSub().find(t => t.id === id) || (S.tubos.length ? S.tubos : SUB_DEF_TUBOS).find(t => t.id === id) || null;
+function newSubLinea(estado, pts) {
+  const s = SUB(), n = s.lineas.filter(l => l.estado === estado).length + 1;
+  const def = cablesSub().find(c => c.secFase === 150) || cablesSub()[0];
+  return { id: uid('s'), nombre: (estado === 'nuevo' ? 'LSBT-' : 'LSBT-E') + n, estado, pts: pts || [], cableId: def?.id || '', potencia: 0, cosphi: 0.9, dUprev: 0, zanjaId: '' };
+}
+function newZanja(estado, pts) {
+  const s = SUB(), n = s.zanjas.filter(z => z.estado === estado).length + 1;
+  return { id: uid('z'), nombre: (estado === 'nuevo' ? 'Z' : 'ZE') + n, estado, pts: pts || [], tipo: 'acera', prof: 0.7, ancho: 0.4, entubada: true, hormigon: false, nTubos: 2, tuboId: 'TPE-160', sep: 'auto' };
+}
+
+/* ---------- Geometría ---------- */
+const interp = (tab, x) => { if (x <= tab[0][0]) return tab[0][1]; for (let i = 1; i < tab.length; i++) if (x <= tab[i][0]) { const [x0, y0] = tab[i - 1], [x1, y1] = tab[i]; return y0 + (y1 - y0) * (x - x0) / (x1 - x0); } return tab[tab.length - 1][1]; };
+const polyLen = pts => { let L = 0; for (let i = 1; i < pts.length; i++) L += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y); return L; };
+function distToPoly(P, pts) { let d = Infinity; for (let i = 0; i < pts.length - 1; i++) d = Math.min(d, segDist(P, pts[i], pts[i + 1]).d); return d; }
+/* Fracción de la línea que discurre dentro de la zanja (a menos de tol metros de su eje) */
+function overlapFrac(lpts, zpts, tol) {
+  if (lpts.length < 2 || zpts.length < 2) return 0;
+  let tot = 0, inn = 0;
+  for (let i = 0; i < lpts.length - 1; i++) {
+    const A = lpts[i], B = lpts[i + 1], L = Math.hypot(B.x - A.x, B.y - A.y), n = Math.max(1, Math.ceil(L));
+    for (let k = 0; k < n; k++) { const t = (k + 0.5) / n, P = { x: A.x + (B.x - A.x) * t, y: A.y + (B.y - A.y) * t }; tot += L / n; if (distToPoly(P, zpts) <= tol) inn += L / n; }
+  }
+  return tot ? inn / tot : 0;
+}
+/* Arquetas: en los cambios de dirección y, en tramos rectos, como máximo cada 40 m (ITC-BT-07 2.1.2) */
+function arquetasZanja(z) {
+  const p = z.pts, out = []; if (p.length < 2) return out;
+  const az = (a, b) => Math.atan2(b.x - a.x, b.y - a.y) * 180 / Math.PI;
+  const corner = i => { const d = Math.abs(((az(p[i - 1], p[i]) - az(p[i], p[i + 1]) + 540) % 360) - 180); return d > 10; };
+  let runStart = 0;
+  const addRun = (i0, i1) => { // tramo recto de p[i0] a p[i1] (puede tener vértices sin giro)
+    const sub = p.slice(i0, i1 + 1), L = polyLen(sub), n = Math.ceil(L / 40) - 1;
+    for (let k = 1; k <= n; k++) { let d = L * k / (n + 1); for (let j = 0; j < sub.length - 1; j++) { const s = Math.hypot(sub[j + 1].x - sub[j].x, sub[j + 1].y - sub[j].y); if (d <= s) { const t = d / s; out.push({ x: sub[j].x + (sub[j + 1].x - sub[j].x) * t, y: sub[j].y + (sub[j + 1].y - sub[j].y) * t, motivo: 'tramo recto' }); break; } d -= s; } }
+  };
+  for (let i = 1; i < p.length - 1; i++) if (corner(i)) { addRun(runStart, i); out.push({ x: p[i].x, y: p[i].y, motivo: 'cambio de dirección' }); runStart = i; }
+  addRun(runStart, p.length - 1);
+  return out;
+}
+
+/* ---------- Cálculo ---------- */
+function faAgrup(n, sep) { if (n <= 1) return 1; const k = SUB_FA_N.findIndex(c => c >= n); return SUB_FA[sep][k < 0 ? SUB_FA_N.length - 1 : k]; }
+function sepZanja(z) { if (z.sep && z.sep !== 'auto') return z.sep; const t = subTubo(z.tuboId); const d = z.entubada && t ? t.dExt / 1000 : 0; return ['0.25', '0.2', '0.15', '0.1', '0.07'].find(v => d >= Number(v)) || '0'; }
+function neutroMin(s) { const r = SUB_NEUTRO.find(([f]) => f >= s); return r ? r[1] : 185; }
+function calcSub() {
+  const s = SUB(), par = s.par, out = { lineas: [], zanjas: [], pasos: [] };
+  const zan = s.zanjas.filter(z => z.pts.length > 1);
+  // Asignación línea → zanja (manual o por solape geométrico)
+  const asig = new Map();
+  s.lineas.forEach(l => {
+    if (l.pts.length < 2) return;
+    let z = l.zanjaId ? zan.find(x => x.id === l.zanjaId) : null, frac = z ? overlapFrac(l.pts, z.pts, Math.max(1, (z.ancho || 0.4) + 0.6)) : 0, auto = false;
+    if (!z) { let best = null; zan.forEach(x => { const f = overlapFrac(l.pts, x.pts, Math.max(1, (x.ancho || 0.4) + 0.6)); if (f > 0.3 && (!best || f > best.f)) best = { z: x, f }; }); if (best) { z = best.z; frac = best.f; auto = true; } }
+    asig.set(l.id, { z, frac, auto });
+  });
+  const circ = z => s.lineas.filter(l => asig.get(l.id)?.z === z);
+  // Zanjas
+  zan.forEach(z => {
+    const L = polyLen(z.pts), lin = circ(z), t = subTubo(z.tuboId), T = ZANJA_TIPOS[z.tipo] || ZANJA_TIPOS.acera, ch = [];
+    const add = (ok, txt) => ch.push({ ok, txt });
+    if (Number(z.prof) + 1e-9 < T.min) add('bad', `Profundidad ${fmt(z.prof, 2)} m < ${fmt(T.min, 2)} m mínima en ${T.n.toLowerCase()} (ITC-BT-07 2.1.1${T.horm ? ' y 2.2.1' : ''}).`);
+    else add('ok', `Profundidad ${fmt(z.prof, 2)} m ≥ ${fmt(T.min, 2)} m (${T.n.toLowerCase()}).`);
+    if (T.horm && !z.entubada) add('bad', 'En cruces y calzadas los cables van entubados (ITC-BT-07 2.2.1).');
+    if (T.horm && !z.hormigon) add('bad', 'En cruces y calzadas los tubos van hormigonados (ITC-BT-07 2.2.1).');
+    let ratio = null, haz = null, arq = [];
+    if (z.entubada) {
+      if (!t) add('bad', 'Falta elegir el tubo.');
+      if (lin.length > (Number(z.nTubos) || 0)) add('bad', `${lin.length} circuitos y ${z.nTubos} tubos: no se instalará más de un circuito por tubo (ITC-BT-07 2.1.2).`);
+      else { const libres = (Number(z.nTubos) || 0) - lin.length; add(libres >= par.reservaMin ? 'ok' : 'warn', `${lin.length} circuito(s) en ${z.nTubos} tubo(s): ${libres} libre(s)${libres < par.reservaMin ? ` (criterio de reserva: ${par.reservaMin})` : ''}.`); }
+      if (t && lin.length) {
+        const dmax = Math.max(...lin.map(l => subCable(l.cableId)?.diamExt || 0));
+        if (dmax) { haz = 2.414 * dmax; ratio = t.dInt / haz;
+          add(ratio >= 2 ? 'ok' : ratio >= 1.5 ? 'warn' : 'bad', `Ø interior del tubo ${fmt(t.dInt)} mm / Ø aparente del circuito ${fmt(haz, 1)} mm = ${fmt(ratio, 2)} ${ratio >= 2 ? '> 2' : ratio >= 1.5 ? '(admisible solo excepcionalmente, ≥ 1,5)' : '< 1,5: tubo insuficiente'} (ITC-BT-07 3.1.3).`); }
+      }
+      arq = arquetasZanja(z);
+      if (z.estado === 'nuevo') add('ok', `${arq.length} arqueta(s) intermedia(s) necesaria(s): cambios de dirección y como máximo cada 40 m en recta (ITC-BT-07 2.1.2).`);
+    } else add('ok', 'Cables directamente enterrados: lecho de arena de 0,05 m, capa de 0,10 m, protección mecánica y cinta de señalización (ITC-BT-07 2.1.1).');
+    const est = ch.some(c => c.ok === 'bad') ? 'bad' : ch.some(c => c.ok === 'warn') ? 'warn' : 'ok';
+    out.zanjas.push({ z, L, lin, t, ratio, haz, arq, checks: ch, est, sep: sepZanja(z) });
+  });
+  // Líneas
+  s.lineas.filter(l => l.pts.length > 1).forEach(l => {
+    const L = polyLen(l.pts), c = subCable(l.cableId), a = asig.get(l.id) || {}, z = a.z, ch = [];
+    const add = (ok, txt) => ch.push({ ok, txt });
+    const zr = z ? out.zanjas.find(q => q.z === z) : null;
+    const prof = z ? Number(z.prof) || 0.7 : 0.7, entub = z ? !!z.entubada : true, nC = zr ? zr.lin.length : 1, sep = zr ? zr.sep : '0';
+    const f = { t: interp(SUB_FT, Number(par.tTerreno)), r: interp(SUB_FR, Number(par.rho)), p: interp(SUB_FP, prof), a: faAgrup(nC, sep), tubo: entub ? SUB_F_TUBO : 1 };
+    const Itab = c ? (Number(c.Imax) || SUB_T4[c.secFase] || 0) : 0;
+    const Iadm = Itab * f.t * f.r * f.p * f.a * f.tubo;
+    const P = Number(l.potencia) || 0, cos = Math.min(1, Math.max(0.5, Number(l.cosphi) || 0.9)), U = Number(par.U) || 400;
+    const I = P > 0 ? P * 1000 / (Math.sqrt(3) * U * cos) : 0;
+    const R90 = c ? (Number(c.R20) || 0) * (1 + 0.00403 * 70) : 0, Xk = c ? Number(c.X) || 0 : 0, sin = Math.sqrt(1 - cos * cos);
+    const dU = Math.sqrt(3) * I * (L / 1000) * (R90 * cos + Xk * sin), dUp = dU / U * 100, dUtot = dUp + (Number(l.dUprev) || 0);
+    if (!c) add('bad', 'Falta elegir el cable.');
+    else {
+      if (c.secFase < 16) add('bad', 'Sección mínima de fase en aluminio: 16 mm² (ITC-BT-07 1).');
+      const nm = neutroMin(c.secFase); add((c.secNeutro || 0) >= nm ? 'ok' : 'bad', `Neutro ${fmt(c.secNeutro)} mm² ${(c.secNeutro || 0) >= nm ? '≥' : '<'} ${nm} mm² mínimo para fase de ${c.secFase} mm² (ITC-BT-07 1, tabla 1).`);
+      if (l.estado === 'nuevo') {
+        if (P > 0) {
+          add(I <= Iadm + 1e-9 ? 'ok' : 'bad', `Intensidad ${fmt(I, 1)} A ${I <= Iadm ? '≤' : '>'} admisible ${fmt(Iadm, 1)} A (${fmt(Itab)} A × ${fmt(f.t, 2)} temp. × ${fmt(f.r, 2)} resist. × ${fmt(f.p, 2)} prof. × ${fmt(f.a, 2)} agrup. × ${fmt(f.tubo, 2)} tubo; ITC-BT-07 3.1).`);
+          add(dUtot <= par.dUmax + 1e-9 ? 'ok' : 'bad', `Caída de tensión ${fmt(dUp, 2)} %${Number(l.dUprev) ? ` + ${fmt(l.dUprev, 2)} % previa = ${fmt(dUtot, 2)} %` : ''} ${dUtot <= par.dUmax ? '≤' : '>'} ${fmt(par.dUmax, 1)} % (criterio del proyecto).`);
+        } else add('warn', 'Indica la potencia prevista (kW) para comprobar intensidad y caída de tensión.');
+        if (Number(par.icc) > 0) { const dens = interp(SUB_DCC, Number(par.tcc) || 0.5), Smin = Number(par.icc) * 1000 / dens; add(c.secFase >= Smin ? 'ok' : 'bad', `Cortocircuito ${fmt(par.icc, 1)} kA durante ${fmt(par.tcc, 2)} s: sección mínima ${fmt(Smin, 1)} mm² (${fmt(dens)} A/mm², ITC-BT-07 tabla 16).`); }
+      }
+    }
+    if (!z) add(l.estado === 'nuevo' ? 'warn' : 'ok', 'Sin zanja asignada: se ha supuesto entubada a 0,70 m y sin agrupación.');
+    const est = ch.some(c => c.ok === 'bad') ? 'bad' : ch.some(c => c.ok === 'warn') ? 'warn' : 'ok';
+    out.lineas.push({ l, L, c, z, auto: a.auto, frac: a.frac, Itab, f, Iadm, I, dU, dUp, dUtot, checks: ch, est });
+  });
+  // Pasos aéreo-subterráneos: extremo de una línea subterránea sobre un apoyo
+  const nodes = S.calc?.nodes || (S.proj.rows.length > 1 ? currentNodes() : []), ex = exNodes();
+  s.lineas.forEach(l => { if (l.pts.length < 2) return; [l.pts[0], l.pts[l.pts.length - 1]].forEach(P => {
+    const i = nodes.findIndex(n => Math.hypot(n.x - P.x, n.y - P.y) < 0.6); if (i >= 0) { out.pasos.push({ l, apoyo: apName(i), nuevo: true, x: nodes[i].x, y: nodes[i].y }); return; }
+    const k = ex.findIndex(n => Math.hypot(n.x - P.x, n.y - P.y) < 0.6); if (k >= 0) out.pasos.push({ l, apoyo: exLabel(k), nuevo: false, x: ex[k].x, y: ex[k].y });
+  }); });
+  out.bud = budSub(out);
+  return out;
+}
+function budSub(R) {
+  const pr = S.precios || {}, L = [], hol = 1 + (Number(pr.holguraCable) || 0) / 100;
+  const push = (concepto, ud, cant, pc, pv) => { if (!(cant > 0)) return; L.push({ concepto, ud, cant, coste: cant * (pc || 0), venta: cant * (pv || 0), sinPrecio: !(pc > 0) && !(pv > 0) }); };
+  const byCable = {};
+  R.lineas.filter(r => r.l.estado === 'nuevo' && r.c).forEach(r => { (byCable[r.c.id] = byCable[r.c.id] || { c: r.c, m: 0 }).m += r.L * hol; });
+  Object.values(byCable).forEach(({ c, m }) => push('Cable ' + c.designacion, 'm', m, c.coste, c.venta));
+  const byTipo = {}, byTubo = {}; let arq = 0;
+  R.zanjas.filter(r => r.z.estado === 'nuevo').forEach(r => {
+    byTipo[r.z.tipo] = (byTipo[r.z.tipo] || 0) + r.L;
+    if (r.z.entubada && r.t) { (byTubo[r.t.id] = byTubo[r.t.id] || { t: r.t, m: 0 }).m += r.L * (Number(r.z.nTubos) || 0); arq += r.arq.length; }
+  });
+  Object.entries(byTipo).forEach(([k, m]) => { const n = SUB_PRECIO_TIPO[k] || 'Acera'; push('Zanja · ' + (ZANJA_TIPOS[k]?.n || k).toLowerCase(), 'm', m, pr['zanja' + n + 'Coste'], pr['zanja' + n + 'Venta']); });
+  Object.values(byTubo).forEach(({ t, m }) => push(t.designacion, 'm', m, t.coste, t.venta));
+  push('Arqueta registrable', 'ud', arq, pr.arquetaCoste, pr.arquetaVenta);
+  push('Paso aéreo-subterráneo', 'ud', R.pasos.filter(p => p.l.estado === 'nuevo').length, pr.pasoASCoste, pr.pasoASVenta);
+  const tot = L.reduce((a, l) => ({ coste: a.coste + l.coste, venta: a.venta + l.venta }), { coste: 0, venta: 0 });
+  return { lineas: L, tot };
+}
+function subCalc() { try { S.subCalc = subHasData() ? calcSub() : null; } catch (e) { console.error(e); S.subCalc = null; } return S.subCalc; }
+
+/* ---------- Capas y edición en el plano ---------- */
+const SUB_LAYERS = { subNueva: ['lineas', 'nuevo'], subEx: ['lineas', 'existente'], zanjaNueva: ['zanjas', 'nuevo'], zanjaEx: ['zanjas', 'existente'] };
+Object.assign(LAYERS, { subNueva: 'Líneas subterráneas nuevas', subEx: 'Líneas subterráneas existentes', zanjaNueva: 'Zanjas nuevas', zanjaEx: 'Zanjas existentes' });
+function subObjs(layer) { const d = SUB_LAYERS[layer]; if (!d) return null; if (!S.proj.sub) return []; return SUB()[d[0]].filter(o => o.estado === d[1]); }
+function isSubLayer(layer) { return !!SUB_LAYERS[layer]; }
+/* Inserción: pulsar sobre un tramo intercala un vértice; en vacío, dibuja una polilínea nueva punto a punto */
+function subInsert(layer, mx, my) {
+  if (!S.proj.zone && !S.proj.rows.length) return toast('Importa primero algún elemento con coordenadas para fijar el huso UTM.');
+  const objs = subObjs(layer); let w = worldAt(mx, my); const sn = findSnap({ layer: '__nuevo__' }, mx, my); if (sn) w = { x: sn.x, y: sn.y };
+  const d = S.subDraw;
+  if (d && d.layer === layer && SUB()[SUB_LAYERS[layer][0]].includes(d.obj)) {
+    const last = d.obj.pts[d.obj.pts.length - 1]; const [lx, ly] = S.mapT.P(last);
+    if (Math.hypot(lx - mx, ly - my) < 8) return subEndDraw();
+    snapshot(); const np = { x: w.x, y: w.y }; setLL(np); d.obj.pts.push(np); refreshAll(); return;
+  }
+  let hit = null, oi = -1; objs.forEach((o, k) => { const h = hitSegment(o.pts, mx, my); if (h && (!hit || h.d < hit.d)) { hit = h; oi = k; } });
+  snapshot();
+  if (hit) { const np = { x: w.x, y: w.y }; setLL(np); objs[oi].pts.splice(hit.i + 1, 0, np); refreshAll(); return; }
+  const [kind, estado] = SUB_LAYERS[layer]; const np = { x: w.x, y: w.y }; setLL(np);
+  const o = kind === 'lineas' ? newSubLinea(estado, [np]) : newZanja(estado, [np]); SUB()[kind].push(o);
+  S.subDraw = { layer, obj: o }; toast(`Dibujando ${o.nombre}: pulsa los siguientes puntos. Para terminar pulsa otra vez el último punto, Intro o «Terminar».`);
+  refreshAll();
+}
+function subEndDraw() {
+  const d = S.subDraw; S.subDraw = null; if (!d) return;
+  const arr = SUB()[SUB_LAYERS[d.layer][0]];
+  if (d.obj.pts.length < 2) { const i = arr.indexOf(d.obj); if (i >= 0) arr.splice(i, 1); toast('Tramo descartado: necesita al menos dos puntos.'); }
+  else toast(`${d.obj.nombre} terminado (${fmt(polyLen(d.obj.pts), 1)} m). Completa sus datos en «Red subterránea».`);
+  refreshAll();
+}
+function subDelete(layer, h) {
+  const objs = subObjs(layer), o = objs[h.li]; if (!o) return; snapshot();
+  if (o.pts.length <= 2) { const arr = SUB()[SUB_LAYERS[layer][0]]; arr.splice(arr.indexOf(o), 1); toast(`${o.nombre} borrado.`); }
+  else o.pts.splice(h.i, 1);
+  if (S.subDraw?.obj === o) S.subDraw = null;
+}
+
+/* ---------- Dibujo ---------- */
+function subAllPts() { if (!S.proj.sub) return []; const s = SUB(); return [...s.lineas, ...s.zanjas].flatMap(o => o.pts); }
+function subSnapTargets(dp) {
+  if (!S.proj.sub) return []; const out = [], s = SUB();
+  const own = (layer, li, i) => dp.layer === layer && dp.li === li && dp.i === i;
+  Object.keys(SUB_LAYERS).forEach(layer => { if (!vis(layer)) return; subObjs(layer).forEach((o, li) => o.pts.forEach((p, i) => {
+    const end = i === 0 || i === o.pts.length - 1; if (own(layer, li, i)) return; if (SUB_LAYERS[layer][0] === 'lineas' && !end) return;
+    if (S.subDraw?.obj === o && i === o.pts.length - 1) return;
+    out.push({ x: p.x, y: p.y, label: end ? `${i ? 'Fin' : 'Inicio'} de ${o.nombre}` : `Vértice de ${o.nombre}` }); })); });
+  return out;
+}
+function drawSub(D) {
+  if (!S.proj.sub) return;
+  const { g, P, screen, col, halo, alongText, longestSeg, vtx, sc, L, tool } = D, s = SUB(), R = S.subCalc;
+  const path = pts => { g.beginPath(); pts.forEach((n, i) => { const [x, y] = P(n); i ? g.lineTo(x, y) : g.moveTo(x, y); }); };
+  // Zanjas: banda con el ancho real (mínimo visible) y rótulo
+  s.zanjas.forEach((z, zi) => {
+    const lay = z.estado === 'nuevo' ? 'zanjaNueva' : 'zanjaEx'; if (!vis(lay) || !z.pts.length) return;
+    const zr = R?.zanjas.find(q => q.z === z);
+    if (z.pts.length > 1) {
+      path(z.pts); g.lineCap = 'round'; g.lineJoin = 'round'; g.strokeStyle = col(z.estado === 'nuevo' ? '--zanja' : '--exist'); g.globalAlpha = z.estado === 'nuevo' ? 0.35 : 0.22;
+      g.lineWidth = Math.max(7, (Number(z.ancho) || 0.4) * sc); g.stroke(); g.globalAlpha = 1;
+      path(z.pts); g.strokeStyle = col(zr?.est === 'bad' ? '--bad' : z.estado === 'nuevo' ? '--zanja' : '--exist'); g.lineWidth = 1; g.setLineDash([3, 3]); g.stroke(); g.setLineDash([]); g.lineCap = 'butt';
+      if (vis('zanjaTxt')) { const ls = longestSeg(z.pts); const t = subTubo(z.tuboId);
+        const txt = `${z.nombre} · ${z.entubada ? `${z.nTubos}T${t ? t.dExt : ''}` : 'sin tubo'} · ${(ZANJA_TIPOS[z.tipo]?.n || '').toLowerCase()} ${fmt(z.prof, 2)} m`;
+        if (ls.i >= 0) alongText(txt, z.pts[ls.i], z.pts[ls.i + 1], 1, '600 10px ' + col('--f-body'), col(z.estado === 'nuevo' ? '--zanja' : '--exist')); }
+      if (vis('arquetas') && zr && z.estado === 'nuevo') zr.arq.forEach(a => { const [x, y] = P(a); g.fillStyle = col('--panel'); g.strokeStyle = col('--zanja'); g.lineWidth = 1.5; g.fillRect(x - 4, y - 4, 8, 8); g.strokeRect(x - 4, y - 4, 8, 8); });
+    }
+    if (screen && tool !== 'pan' && L === lay) z.pts.forEach((n, i) => { const [x, y] = P(n); vtx(x, y, S.selPt?.layer === lay && S.selPt.li === subObjs(lay).indexOf(z) && S.selPt.i === i); });
+  });
+  // Líneas subterráneas: trazo y punto, rótulo con el cable
+  s.lineas.forEach(l => {
+    const lay = l.estado === 'nuevo' ? 'subNueva' : 'subEx'; if (!vis(lay) || !l.pts.length) return;
+    const lr = R?.lineas.find(q => q.l === l);
+    if (l.pts.length > 1) {
+      path(l.pts); g.strokeStyle = col(lr?.est === 'bad' ? '--bad' : l.estado === 'nuevo' ? '--sub' : '--exist'); g.lineWidth = l.estado === 'nuevo' ? 2.5 : 2; g.setLineDash([12, 4, 2, 4]); g.stroke(); g.setLineDash([]);
+      if (vis('subTxt')) { const ls = longestSeg(l.pts); const c = subCable(l.cableId);
+        const txt = l.nombre + (c ? ' · ' + c.designacion.replace(/^XZ1 \(S\) 0,6\/1 kV /, '') : '');
+        if (ls.i >= 0) alongText(txt, l.pts[ls.i], l.pts[ls.i + 1], -1, 'italic 600 11px ' + col('--f-body'), col(l.estado === 'nuevo' ? '--sub' : '--exist')); }
+    } else { const [x, y] = P(l.pts[0]); g.fillStyle = col('--sub'); g.beginPath(); g.arc(x, y, 3, 0, 2 * Math.PI); g.fill(); }
+    if (screen && tool !== 'pan' && L === lay) l.pts.forEach((n, i) => { const [x, y] = P(n); vtx(x, y, S.selPt?.layer === lay && S.selPt.li === subObjs(lay).indexOf(l) && S.selPt.i === i); });
+  });
+  // Pasos aéreo-subterráneos
+  if (R) R.pasos.forEach(p => { if (!vis(p.l.estado === 'nuevo' ? 'subNueva' : 'subEx')) return; const [x, y] = P(p); g.strokeStyle = col('--sub'); g.lineWidth = 2; g.beginPath(); g.moveTo(x, y - 12); g.lineTo(x + 9, y + 4); g.lineTo(x - 9, y + 4); g.closePath(); g.stroke(); });
+  if (screen && S.subDraw) { const o = S.subDraw.obj, last = o.pts[o.pts.length - 1]; if (last) { const [x, y] = P(last); g.strokeStyle = col('--sub'); g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, 7, 0, 2 * Math.PI); g.stroke(); } }
+}
+
+/* ---------- Tarjeta «Red subterránea» ---------- */
+const chip = e => `<span class="chip ${e}">${e === 'ok' ? 'cumple' : e === 'warn' ? 'revisar' : 'no cumple'}</span>`;
+function renderSub() {
+  const box = $('#subBody'); if (!box) return;
+  if (box.contains(document.activeElement) && document.activeElement.matches('input[type=text],input[type=number]')) { renderSubResults(); return; }
+  const R = subCalc(); const s = S.proj.sub ? SUB() : { lineas: [], zanjas: [], par: { ...SUB_PAR } }, par = s.par;
+  const opt = (arr, v, lab = x => x.designacion) => arr.map(x => `<option value="${esc(x.id)}" ${x.id === v ? 'selected' : ''}>${esc(lab(x))}</option>`).join('');
+  const zrows = s.zanjas.map((z, k) => { const r = R?.zanjas.find(q => q.z === z);
+    return `<tr data-zk="${k}"><td><input type="text" data-z="nombre" value="${esc(z.nombre)}" style="width:7ch"></td>
+      <td><select data-z="estado"><option value="nuevo" ${z.estado === 'nuevo' ? 'selected' : ''}>Nueva</option><option value="existente" ${z.estado === 'existente' ? 'selected' : ''}>Existente</option></select></td>
+      <td><select data-z="tipo">${Object.entries(ZANJA_TIPOS).map(([k2, t]) => `<option value="${k2}" ${z.tipo === k2 ? 'selected' : ''}>${t.n}</option>`).join('')}</select></td>
+      <td class="n"><input class="num" type="number" step="0.05" min="0" data-z="prof" value="${z.prof}" style="width:7ch"></td>
+      <td class="n"><input class="num" type="number" step="0.05" min="0" data-z="ancho" value="${z.ancho}" style="width:7ch"></td>
+      <td><input type="checkbox" data-z="entubada" ${z.entubada ? 'checked' : ''} aria-label="Entubada"></td>
+      <td><input type="checkbox" data-z="hormigon" ${z.hormigon ? 'checked' : ''} aria-label="Hormigonada"></td>
+      <td class="n"><input class="num" type="number" step="1" min="0" data-z="nTubos" value="${z.nTubos}" style="width:6ch" ${z.entubada ? '' : 'disabled'}></td>
+      <td><select data-z="tuboId" ${z.entubada ? '' : 'disabled'}>${opt(tubosSub(), z.tuboId, t => 'Ø' + t.dExt + ' mm')}</select></td>
+      <td><select data-z="sep">${SUB_SEP.map(([v, t]) => `<option value="${v}" ${String(z.sep) === v ? 'selected' : ''}>${t}</option>`).join('')}</select></td>
+      <td class="n">${r ? fmt(r.L, 1) : '—'}</td><td class="n">${r ? r.lin.length : 0}</td><td class="n">${r && z.entubada ? r.arq.length : '—'}</td>
+      <td>${r ? chip(r.est) : '<span class="note">sin trazar</span>'}</td><td><button class="btn small ghost" data-zdel="${k}" aria-label="Borrar zanja">✕</button></td></tr>`; }).join('');
+  const lrows = s.lineas.map((l, k) => { const r = R?.lineas.find(q => q.l === l);
+    return `<tr data-lk="${k}"><td><input type="text" data-l="nombre" value="${esc(l.nombre)}" style="width:9ch"></td>
+      <td><select data-l="estado"><option value="nuevo" ${l.estado === 'nuevo' ? 'selected' : ''}>Nueva</option><option value="existente" ${l.estado === 'existente' ? 'selected' : ''}>Existente</option></select></td>
+      <td><select data-l="cableId"><option value="">—</option>${opt(cablesSub(), l.cableId)}</select></td>
+      <td class="n"><input class="num" type="number" step="any" min="0" data-l="potencia" value="${l.potencia}" style="width:7ch" ${l.estado === 'nuevo' ? '' : 'disabled'}></td>
+      <td class="n"><input class="num" type="number" step="0.01" min="0.5" max="1" data-l="cosphi" value="${l.cosphi}" style="width:8ch" ${l.estado === 'nuevo' ? '' : 'disabled'}></td>
+      <td class="n"><input class="num" type="number" step="0.1" min="0" data-l="dUprev" value="${l.dUprev}" style="width:6ch" ${l.estado === 'nuevo' ? '' : 'disabled'}></td>
+      <td><select data-l="zanjaId"><option value="">Automática${r?.z && r.auto ? ' (' + esc(r.z.nombre) + ')' : ''}</option>${s.zanjas.map(z => `<option value="${esc(z.id)}" ${l.zanjaId === z.id ? 'selected' : ''}>${esc(z.nombre)}</option>`).join('')}</select></td>
+      <td class="n">${r ? fmt(r.L, 1) : '—'}</td><td class="n">${r && r.I ? fmt(r.I, 1) : '—'}</td><td class="n">${r && r.Iadm ? fmt(r.Iadm, 1) : '—'}</td><td class="n">${r && r.I ? fmt(r.dUtot, 2) : '—'}</td>
+      <td>${r ? chip(r.est) : '<span class="note">sin trazar</span>'}</td><td><button class="btn small ghost" data-ldel="${k}" aria-label="Borrar línea">✕</button></td></tr>`; }).join('');
+  box.innerHTML = `
+    <div class="row" style="margin-bottom:8px">
+      <label class="btn small" for="subExLinFile">Importar líneas subt. existentes</label><input id="subExLinFile" type="file" accept=".kmz,.kml" hidden>
+      <label class="btn small" for="subExZanFile">Importar zanjas existentes</label><input id="subExZanFile" type="file" accept=".kmz,.kml" hidden>
+      <label class="btn small" for="subNuLinFile">Importar líneas subt. nuevas</label><input id="subNuLinFile" type="file" accept=".kmz,.kml" hidden>
+      <label class="btn small" for="subNuZanFile">Importar zanjas nuevas</label><input id="subNuZanFile" type="file" accept=".kmz,.kml" hidden>
+    </div>
+    <p class="note">También puedes dibujarlas en el plano: herramienta «Insertar» y capa «Líneas subterráneas nuevas» o «Zanjas nuevas». Pulsa los vértices uno a uno y termina pulsando otra vez el último punto o con Intro. Los extremos se enganchan a apoyos, tramos y otras zanjas.</p>
+    <details style="margin:8px 0"><summary class="note">Parámetros de cálculo (ITC-BT-07)</summary><div class="fields hfields" style="margin-top:8px">
+      <label class="f">Tensión entre fases (V)<input class="num" type="number" data-p="U" value="${par.U}"></label>
+      <label class="f">Caída de tensión máxima (%)<input class="num" type="number" step="0.1" data-p="dUmax" value="${par.dUmax}"></label>
+      <label class="f">Temperatura del terreno (°C)<input class="num" type="number" step="1" data-p="tTerreno" value="${par.tTerreno}"></label>
+      <label class="f">Resistividad térmica (K·m/W)<input class="num" type="number" step="0.05" data-p="rho" value="${par.rho}"></label>
+      <label class="f">Icc en el origen (kA, 0 = no comprobar)<input class="num" type="number" step="0.1" data-p="icc" value="${par.icc}"></label>
+      <label class="f">Duración del cortocircuito (s)<input class="num" type="number" step="0.1" data-p="tcc" value="${par.tcc}"></label>
+      <label class="f">Tubos de reserva por zanja (criterio)<input class="num" type="number" step="1" min="0" data-p="reservaMin" value="${par.reservaMin}"></label>
+    </div><p class="note">Condiciones de referencia del ITC-BT-07: 25 °C, 1 K·m/W y 0,70 m. Cables bajo tubo: factor 0,8. La caída de tensión máxima es un criterio del proyecto o de la distribuidora: el ITC-BT-07 no la fija.</p></details>
+    <h3 class="sub">Zanjas <button class="btn small" id="subAddZ">Añadir zanja sin trazado</button></h3>
+    <div class="tablewrap"><table class="subt"><thead><tr><th>Zanja</th><th>Estado</th><th>Tipo</th><th class="n">Prof. (m)</th><th class="n">Ancho (m)</th><th>Entub.</th><th>Hormig.</th><th class="n">Nº tubos</th><th>Tubo</th><th>Separación</th><th class="n">Long. (m)</th><th class="n">Circ.</th><th class="n">Arquetas</th><th>Estado</th><th></th></tr></thead>
+    <tbody>${zrows || '<tr><td colspan="15" class="empty">Sin zanjas. Impórtalas o dibújalas en el plano.</td></tr>'}</tbody></table></div>
+    <h3 class="sub">Líneas subterráneas</h3>
+    <div class="tablewrap"><table class="subt"><thead><tr><th>Línea</th><th>Estado</th><th>Cable</th><th class="n">P (kW)</th><th class="n">cos φ</th><th class="n">ΔU previa (%)</th><th>Zanja</th><th class="n">Long. (m)</th><th class="n">I (A)</th><th class="n">I adm. (A)</th><th class="n">ΔU (%)</th><th>Estado</th><th></th></tr></thead>
+    <tbody>${lrows || '<tr><td colspan="13" class="empty">Sin líneas subterráneas. Impórtalas o dibújalas en el plano.</td></tr>'}</tbody></table></div>
+    <div id="subResults"></div>`;
+  renderSubResults();
+}
+function renderSubResults() {
+  const box = $('#subResults'); if (!box) return; const R = S.subCalc;
+  if (!R || (!R.lineas.length && !R.zanjas.length)) { box.innerHTML = ''; return; }
+  const det = (titulo, r) => `<details ${r.est !== 'ok' ? 'open' : ''}><summary>${esc(titulo)} ${chip(r.est)}</summary><ul class="checks">${r.checks.map(c => `<li class="${c.ok}">${esc(c.txt)}</li>`).join('')}</ul></details>`;
+  const b = R.bud;
+  box.innerHTML = `<h3 class="sub">Comprobaciones</h3>${R.zanjas.map(r => det('Zanja ' + r.z.nombre, r)).join('')}${R.lineas.map(r => det('Línea ' + r.l.nombre, r)).join('')}
+    ${R.pasos.length ? `<div class="banner info" style="margin-top:8px">Paso aéreo-subterráneo en ${R.pasos.map(p => esc(p.apoyo) + ' (' + esc(p.l.nombre) + ')').join(', ')}: el cable sube por el apoyo protegido con tubo hasta 2,5 m sobre el suelo y se conecta a la red trenzada con terminales y caja de protección según las normas de la distribuidora.</div>` : ''}
+    <h3 class="sub">Presupuesto de la red subterránea</h3>
+    ${b.lineas.length ? `<div class="tablewrap"><table><thead><tr><th>Concepto</th><th>Ud</th><th class="n">Cantidad</th><th class="n">Coste</th><th class="n">Venta</th></tr></thead><tbody>
+    ${b.lineas.map(l => `<tr><td>${esc(l.concepto)} ${l.sinPrecio ? '<span class="chip warn">sin precio</span>' : ''}</td><td>${l.ud}</td><td class="n">${fmt(l.cant, l.ud === 'ud' ? 0 : 1)}</td><td class="n">${eur(l.coste)}</td><td class="n">${eur(l.venta)}</td></tr>`).join('')}
+    <tr><td colspan="3"><b>Total red subterránea</b></td><td class="n"><b>${eur(b.tot.coste)}</b></td><td class="n"><b>${eur(b.tot.venta)}</b></td></tr></tbody></table></div>` : '<p class="note">Sin partidas: solo se presupuestan las líneas y zanjas nuevas.</p>'}`;
+}
+function bindSub() {
+  const box = $('#subBody'); if (!box) return;
+  const zOf = el => SUB().zanjas[Number(el.closest('tr')?.dataset.zk)], lOf = el => SUB().lineas[Number(el.closest('tr')?.dataset.lk)];
+  box.addEventListener('change', ev => {
+    const t = ev.target;
+    if (t.id === 'subExLinFile' || t.id === 'subExZanFile' || t.id === 'subNuLinFile' || t.id === 'subNuZanFile') {
+      const f = t.files[0]; t.value = ''; if (!f) return;
+      const map = { subExLinFile: ['lineas', 'existente'], subExZanFile: ['zanjas', 'existente'], subNuLinFile: ['lineas', 'nuevo'], subNuZanFile: ['zanjas', 'nuevo'] };
+      return importSub(f, ...map[t.id]);
+    }
+    const v = t.type === 'checkbox' ? t.checked : t.type === 'number' ? Number(t.value) : t.value;
+    if (t.dataset.p) { SUB().par[t.dataset.p] = Number(t.value) || 0; }
+    else if (t.dataset.z) { const z = zOf(t); if (!z) return; snapshot(); z[t.dataset.z] = v; if (t.dataset.z === 'tipo' && ZANJA_TIPOS[v]?.horm) { z.entubada = true; z.hormigon = true; z.prof = Math.max(Number(z.prof) || 0, 0.8); } }
+    else if (t.dataset.l) { const l = lOf(t); if (!l) return; snapshot(); l[t.dataset.l] = v; }
+    else return;
+    refreshAll(); renderSub();
+  });
+  box.addEventListener('click', ev => {
+    const b = ev.target.closest('button'); if (!b) return;
+    if (b.id === 'subAddZ') { snapshot(); SUB().zanjas.push(newZanja('nuevo', [])); renderSub(); toast('Zanja añadida: trázala en el plano con «Insertar» o impórtala.'); return; }
+    if (b.dataset.zdel != null) { snapshot(); const z = SUB().zanjas.splice(Number(b.dataset.zdel), 1)[0]; SUB().lineas.forEach(l => { if (l.zanjaId === z?.id) l.zanjaId = ''; }); refreshAll(); renderSub(); }
+    if (b.dataset.ldel != null) { snapshot(); SUB().lineas.splice(Number(b.dataset.ldel), 1); refreshAll(); renderSub(); }
+  });
+  box.addEventListener('focusout', () => setTimeout(() => { if (!box.contains(document.activeElement)) renderSub(); }, 60));
+  document.addEventListener('keydown', ev => { if (!S.subDraw) return; if (ev.key === 'Enter' || ev.key === 'Escape') { ev.preventDefault(); subEndDraw(); } });
+}
+async function importSub(file, kind, estado) {
+  try {
+    const { lines } = await parseGeoFile(file);
+    if (!lines.length) return toast('El archivo no contiene líneas (LineString).');
+    const zone = setZoneFrom(lines[0].pts[0]); snapshot();
+    const s = SUB(); s[kind] = s[kind].filter(o => !(o.fuente === file.name && o.estado === estado));
+    lines.forEach(l => {
+      const pts = l.pts.map(p => ({ lat: p.lat, lon: p.lon, ...E.utmFromLatLon(p.lat, p.lon, zone) }));
+      const o = kind === 'lineas' ? newSubLinea(estado, pts) : newZanja(estado, pts);
+      o.fuente = file.name; o.attrs = l.attrs || {}; if (l.nombre) o.nombre = l.nombre;
+      if (kind === 'lineas') { const cond = attrFind(o.attrs, k => /conductor|cable|seccion/.test(k)); const c = cond && cablesSub().find(c => new RegExp('\\b' + c.secFase + '\\b').test(cond)); if (c) o.cableId = c.id; }
+      else { const nt = parseInt(attrFind(o.attrs, k => /tubos|n.? ?tub/.test(k)), 10); if (nt > 0) o.nTubos = nt; const pf = parseFloat(String(attrFind(o.attrs, k => /profund/.test(k))).replace(',', '.')); if (pf > 0) o.prof = pf > 5 ? pf / 100 : pf; }
+      s[kind].push(o);
+    });
+    V.fitted = false; refreshAll(); renderSub();
+    toast(`${lines.length} ${kind === 'lineas' ? 'línea(s) subterránea(s)' : 'zanja(s)'} ${estado === 'nuevo' ? 'nueva(s)' : 'existente(s)'} importada(s) de ${file.name}.`);
+  } catch (e) { toast('No se pudo leer el archivo: ' + e.message); }
+}
+
+/* ---------- Bases (cables subterráneos y tubos) y precios ---------- */
+const SUBCAB_COLS = [['designacion', 'Designación', 'text'], ['secFase', 'Secc. fase'], ['secNeutro', 'Secc. neutro'], ['diamExt', 'Ø exterior (mm)'], ['Imax', 'I máx. enterrada (A)'], ['R20', 'R 20 °C (Ω/km)'], ['X', 'X (Ω/km)'], ['coste', 'Coste (€/m)'], ['venta', 'Venta (€/m)'], ['orden', 'Orden']];
+const TUBO_COLS = [['designacion', 'Designación', 'text'], ['dExt', 'Ø exterior (mm)'], ['dInt', 'Ø interior (mm)'], ['coste', 'Coste (€/m)'], ['venta', 'Venta (€/m)'], ['orden', 'Orden']];
+function renderSubBases() {
+  if (!document.activeElement?.closest?.('#subCableTable')) dbTable('#subCableTable', S.cablesSub, SUBCAB_COLS, 'cablesSub');
+  if (!document.activeElement?.closest?.('#tuboTable')) dbTable('#tuboTable', S.tubos, TUBO_COLS, 'tubos');
+}
+function bindSubBases() {
+  for (const sel of ['#subCableTable', '#tuboTable']) {
+    const el = $(sel); if (!el) continue;
+    el.addEventListener('change', ev => { const t = ev.target; if (!t.dataset.f) return; updateDoc(t.dataset.coll, t.dataset.id, t.dataset.f, t.type === 'checkbox' ? t.checked : numOrStr(t.value, t.type)); });
+    el.addEventListener('focusout', () => setTimeout(renderSubBases, 50));
+    el.addEventListener('click', async ev => {
+      const b = ev.target.closest('button'); if (!b) return;
+      if (b.dataset.askrow) { S.delConfirm = b.dataset.coll + b.dataset.askrow; renderSubBases(); }
+      if (b.dataset.delrow) { try { await S.db.doc(`${b.dataset.coll}/${b.dataset.delrow}`).delete(); S.delConfirm = null; } catch (e) { toast('No se pudo borrar: ' + (e.message || e.code)); } }
+    });
+  }
+  const add = (coll, v, msg) => async () => { if (!S.db) return toast('Sin conexión a la base de datos.'); try { await S.db.collection(coll).add(v); toast(msg); } catch (e) { toast('No se pudo añadir: ' + (e.message || e.code)); } };
+  const ac = $('#addSubCable'); if (ac) ac.onclick = add('cablesSub', { designacion: 'Nuevo cable subterráneo', secFase: 0, secNeutro: 0, diamExt: 0, Imax: 0, R20: 0, X: 0.08, coste: 0, venta: 0, activo: true, orden: 999 }, 'Cable añadido al final de la tabla.');
+  const at = $('#addTubo'); if (at) at.onclick = add('tubos', { designacion: 'Nuevo tubo', dExt: 160, dInt: 136, coste: 0, venta: 0, activo: true, orden: 999 }, 'Tubo añadido al final de la tabla.');
+}
+/* Suscripción a las bases nuevas; si están vacías la primera vez, se cargan los valores por defecto */
+function initSubDb(db) {
+  const seed = async (coll, arr) => { try { const flag = 'seed_' + coll; const d = S.subSeedDone || (S.subSeedDone = {}); if (d[flag]) return; d[flag] = true; for (const o of arr) { const { id, ...v } = o; await db.doc(`${coll}/${id}`).set(v); } } catch (e) { } };
+  db.collection('cablesSub').onSnapshot(qs => { S.cablesSub = qs.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden || 0) - (b.orden || 0)); if (!S.cablesSub.length && !S.subLoaded.c) seed('cablesSub', SUB_DEF_CABLES); S.subLoaded.c = true; renderSubBases(); renderSub(); drawMap(); }, () => { });
+  db.collection('tubos').onSnapshot(qs => { S.tubos = qs.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden || 0) - (b.orden || 0)); if (!S.tubos.length && !S.subLoaded.t) seed('tubos', SUB_DEF_TUBOS); S.subLoaded.t = true; renderSubBases(); renderSub(); drawMap(); }, () => { });
+}
+PRECIO_FIELDS.push(...SUB_PRECIOS);
+CAPAS.push(['grupo', 'Red subterránea'], ['subNueva', 'Líneas subterráneas nuevas'], ['subEx', 'Líneas subterráneas existentes'], ['subTxt', 'Textos de líneas subterráneas'], ['zanjaNueva', 'Zanjas nuevas'], ['zanjaEx', 'Zanjas existentes'], ['zanjaTxt', 'Textos de zanjas'], ['arquetas', 'Arquetas']);
+
+/* ---------- Exportación ---------- */
+function subDxfLayers() { return [['BT_SUB_NUEVA', 6], ['BT_SUB_EXISTENTE', 8], ['BT_ZANJA_NUEVA', 40], ['BT_ZANJA_EXISTENTE', 9], ['BT_ARQUETAS', 40], ['BT_TEXTO_SUB', 6], ['BT_TEXTO_ZANJAS', 40]]; }
+function subDxf(p, f3) {
+  if (!S.proj.sub) return; const s = SUB(), R = S.subCalc || calcSub();
+  const poly = (layer, pts) => { for (let i = 0; i < pts.length - 1; i++) p(0, 'LINE', 8, layer, 10, f3(pts[i].x), 20, f3(pts[i].y), 30, 0, 11, f3(pts[i + 1].x), 21, f3(pts[i + 1].y), 31, 0); };
+  const label = (layer, pts, txt, off) => { if (pts.length < 2 || !txt) return; let bi = 0, bl = 0; for (let i = 0; i < pts.length - 1; i++) { const d = Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y); if (d > bl) { bl = d; bi = i; } }
+    const A = pts[bi], B = pts[bi + 1]; let an = Math.atan2(B.y - A.y, B.x - A.x) * 180 / Math.PI; if (an > 90) an -= 180; if (an < -90) an += 180; const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2 + off;
+    p(0, 'TEXT', 8, layer, 10, f3(mx), 20, f3(my), 30, 0, 40, 0.8, 1, ascii(txt), 50, an.toFixed(2), 72, 1, 11, f3(mx), 21, f3(my), 31, 0); };
+  s.zanjas.filter(z => z.pts.length > 1).forEach(z => { const lay = z.estado === 'nuevo' ? 'BT_ZANJA_NUEVA' : 'BT_ZANJA_EXISTENTE'; poly(lay, z.pts); const t = subTubo(z.tuboId);
+    label('BT_TEXTO_ZANJAS', z.pts, `${z.nombre} ${z.entubada ? z.nTubos + 'T' + (t ? t.dExt : '') : 'sin tubo'} ${(ZANJA_TIPOS[z.tipo]?.n || '')} ${String(z.prof).replace('.', ',')} m`, -1.2); });
+  (R?.zanjas || []).filter(r => r.z.estado === 'nuevo').forEach(r => r.arq.forEach(a => { const h = 0.3; p(0, 'LWPOLYLINE', 8, 'BT_ARQUETAS', 90, 4, 70, 1, 10, f3(a.x - h), 20, f3(a.y - h), 10, f3(a.x + h), 20, f3(a.y - h), 10, f3(a.x + h), 20, f3(a.y + h), 10, f3(a.x - h), 20, f3(a.y + h)); }));
+  s.lineas.filter(l => l.pts.length > 1).forEach(l => { poly(l.estado === 'nuevo' ? 'BT_SUB_NUEVA' : 'BT_SUB_EXISTENTE', l.pts); const c = subCable(l.cableId); label('BT_TEXTO_SUB', l.pts, l.nombre + (c ? ' ' + c.designacion : ''), 0.6); });
+}
+/* DXF solo con la red subterránea (proyectos sin línea aérea) */
+function dxfSubOnly() {
+  const L = [], p = (...a) => { for (let k = 0; k < a.length; k += 2) L.push(String(a[k]), String(a[k + 1])); }, f3 = v => v.toFixed(3), layers = subDxfLayers();
+  p(0, 'SECTION', 2, 'HEADER', 9, '$ACADVER', 1, 'AC1009', 9, '$INSUNITS', 70, 6, 0, 'ENDSEC');
+  p(0, 'SECTION', 2, 'TABLES', 0, 'TABLE', 2, 'LTYPE', 70, 1, 0, 'LTYPE', 2, 'CONTINUOUS', 70, 0, 3, 'Solid line', 72, 65, 73, 0, 40, 0, 0, 'ENDTAB');
+  p(0, 'TABLE', 2, 'LAYER', 70, layers.length); layers.forEach(([n, c]) => p(0, 'LAYER', 2, n, 70, 0, 62, c, 6, 'CONTINUOUS')); p(0, 'ENDTAB', 0, 'ENDSEC');
+  p(0, 'SECTION', 2, 'ENTITIES'); subDxf(p, f3); p(0, 'ENDSEC', 0, 'EOF'); return L.join('\r\n') + '\r\n';
+}
+function subKml() {
+  if (!subHasData() || !S.proj.zone) return ''; const s = SUB();
+  const ll = p => { const q = p.lat != null ? p : { ...p, ...E.latLonFromUtm(p.x, p.y, S.proj.zone) }; return `${q.lon.toFixed(8)},${q.lat.toFixed(8)},0`; };
+  const pm = (o, st, desc) => o.pts.length > 1 ? `<Placemark><name>${esc(o.nombre)}</name><styleUrl>#${st}</styleUrl><description><![CDATA[${desc}]]></description><LineString><tessellate>1</tessellate><coordinates>${o.pts.map(ll).join(' ')}</coordinates></LineString></Placemark>` : '';
+  return `<Style id="subNueva"><LineStyle><color>ff0c41c2</color><width>3</width></LineStyle></Style><Style id="subEx"><LineStyle><color>ff737373</color><width>2</width></LineStyle></Style>
+<Style id="zanjaNueva"><LineStyle><color>9926659a</color><width>8</width></LineStyle></Style><Style id="zanjaEx"><LineStyle><color>66737373</color><width>8</width></LineStyle></Style>
+<Folder><name>Red subterránea</name>${s.zanjas.map(z => pm(z, z.estado === 'nuevo' ? 'zanjaNueva' : 'zanjaEx', `Zanja ${z.estado} · ${ZANJA_TIPOS[z.tipo]?.n || ''} · ${z.prof} m${z.entubada ? ` · ${z.nTubos} tubos Ø${subTubo(z.tuboId)?.dExt || ''}` : ''}`)).join('')}
+${s.lineas.map(l => pm(l, l.estado === 'nuevo' ? 'subNueva' : 'subEx', `Línea subterránea ${l.estado} · ${subCable(l.cableId)?.designacion || ''}`)).join('')}</Folder>`;
+}
+function subGeoFeats() {
+  if (!subHasData() || !S.proj.zone) return []; const s = SUB();
+  const co = o => o.pts.map(p => { const q = p.lat != null ? p : E.latLonFromUtm(p.x, p.y, S.proj.zone); return [+q.lon.toFixed(8), +q.lat.toFixed(8)]; });
+  return [...s.zanjas.filter(z => z.pts.length > 1).map(z => ({ type: 'Feature', properties: { capa: z.estado === 'nuevo' ? 'zanja_nueva' : 'zanja_existente', nombre: z.nombre, tipo: z.tipo, profundidad_m: z.prof, entubada: !!z.entubada, hormigonada: !!z.hormigon, tubos: z.entubada ? z.nTubos : 0, tubo_mm: subTubo(z.tuboId)?.dExt || null }, geometry: { type: 'LineString', coordinates: co(z) } })),
+    ...s.lineas.filter(l => l.pts.length > 1).map(l => ({ type: 'Feature', properties: { capa: l.estado === 'nuevo' ? 'linea_subterranea_nueva' : 'linea_subterranea_existente', nombre: l.nombre, cable: subCable(l.cableId)?.designacion || null, potencia_kW: l.potencia || null }, geometry: { type: 'LineString', coordinates: co(l) } }))];
+}
+function subCsv() {
+  const R = S.subCalc || calcSub(), sep = ';', n = v => String(v ?? '').replace('.', ',');
+  const a = ['Tipo;Nombre;Estado;Datos;Longitud (m);I (A);I admisible (A);Caida de tension (%);Resultado'];
+  R.zanjas.forEach(r => a.push(['Zanja', r.z.nombre, r.z.estado, `${ZANJA_TIPOS[r.z.tipo]?.n || ''} ${n(r.z.prof)} m ${r.z.entubada ? r.z.nTubos + ' tubos D' + (r.t?.dExt || '') : 'sin tubo'}, ${r.lin.length} circuitos, ${r.arq.length} arquetas`, n(r.L.toFixed(1)), '', '', '', r.est].join(sep)));
+  R.lineas.forEach(r => a.push(['Linea subterranea', r.l.nombre, r.l.estado, r.c?.designacion || '', n(r.L.toFixed(1)), r.I ? n(r.I.toFixed(1)) : '', n(r.Iadm.toFixed(1)), r.I ? n(r.dUtot.toFixed(2)) : '', r.est].join(sep)));
+  return '﻿' + a.join('\r\n');
+}
+function informeSub() {
+  if (!subHasData()) return ''; const R = S.subCalc || calcSub(), par = SUB().par, td = v => `<td>${v}</td>`;
+  const z = R.zanjas.map(r => `<tr>${td(esc(r.z.nombre))}${td(r.z.estado)}${td(ZANJA_TIPOS[r.z.tipo]?.n || '')}${td(fmt(r.z.prof, 2))}${td(r.z.entubada ? `${r.z.nTubos} × Ø${r.t?.dExt || '—'} mm${r.z.hormigon ? ', hormigonados' : ''}` : 'directamente enterrado')}${td(r.lin.length)}${td(fmt(r.L, 1))}${td(r.z.entubada ? r.arq.length : '—')}${td(r.est === 'ok' ? 'Cumple' : r.est === 'warn' ? 'Revisar' : 'No cumple')}</tr>`).join('');
+  const l = R.lineas.map(r => `<tr>${td(esc(r.l.nombre))}${td(r.l.estado)}${td(esc(r.c?.designacion || '—'))}${td(r.z ? esc(r.z.nombre) : '—')}${td(fmt(r.L, 1))}${td(r.I ? fmt(r.I, 1) : '—')}${td(fmt(r.Iadm, 1))}${td(`${fmt(r.f.t, 2)} · ${fmt(r.f.r, 2)} · ${fmt(r.f.p, 2)} · ${fmt(r.f.a, 2)} · ${fmt(r.f.tubo, 2)}`)}${td(r.I ? fmt(r.dUtot, 2) : '—')}${td(r.est === 'ok' ? 'Cumple' : r.est === 'warn' ? 'Revisar' : 'No cumple')}</tr>`).join('');
+  const obs = [...R.zanjas.map(r => ['Zanja ' + r.z.nombre, r]), ...R.lineas.map(r => ['Línea ' + r.l.nombre, r])].map(([t, r]) => `<li><b>${esc(t)}:</b> ${r.checks.map(c => esc(c.txt)).join(' ')}</li>`).join('');
+  return `<h2>7. Red subterránea (ITC-BT-07)</h2>
+<p class="s">Cables de aluminio con aislamiento XLPE, tensión asignada 0,6/1 kV (UNE-HD 603). Intensidades de la tabla 4 del ITC-BT-07 (terna de unipolares enterrada a 0,70 m, 25 °C, 1 K·m/W) corregidas por temperatura del terreno (${fmt(par.tTerreno)} °C, tabla 6), resistividad térmica (${fmt(par.rho, 2)} K·m/W, tabla 7), profundidad (tabla 9), agrupación de circuitos en la zanja (tabla 8) y 0,8 por instalación bajo tubo (3.1.3). Caída de tensión a ${fmt(par.U)} V con R a 90 °C; límite del proyecto ${fmt(par.dUmax, 1)} %. Profundidad mínima 0,60 m en acera y 0,80 m en calzada; cruces de calles y carreteras entubados y hormigonados a 0,80 m; un circuito por tubo; arquetas en los cambios de dirección y como máximo cada 40 m; Ø interior del tubo ≥ 2 veces el Ø aparente del circuito (1,5 excepcionalmente). Cinta de señalización a 0,10 m del suelo como mínimo y a 0,25 m por encima del cable.</p>
+<table><thead><tr><th>Zanja</th><th>Estado</th><th>Tipo</th><th>Prof. (m)</th><th>Canalización</th><th>Circuitos</th><th>Long. (m)</th><th>Arquetas</th><th>Resultado</th></tr></thead><tbody>${z}</tbody></table>
+<table><thead><tr><th>Línea</th><th>Estado</th><th>Cable</th><th>Zanja</th><th>Long. (m)</th><th>I (A)</th><th>I adm. (A)</th><th>Factores T·ρ·prof·agrup·tubo</th><th>ΔU (%)</th><th>Resultado</th></tr></thead><tbody>${l}</tbody></table>
+<ul class="s">${obs}</ul>
+${R.bud.lineas.length ? `<h3>Presupuesto de la red subterránea</h3><table><thead><tr><th>Concepto</th><th>Ud</th><th>Cantidad</th><th>Coste</th><th>Venta</th></tr></thead><tbody>${R.bud.lineas.map(b => `<tr>${td(esc(b.concepto))}${td(b.ud)}${td(fmt(b.cant, b.ud === 'ud' ? 0 : 1))}${td(eur(b.coste))}${td(eur(b.venta))}</tr>`).join('')}<tr><th colspan="3">Total red subterránea</th>${td('<b>' + eur(R.bud.tot.coste) + '</b>')}${td('<b>' + eur(R.bud.tot.venta) + '</b>')}</tr></tbody></table>` : ''}`;
+}
+/* Paquete ZIP de un proyecto solo subterráneo (sin línea aérea calculada) */
+async function exportZipSub() {
+  const zone = S.proj.zone, zip = new JSZip(), base = fileBase(zone ? { zone } : null);
+  subCalc();
+  zip.file(base + '.dxf', dxfSubOnly());
+  if (zone) {
+    zip.file(base + '.kml', `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${esc(S.proj.nombre)}</name>\n${subKml()}\n</Document></kml>`);
+    zip.file(base + '.geojson', JSON.stringify({ type: 'FeatureCollection', name: S.proj.nombre, features: subGeoFeats() }, null, 1));
+  }
+  zip.file(base + '_red_subterranea.csv', subCsv());
+  zip.file(base + '_anexo_calculo.html', `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Anexo de cálculo · ${esc(S.proj.nombre)}</title><style>body{font:12px/1.4 Arial,sans-serif;margin:24px;color:#1b2328}h1{font-size:18px}h2{font-size:14px;margin-top:18px}table{border-collapse:collapse;margin:8px 0;width:100%}td,th{border:1px solid #b9c2c7;padding:3px 6px;text-align:left}.s{color:#4c5960}</style></head><body><h1>Anexo de cálculo · ${esc(S.proj.nombre || 'Red subterránea')}</h1><p class="s">Cálculo de Apoyos BT v${VERSION} · ${new Date().toLocaleString('es-ES')}</p>${informeSub()}</body></html>`);
+  zip.file('LEEME.txt', [`PAQUETE DE EXPORTACION - ${ascii(S.proj.nombre)} (red subterranea)`, '',
+    zone ? `Sistema de coordenadas: ETRS89 / UTM huso ${zone}N (EPSG:258${zone}).` : 'Sin georreferencia.', '',
+    `- ${base}.dxf: capas BT_SUB_NUEVA, BT_SUB_EXISTENTE, BT_ZANJA_NUEVA, BT_ZANJA_EXISTENTE, BT_ARQUETAS, BT_TEXTO_SUB, BT_TEXTO_ZANJAS.`,
+    zone ? `- ${base}.kml y ${base}.geojson: lineas subterraneas y zanjas (WGS84).` : null,
+    `- ${base}_red_subterranea.csv: zanjas y lineas con sus resultados.`, `- ${base}_anexo_calculo.html: anexo de calculo segun ITC-BT-07.`].filter(Boolean).join('\r\n') + '\r\n');
+  const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+  if (await saveFile(base + '.zip', blob)) toast('Paquete guardado.');
 }
 start();
 </script>

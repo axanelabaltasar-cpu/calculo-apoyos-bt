@@ -12,6 +12,7 @@ body() {
   echo '})();'
   cat anexo_tpl.js
   cat app.js
+  cat sub.js
   echo '</script>'
 }
 body > dist/calculo-apoyos-bt.html

@@ -9,7 +9,7 @@
   --bg:#eef0f1; --panel:#ffffff; --ink:#1b2328; --muted:#5b6870; --line:#d3d9dc; --soft:#f5f7f8;
   --accent:#1d5b86; --accent-ink:#ffffff; --accent-soft:#e3eef6;
   --ok:#2f7d4f; --ok-soft:#e1f1e7; --warn:#a66a00; --warn-soft:#fbefd6; --bad:#b3362c; --bad-soft:#f8e1de;
-  --map:#fbfcfc; --grid:#e6eaec; --exist:#6d6a64; --dc:#7a3e8f;
+  --map:#fbfcfc; --grid:#e6eaec; --exist:#6d6a64; --dc:#7a3e8f; --sub:#c2410c; --zanja:#9a6526;
   --f-display:"Barlow Semi Condensed","Arial Narrow",Arial,sans-serif;
   --f-body:"Barlow","Segoe UI",Roboto,Arial,sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
@@ -18,12 +18,12 @@
   --bg:#13181b; --panel:#1b2226; --ink:#e3e8ea; --muted:#94a2a9; --line:#2f393e; --soft:#20282c;
   --accent:#6fb0de; --accent-ink:#0c1a24; --accent-soft:#1d3342;
   --ok:#6cc48f; --ok-soft:#173022; --warn:#e3a94a; --warn-soft:#352812; --bad:#f08277; --bad-soft:#3a1d1a;
-  --map:#161c1f; --grid:#232c30; --exist:#b9b3a8; --dc:#c493d6; color-scheme:dark }}
+  --map:#161c1f; --grid:#232c30; --exist:#b9b3a8; --dc:#c493d6; --sub:#f08a4b; --zanja:#d3a265; color-scheme:dark }}
 :root[data-theme="dark"]{
   --bg:#13181b; --panel:#1b2226; --ink:#e3e8ea; --muted:#94a2a9; --line:#2f393e; --soft:#20282c;
   --accent:#6fb0de; --accent-ink:#0c1a24; --accent-soft:#1d3342;
   --ok:#6cc48f; --ok-soft:#173022; --warn:#e3a94a; --warn-soft:#352812; --bad:#f08277; --bad-soft:#3a1d1a;
-  --map:#161c1f; --grid:#232c30; --exist:#b9b3a8; --dc:#c493d6; color-scheme:dark }
+  --map:#161c1f; --grid:#232c30; --exist:#b9b3a8; --dc:#c493d6; --sub:#f08a4b; --zanja:#d3a265; color-scheme:dark }
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45}
 .wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 32px;max-width:1500px;margin:0 auto}
@@ -68,6 +68,10 @@ td.n,th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabula
 td input,td select{padding:3px 5px;font-size:.8rem}
 td input.num{width:72px}
 tr.sel td{background:var(--accent-soft)}
+.subt td,.subt th{white-space:nowrap} .subt select{max-width:22ch}
+h3.sub{font:600 .95rem var(--f-display);margin:14px 0 6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+ul.checks{margin:4px 0 8px;padding-left:20px;font-size:.85rem} ul.checks li.ok::marker{color:var(--ok)} ul.checks li.warn{color:var(--warn)} ul.checks li.bad{color:var(--bad)}
+#subResults details{border-top:1px solid var(--line);padding:4px 0} #subResults summary{cursor:pointer;font-size:.9rem}
 .chip{display:inline-block;font:600 .7rem var(--f-body);letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:99px}
 .chip.ok{background:var(--ok-soft);color:var(--ok)} .chip.warn{background:var(--warn-soft);color:var(--warn)} .chip.bad{background:var(--bad-soft);color:var(--bad)} .chip.info{background:var(--accent-soft);color:var(--accent)}
 .bar{height:6px;background:var(--grid);border-radius:3px;overflow:hidden;min-width:60px}
@@ -147,13 +151,14 @@ a.btn{text-decoration:none;display:inline-block}
       <label class="btn small" for="impProjFile">Abrir archivo</label><input id="impProjFile" type="file" accept=".json" hidden>
       <button class="btn small" id="expBases" type="button" hidden>Exportar bases</button>
       <button class="btn small" id="foldAll" type="button">Minimizar / desplegar todo</button>
-      <div class="ver" id="ver">v1.17.0</div>
+      <div class="ver" id="ver">v1.18.0</div>
     </div>
   </header>
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="calc" aria-selected="true">Proyecto</button>
     <button role="tab" data-tab="apoyos" aria-selected="false">Base de apoyos</button>
     <button role="tab" data-tab="cables" aria-selected="false">Base de cables</button>
+    <button role="tab" data-tab="subbase" aria-selected="false">Base subterránea</button>
     <button role="tab" data-tab="precios" aria-selected="false">Precios auxiliares</button>
     <button role="tab" data-tab="norma" aria-selected="false">Criterios de cálculo</button>
   </nav>
@@ -189,7 +194,7 @@ a.btn{text-decoration:none;display:inline-block}
             <button class="btn small" data-tool="insert" aria-pressed="false">Insertar</button>
             <button class="btn small" data-tool="delete" aria-pressed="false">Borrar</button>
             <button class="btn small" data-tool="text" aria-pressed="false">Editar texto</button>
-            <label class="chk note">Capa <select id="edLayer"><option value="nuevo">Apoyos nuevos</option><option value="exApoyos">Apoyos existentes</option><option value="exLineas">Tramos baja existentes</option><option value="exDC">Puntos D-C</option><option value="ruta">Ruta del trazado</option></select></label>
+            <label class="chk note">Capa <select id="edLayer"><option value="nuevo">Apoyos nuevos</option><option value="exApoyos">Apoyos existentes</option><option value="exLineas">Tramos baja existentes</option><option value="exDC">Puntos D-C</option><option value="ruta">Ruta del trazado</option><option value="subNueva">Líneas subterráneas nuevas</option><option value="subEx">Líneas subterráneas existentes</option><option value="zanjaNueva">Zanjas nuevas</option><option value="zanjaEx">Zanjas existentes</option></select></label>
             <button class="btn small" id="edUndo" disabled title="Ctrl+Z">Deshacer</button>
             <button class="btn small" id="capasBtn" aria-expanded="false" aria-controls="capasPanel">Capas</button>
           </div>
@@ -206,6 +211,11 @@ a.btn{text-decoration:none;display:inline-block}
           </div>
           <p class="note" id="exportNote" style="margin-top:6px"></p>
           <details style="margin-top:6px"><summary class="note">Opciones del plano en PDF</summary><div id="pdfOpts" style="margin-top:8px"></div></details>
+        </section>
+
+        <section class="card wide" id="subCard">
+          <h2>Red subterránea · ITC-BT-07</h2>
+          <div id="subBody"></div>
         </section>
 
     <div class="grid">
@@ -322,6 +332,20 @@ a.btn{text-decoration:none;display:inline-block}
     </section>
   </div>
 
+  <!-- ============ BASE SUBTERRÁNEA ============ -->
+  <div id="tab-subbase" hidden>
+    <section class="card" style="margin-top:16px">
+      <h2>Cables subterráneos <span class="row"><button class="btn small" id="addSubCable">Añadir cable</button></span></h2>
+      <p class="note">Cables de aluminio con aislamiento XLPE, 0,6/1 kV (UNE-HD 603), en terna de unipolares más neutro. «I máx. enterrada» es la de la tabla 4 del ITC-BT-07 (terna enterrada a 0,70 m, 25 °C y 1 K·m/W); el cálculo le aplica los factores de corrección. Ø exterior de cada cable unipolar para comprobar el tubo; R a 20 °C y X para la caída de tensión. Precio por metro de circuito completo (3 fases + neutro). Los diámetros por defecto son aproximados: ajústalos al catálogo de tu proveedor.</p>
+      <div class="tablewrap dbtable" style="margin-top:8px"><table id="subCableTable"></table></div>
+    </section>
+    <section class="card" style="margin-top:16px">
+      <h2>Tubos <span class="row"><button class="btn small" id="addTubo">Añadir tubo</button></span></h2>
+      <p class="note">Tubos para canalizaciones enterradas según ITC-BT-21 (UNE-EN 61386-24, resistencia a compresión 450 N). Precio por metro de tubo.</p>
+      <div class="tablewrap dbtable" style="margin-top:8px"><table id="tuboTable"></table></div>
+    </section>
+  </div>
+
   <!-- ============ PRECIOS ============ -->
   <div id="tab-precios" hidden>
     <section class="card" style="margin-top:16px;max-width:640px">
@@ -337,6 +361,16 @@ a.btn{text-decoration:none;display:inline-block}
       <h2>Criterios de cálculo aplicados</h2>
       <h3>Normativa</h3>
       <p>Reglamento Electrotécnico para Baja Tensión (RD 842/2002), ITC-BT-06 «Redes aéreas para distribución en baja tensión», apartados 1 a 3. Conductores según UNE 21030-1. Postes de hormigón armado vibrado tipo HV y HVH según UNE 207016.</p>
+      <h3>Red subterránea (ITC-BT-07)</h3>
+      <ul>
+        <li>Cables de aluminio con aislamiento XLPE, 0,6/1 kV. Sección mínima de fase 16 mm²; neutro según la tabla del apartado 1 (p. ej. 150 → 70 mm², 240 → 120 mm²).</li>
+        <li>Intensidad admisible: tabla 4 (terna de unipolares enterrada, 0,70 m, 25 °C, 1 K·m/W) × factores de temperatura del terreno (tabla 6), resistividad térmica (tabla 7), agrupación de circuitos en la zanja (tabla 8), profundidad (tabla 9) y 0,8 bajo tubo (3.1.3).</li>
+        <li>Caída de tensión con la resistencia a 90 °C y la reactancia del cable; el límite es un criterio del proyecto (por defecto 5 %).</li>
+        <li>Cortocircuito: densidad máxima de la tabla 16 (Al, XLPE) según la duración.</li>
+        <li>Zanjas: profundidad mínima hasta la parte inferior del cable de 0,60 m en acera y 0,80 m en calzada; cruces de calles y carreteras entubados y hormigonados a 0,80 m como mínimo; lecho de arena, protección mecánica y cinta de señalización (a 0,10 m del suelo como mínimo y a 0,25 m por encima del cable).</li>
+        <li>Tubos: un circuito por tubo; Ø interior ≥ 2 veces el Ø aparente del circuito (1,5 excepcionalmente); arquetas en los cambios de dirección y como máximo cada 40 m en recta.</li>
+        <li>La separación entre circuitos para la tabla 8 se toma, por defecto, igual al Ø exterior del tubo; puede fijarse en cada zanja.</li>
+      </ul>
       <h3>Acciones</h3>
       <ul>
         <li>Viento: 50 daN/m² sobre conductores (diámetro aparente del haz) y 100 daN/m² sobre las caras planas de los postes HV y HVH.</li>
