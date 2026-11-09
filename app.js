@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.16.0';
+const VERSION = '1.17.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -114,7 +114,7 @@ function renderRows() {
     const msel = `<select data-k="modeloFijo" data-i="${i}"><option value="">Auto</option>${S.poles.map(p => `<option value="${esc(p.id)}" ${r.modeloFijo === p.id ? 'selected' : ''}>${poleLabel(p)}</option>`).join('')}</select>`;
     const ex = `<button class="btn small" data-act="ex" data-i="${i}">${r.existente.activo ? 'Editar' : 'No'}</button>`;
     const del = `<button class="btn small ghost" data-act="del" data-i="${i}" aria-label="Eliminar apoyo ${i + 1}">✕</button>`;
-    let html = `<tr class="${S.sel === i ? 'sel' : ''}"><td><b>A${i + 1}</b>${S.proj.geo?.pts?.[i]?.nombre ? `<br><span class="note">${esc(S.proj.geo.pts[i].nombre)}</span>` : ''}</td><td class="n">${vano}</td><td class="n">${ang}</td><td class="n">${zc}</td><td>${cruce}</td><td>${fsel}</td><td>${hsel}</td><td>${msel}</td><td>${ex}</td><td>${del}</td></tr>`;
+    let html = `<tr class="${S.sel === i ? 'sel' : ''}"><td><b>${apName(i)}</b>${S.proj.geo?.pts?.[i]?.nombre ? `<br><span class="note">${esc(S.proj.geo.pts[i].nombre)}</span>` : ''}</td><td class="n">${vano}</td><td class="n">${ang}</td><td class="n">${zc}</td><td>${cruce}</td><td>${fsel}</td><td>${hsel}</td><td>${msel}</td><td>${ex}</td><td>${del}</td></tr>`;
     if (S.openEx === i) html += `<tr><td colspan="10">${existEditor(r, i)}</td></tr>`;
     return html;
   }).join('');
@@ -171,18 +171,36 @@ function bindRows() {
 }
 
 /* ---------- Cálculo ---------- */
+/* Entronque: si el modelo no está elegido, se toma de los datos del GIS (altura/esfuerzo) */
+function autoModeloEntronque() {
+  const k = S.proj.entronque?.k, r0 = S.proj.rows[0]; if (k == null || !r0 || !exNodes()[k] || !S.poles.length) return;
+  if (r0.existente.modeloId) return;
+  const p = modeloGis(k); if (!p) return;
+  r0.existente.modeloId = p.id; const v = apoyoVerif(k); v.modeloId = p.id; v.modeloGis = true;
+}
+/* Entronque: cuando el cálculo de la línea nueva da el existente como válido, queda fijado como válido */
+function autoValidaEntronque() {
+  const k = S.proj.entronque?.k; if (k == null || !exNodes()[k]) return;
+  const v = apoyoVerif(k), ok = !!S.calc?.results?.[0]?.existenteCheck?.ok;
+  if (ok && !v.ok) { v.ok = true; v.autoOk = true; }
+  else if (!ok && v.autoOk) { v.ok = false; delete v.autoOk; }
+}
+
 function recalc() {
   const cable = S.cables.find(c => c.id === S.proj.cableId);
   const zh = $('#zonaHint'); zh.textContent = S.proj.geo?.altMax != null ? `Cota máxima del KML: ${fmt(S.proj.geo.altMax)} m` : '';
   if (!cable || !S.poles.length || S.proj.rows.length < 2) { S.calc = null; renderResults(); return; }
+  autoModeloEntronque();
   const nodes = currentNodes();
   try { const perfil = perfilPts(); S.calc = E.calcular({ nodes, cable, ctx: S.proj.ctx, poles: S.poles, perfil }); S.calc.conPerfil = !!perfil; S.calc.perfilDist = perfil && S.proj.perfil ? Math.max(...nodes.map(n => n.dPerfil || 0)) : 0; S.calc.nodes = nodes; S.calc.cable = cable; S.calc.bud = E.presupuesto(S.calc, nodes, cable, S.precios, S.proj.ctx.terreno); }
   catch (e) { console.error(e); S.calc = null; toast('Error de cálculo: ' + e.message); }
+  autoValidaEntronque();
   renderResults(); renderPerfilInfo(); drawPerfil(); renderAnexo();
   if (S.proj.entronque?.k != null && !$('#exBody').contains(document.activeElement)) renderEntronque();
 }
 function statusOf(r, i) {
   const ex = S.proj.rows[i]?.existente?.activo;
+  if (i === 0 && ex && S.proj.entronque?.k != null && r.existenteCheck?.ok) return { cls: 'ok', txt: 'Existente válido', col: 'ok' };
   if (i === 0 && ex && S.proj.entronque?.k != null && verifEstado().faltan.length) return { cls: 'warn', txt: 'Pendiente de verificar', col: 'warn' };
   if (ex && r.existenteCheck && r.existenteCheck.ok) return { cls: 'ok', txt: 'Existente válido', col: 'ok' };
   if (!r.elegido) return { cls: 'bad', txt: 'Sin apoyo válido', col: 'bad' };
@@ -210,7 +228,7 @@ function renderResults() {
       const ex = S.proj.rows[i].existente.activo && r.existenteCheck;
       const shown = ex && r.existenteCheck.ok ? r.existenteCheck : e;
       const p = shown?.pole, rr = shown?.r;
-      let row = `<tr data-i="${i}" class="${S.sel === i ? 'sel' : ''}" style="cursor:pointer"><td><b>A${i + 1}</b></td><td>${FUNCS[r.func]}</td><td class="n">${i && i < c.results.length - 1 ? fmt(r.desvio, 1) + '°' : '—'}</td>
+      let row = `<tr data-i="${i}" class="${S.sel === i ? 'sel' : ''}" style="cursor:pointer"><td><b>${apName(i)}</b></td><td>${FUNCS[r.func]}</td><td class="n">${i && i < c.results.length - 1 ? fmt(r.desvio, 1) + '°' : '—'}</td>
         <td class="mono">${p ? poleLabel(p) : '—'}</td><td class="n">${rr ? fmt(rr.Fp) + ' / ' + fmt(p.En) : '—'}</td><td class="n">${rr ? fmt(rr.Fs) + ' / ' + fmt(p.Es) : '—'}</td>
         <td>${rr ? utilBar(rr.u) : ''}</td><td class="n">${fmt(r.need, 2)}</td><td class="n">${r.z != null ? fmt(r.z, 1) : '—'}</td><td><span class="chip ${st.cls}">${st.txt}</span>${r.tiroArriba ? ' <span class="chip warn" title="Componente vertical ascendente de los conductores">tiro arriba</span>' : ''}</td></tr>`;
       if (S.sel === i) row += `<tr><td colspan="10" class="detail">${detailHtml(r, i)}</td></tr>`;
@@ -237,7 +255,7 @@ function renderResults() {
   const sinLibre = c.spans.filter(s => s.libre != null && s.libre < s.dmin - 0.01);
   if (sinLibre.length) w.push(`<div class="banner bad">Distancia al suelo insuficiente en ${sinLibre.map(s => `A${s.i + 1}–A${s.i + 2} (${fmt(s.libre, 2)} m de ${fmt(s.dmin)} m)`).join(', ')}. Intercala un apoyo o permite apoyos más altos.</div>`);
   const tiro = c.results.filter(r => r.tiroArriba);
-  if (tiro.length) w.push(`<div class="banner warn">Tiro hacia arriba (componente vertical ascendente) en ${tiro.map(r => 'A' + (r.i + 1)).join(', ')}: usa amarre en lugar de suspensión y asegura la sujeción (ITC-BT-06 3.9.1.1).</div>`);
+  if (tiro.length) w.push(`<div class="banner warn">Tiro hacia arriba (componente vertical ascendente) en ${tiro.map(r => apName(r.i)).join(', ')}: usa amarre en lugar de suspensión y asegura la sujeción (ITC-BT-06 3.9.1.1).</div>`);
   if (!c.conPerfil && (S.proj.modo === 'kml' || S.proj.entronque?.k != null)) w.push('<div class="banner warn">Cálculo sin perfil de elevación: se ha supuesto terreno llano. Carga el perfil de GPS Visualizer en «Trazado».</div>');
   { const mo = S.proj.ctx.tenseModo; const pedido = mo === 'normal' ? S.proj.ctx.tenseNormal : mo === 'reducido' ? S.proj.ctx.tenseReducido : null;
     w.push(`<div class="banner info">Tense de cálculo ${mo === 'max' ? 'máximo reglamentario' : mo}: ${fmt(c.Tmax)} daN (máximo reglamentario ${fmt(c.TmaxReg)} daN).${pedido != null && Number(pedido) > c.TmaxReg ? ' El valor indicado supera el máximo y se ha limitado.' : ''}</div>`); }
@@ -297,7 +315,7 @@ ${c.cantones.map((cn, k) => `<tr>${td('C' + (k + 1))}${td(cn.spans.map(s => `A${
 ${c.spans.map(s => `<tr>${td(`A${s.i + 1}–A${s.i + 2}${s.cruce ? ' (cruce)' : ''}`)}${tn(fmt(s.a, 2))}${[H.H1, H.H2, H.H3].map(h => tn(fmt(s.flechas[h.id], 2))).join('')}${tn(c.conPerfil ? fmt(s.dz, 2) : '—')}${tn(s.libre != null ? fmt(s.libre, 2) : '—')}${tn(fmt(s.dmin, 1))}</tr>`).join('')}</tbody></table>
 ${c.conPerfil ? `<p class="s">Perfil del terreno: ${esc(S.proj.perfil?.fuente || 'cotas introducidas a mano')}. Distancia libre mínima al terreno con el conductor a flecha máxima.</p>` : '<p class="s">Sin perfil de elevación: terreno supuesto llano.</p>'}
 <h2>5. Apoyos</h2><table><thead><tr><th>Apoyo</th><th>Función</th><th>Modelo</th><th>Hipótesis pésima</th><th>F princ./En (daN)</th><th>F sec./Es (daN)</th><th>Util. %</th><th>Eje principal</th><th>Cota (m)</th><th>Gravivano (m)</th><th>Estado</th></tr></thead><tbody>
-${c.results.map((r, i) => { const sel = r.existenteCheck?.ok ? r.existenteCheck : r.elegido, p = sel?.pole, rr = sel?.r; return `<tr>${td('A' + (i + 1))}${td(FUNCS[r.func])}${td(p ? poleLabel(p) : '—')}${td(rr ? H.all.find(h => h.id === rr.hyp).nombre : '—')}${tn(rr ? fmt(rr.Fp) + ' / ' + fmt(p.En) : '—')}${tn(rr ? fmt(rr.Fs) + ' / ' + fmt(p.Es) : '—')}${tn(rr ? fmt(rr.u * 100, 1) : '—')}${tn(rr ? fmt(rr.phi) + '°' : '—')}${tn(r.z != null ? fmt(r.z, 1) : '—')}${tn(fmt(r.gravivano, 1))}${td(statusOf(r, i).txt + (r.tiroArriba ? ' · tiro hacia arriba' : ''))}</tr>`; }).join('')}</tbody></table>
+${c.results.map((r, i) => { const sel = r.existenteCheck?.ok ? r.existenteCheck : r.elegido, p = sel?.pole, rr = sel?.r; return `<tr>${td(apName(i))}${td(FUNCS[r.func])}${td(p ? poleLabel(p) : '—')}${td(rr ? H.all.find(h => h.id === rr.hyp).nombre : '—')}${tn(rr ? fmt(rr.Fp) + ' / ' + fmt(p.En) : '—')}${tn(rr ? fmt(rr.Fs) + ' / ' + fmt(p.Es) : '—')}${tn(rr ? fmt(rr.u * 100, 1) : '—')}${tn(rr ? fmt(rr.phi) + '°' : '—')}${tn(r.z != null ? fmt(r.z, 1) : '—')}${tn(fmt(r.gravivano, 1))}${td(statusOf(r, i).txt + (r.tiroArriba ? ' · tiro hacia arriba' : ''))}</tr>`; }).join('')}</tbody></table>
 <p class="s">Esfuerzos referidos a 0,25 m bajo cogolla por igualdad de momentos en el empotramiento; esfuerzos nominales con coeficiente de seguridad 2,5 incluido (ITC-BT-06, tabla 2). Viento sobre el fuste ${ctx.vientoPoste ? 'incluido (100 daN/m²)' : 'no incluido'}.</p>
 ${informeRedEx()}
 <h2>6. Presupuesto</h2><table><thead><tr><th>Concepto</th><th>Ud</th><th>Cantidad</th><th>Coste</th><th>Venta</th></tr></thead><tbody>
@@ -652,6 +670,18 @@ function bindCapas() {
 }
 /* Textos del plano de la red existente (editables) y del cable */
 const shortCable = d => String(d || '').replace(/^RZ\s*0,6\/1\s*kV\s*/i, 'RZ ');
+/* Nombre de los apoyos de la línea nueva: A1 toma el nombre del apoyo existente de entronque */
+function apName(i) { const k = S.proj.entronque?.k; if (i === 0 && k != null && exNodes()[k]) return exLabel(k); return 'A' + (i + 1); }
+/* Modelo de la base que corresponde a los datos del GIS de un apoyo existente (altura y esfuerzo) */
+function modeloGis(k) {
+  const a = redEx()?.apoyos?.[k], P = exNodes()[k]; if (!P) return null;
+  const num = v => { const x = parseFloat(String(v ?? '').replace(',', '.')); return isNaN(x) ? null : x; };
+  let esf = a ? num(esfuerzoApoyo(a)) : null, alt = a ? num(attrFind(a.attrs, kk => /^altura\b/.test(kk) || /altura total/.test(kk))) : null;
+  for (const t of [P.etiqueta, P.nombre, a?.nombre]) { const m = String(t || '').match(/(\d{1,2}(?:[.,]\d+)?)\s*\/\s*(\d{3,4})/); if (m) { alt = alt ?? num(m[1]); esf = esf ?? num(m[2]); break; } }
+  if (esf == null || alt == null) return null;
+  const c = S.poles.filter(p => Math.abs(p.En - esf) < 1 && Math.abs(p.altura - alt) < 0.01);
+  return c.find(p => /^HV$/i.test(p.tipo)) || c[0] || null;
+}
 function exLabel(i) { const p = exNodes()[i]; return p && p.etiqueta != null ? p.etiqueta : 'E' + (i + 1); }
 function lineLabel(l) {
   const base = l.etiqueta != null ? l.etiqueta : l.nombre || '';
@@ -721,7 +751,8 @@ function drawMap(T) {
     g.fillStyle = isEn ? col('--accent') : col('--exist'); g.strokeStyle = isSel ? col('--ink') : col('--panel'); g.lineWidth = isSel ? 3 : 2;
     g.beginPath(); g.arc(x, y, isEn ? 7 : 5, 0, Math.PI * 2); g.fill(); g.stroke();
     const lab = exLabel(i);
-    if (vis('exApoyosTxt') && lab && (sc > 0.6 || isEn || !screen)) { g.fillStyle = col('--exist'); g.font = '600 11px ' + col('--f-body'); g.textAlign = 'right'; halo(lab, x - 8, y - 7); }
+    const dupA1 = isEn && vis('nuevo') && vis('nuevoTxt') && (S.proj.rows.length > 1);   // el nombre ya lo lleva A1
+    if (vis('exApoyosTxt') && lab && !dupA1 && (sc > 0.6 || isEn || !screen)) { g.fillStyle = col('--exist'); g.font = '600 11px ' + col('--f-body'); g.textAlign = 'right'; halo(lab, x - 8, y - 7); }
   });
   // Puntos D-C: rombo y CUPS abreviado
   if (vis('exDC')) exDC().forEach((d, i) => {
@@ -753,9 +784,9 @@ function drawMap(T) {
       g.beginPath(); g.rect(x - 6, y - 6, 12, 12); g.fill(); g.stroke();
       if (screen && (S.sel === i || (S.selPt?.layer === 'nuevo' && S.selPt.i === i))) { g.strokeStyle = col('--ink'); g.lineWidth = 2; g.strokeRect(x - 10, y - 10, 20, 20); }
       if (!vis('nuevoTxt')) return;
-      g.fillStyle = col('--ink'); g.font = '600 12px ' + col('--f-body'); g.textAlign = 'left'; halo('A' + (i + 1), x + 9, y - 8);
+      g.fillStyle = col('--ink'); g.font = '600 12px ' + col('--f-body'); g.textAlign = 'left'; halo(apName(i), x + 9, y - 8);
       const p = r && (r.existenteCheck?.ok ? r.existenteCheck.pole : r.elegido?.pole);
-      if (p) { g.fillStyle = col('--muted'); g.font = '10px ' + col('--f-mono'); halo(poleLabel(p), x + 9, y + 15); }
+      if (p && !(isEntronqueA1(i) && r.existenteCheck?.ok)) { g.fillStyle = col('--muted'); g.font = '10px ' + col('--f-mono'); halo((isEntronqueA1(i) ? 'Sustituir por ' : '') + poleLabel(p), x + 9, y + 15); }
     });
   }
   if (screen) {
@@ -1404,7 +1435,7 @@ function dxf(c, geo) {
   for (let i = 0; i < ex.length; i++) {
     p(0, 'CIRCLE', 8, 'BT_APOYOS_EXISTENTES', 10, f3(ex[i].x), 20, f3(ex[i].y), 30, 0, 40, 0.4);
     if (i === 0 && geo) exDC().forEach(d => { p(0, 'CIRCLE', 8, 'BT_PUNTOS_DC', 10, f3(d.x), 20, f3(d.y), 30, 0, 40, 0.3); const lb = dcLabel(d); if (lb) p(0, 'TEXT', 8, 'BT_TEXTO_PUNTOS_DC', 10, f3(d.x + 0.8), 20, f3(d.y - 0.4), 30, 0, 40, 0.8, 1, ascii(lb)); });
-    if (exLabel(i)) p(0, 'TEXT', 8, 'BT_TEXTO_EXISTENTE', 10, f3(ex[i].x - 3), 20, f3(ex[i].y + 1), 30, 0, 40, 1, 1, ascii(exLabel(i)));
+    if (exLabel(i) && !(i === S.proj.entronque?.k && N.length > 1)) p(0, 'TEXT', 8, 'BT_TEXTO_EXISTENTE', 10, f3(ex[i].x - 3), 20, f3(ex[i].y + 1), 30, 0, 40, 1, 1, ascii(exLabel(i)));
   }
   for (let i = 0; i < N.length - 1; i++) {
     p(0, 'LINE', 8, 'BT_TRAZADO', 10, f3(N[i].x), 20, f3(N[i].y), 30, 0, 11, f3(N[i + 1].x), 21, f3(N[i + 1].y), 31, 0);
@@ -1416,8 +1447,8 @@ function dxf(c, geo) {
   N.forEach((n, i) => {
     const r = c.results[i]; const pole = r.existenteCheck?.ok ? r.existenteCheck.pole : r.elegido?.pole;
     p(0, 'CIRCLE', 8, 'BT_APOYOS', 10, f3(n.x), 20, f3(n.y), 30, 0, 40, 0.5);
-    p(0, 'TEXT', 8, 'BT_TEXTO_APOYOS', 10, f3(n.x + 1), 20, f3(n.y + 1), 30, 0, 40, 1.2, 1, ascii(`A${i + 1}` + (S.proj.geo?.pts?.[i]?.nombre ? ' ' + S.proj.geo.pts[i].nombre : '')));
-    p(0, 'TEXT', 8, 'BT_TEXTO_APOYOS', 10, f3(n.x + 1), 20, f3(n.y - 0.6), 30, 0, 40, 0.8, 1, ascii(pole ? poleLabel(pole) + (n.existente?.activo ? (r.existenteCheck?.ok ? ' (existente)' : ' (sustituye)') : '') : 'SIN APOYO VALIDO'));
+    p(0, 'TEXT', 8, 'BT_TEXTO_APOYOS', 10, f3(n.x + 1), 20, f3(n.y + 1), 30, 0, 40, 1.2, 1, ascii(apName(i) + (S.proj.geo?.pts?.[i]?.nombre && !isEntronqueA1(i) ? ' ' + S.proj.geo.pts[i].nombre : '')));
+    if (!(isEntronqueA1(i) && r.existenteCheck?.ok)) p(0, 'TEXT', 8, 'BT_TEXTO_APOYOS', 10, f3(n.x + 1), 20, f3(n.y - 0.6), 30, 0, 40, 0.8, 1, ascii(pole ? poleLabel(pole) + (n.existente?.activo ? (r.existenteCheck?.ok ? ' (existente)' : ' (sustituye)') : '') : 'SIN APOYO VALIDO'));
     const e = n.existente; if (e?.activo) (e.conductores || []).filter(cd => !cd.deLinea || !ex.length).forEach(cd => { const u = { x: Math.sin(cd.az * Math.PI / 180), y: Math.cos(cd.az * Math.PI / 180) }; p(0, 'LINE', 8, 'BT_EXISTENTE', 10, f3(n.x), 20, f3(n.y), 30, 0, 11, f3(n.x + u.x * 10), 21, f3(n.y + u.y * 10), 31, 0); });
   });
   if (!geo) p(0, 'TEXT', 8, 'BT_TEXTO_APOYOS', 10, f3(N[0].x), 20, f3(N[0].y - 4), 30, 0, 40, 1, 1, 'COORDENADAS LOCALES - SIN GEORREFERENCIAR');
@@ -1428,7 +1459,7 @@ function kml(c, g) {
   const pts = g.pts, ex = exNodes();
   const pm = pts.map((pt, i) => {
     const r = c.results[i], pole = r.existenteCheck?.ok ? r.existenteCheck.pole : r.elegido?.pole, st = statusOf(r, i);
-    return `<Placemark><name>A${i + 1}${pt.nombre ? ' ' + esc(pt.nombre) : ''}</name><styleUrl>#${st.cls}</styleUrl><description><![CDATA[${FUNCS[r.func]}<br>${pole ? poleLabel(pole) : 'Sin apoyo válido'}<br>${st.txt}${pole ? `<br>Utilización ${fmt((r.existenteCheck?.ok ? r.existenteCheck.r : r.elegido.r).u * 100, 1)} %` : ''}<br>UTM ${g.zone}: ${pt.x.toFixed(2)} ; ${pt.y.toFixed(2)}]]></description><Point><coordinates>${pt.lon.toFixed(8)},${pt.lat.toFixed(8)},0</coordinates></Point></Placemark>`;
+    return `<Placemark><name>${apName(i)}${pt.nombre && !isEntronqueA1(i) ? ' ' + esc(pt.nombre) : ''}</name><styleUrl>#${st.cls}</styleUrl><description><![CDATA[${FUNCS[r.func]}<br>${pole ? poleLabel(pole) : 'Sin apoyo válido'}<br>${st.txt}${pole ? `<br>Utilización ${fmt((r.existenteCheck?.ok ? r.existenteCheck.r : r.elegido.r).u * 100, 1)} %` : ''}<br>UTM ${g.zone}: ${pt.x.toFixed(2)} ; ${pt.y.toFixed(2)}]]></description><Point><coordinates>${pt.lon.toFixed(8)},${pt.lat.toFixed(8)},0</coordinates></Point></Placemark>`;
   }).join('\n');
   const st = (id, color) => `<Style id="${id}"><IconStyle><color>${color}</color><scale>0.9</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_square.png</href></Icon></IconStyle></Style>`;
   const lines = exLineas();
@@ -1451,7 +1482,7 @@ ${pm}
 }
 function geojson(c, g) {
   const feats = [{ type: 'Feature', properties: { capa: 'linea_nueva', cable: c.cable.designacion }, geometry: { type: 'LineString', coordinates: g.pts.map(p => [+p.lon.toFixed(8), +p.lat.toFixed(8)]) } }];
-  g.pts.forEach((p, i) => { const r = c.results[i], pole = r.existenteCheck?.ok ? r.existenteCheck.pole : r.elegido?.pole; feats.push({ type: 'Feature', properties: { capa: 'apoyo_nuevo', apoyo: 'A' + (i + 1), nombre: p.nombre || null, funcion: FUNCS[r.func], modelo: pole ? poleLabel(pole) : null, estado: statusOf(r, i).txt, utm_huso: g.zone, utm_x: +p.x.toFixed(2), utm_y: +p.y.toFixed(2) }, geometry: { type: 'Point', coordinates: [+p.lon.toFixed(8), +p.lat.toFixed(8)] } }); });
+  g.pts.forEach((p, i) => { const r = c.results[i], pole = r.existenteCheck?.ok ? r.existenteCheck.pole : r.elegido?.pole; feats.push({ type: 'Feature', properties: { capa: 'apoyo_nuevo', apoyo: apName(i), nombre: p.nombre || null, funcion: FUNCS[r.func], modelo: pole ? poleLabel(pole) : null, estado: statusOf(r, i).txt, utm_huso: g.zone, utm_x: +p.x.toFixed(2), utm_y: +p.y.toFixed(2) }, geometry: { type: 'Point', coordinates: [+p.lon.toFixed(8), +p.lat.toFixed(8)] } }); });
   const ex = exNodes();
   exLineas().forEach(l => feats.push({ type: 'Feature', properties: { capa: 'linea_existente', nombre: l.nombre, fuente: l.fuente }, geometry: { type: 'LineString', coordinates: l.pts.map(p => [+p.lon.toFixed(8), +p.lat.toFixed(8)]) } }));
   ex.forEach((p, i) => feats.push({ type: 'Feature', properties: { capa: 'apoyo_existente', apoyo: 'E' + (i + 1), nombre: p.nombre || null, entronque: S.proj.entronque?.k === i }, geometry: { type: 'Point', coordinates: [+p.lon.toFixed(8), +p.lat.toFixed(8)] } }));
@@ -1465,7 +1496,7 @@ function csv(c, g) {
   if (g) head.push(`UTM X (huso ${g.zone})`, 'UTM Y', 'Latitud', 'Longitud');
   const rows = c.results.map((r, i) => {
     const sel = r.existenteCheck?.ok ? r.existenteCheck : r.elegido; const p = sel?.pole, rr = sel?.r; const st = statusOf(r, i);
-    const a = [`A${i + 1}`, FUNCS[r.func], n(r.desvio?.toFixed(1)), i ? n(c.spans[i - 1].a.toFixed(2)) : '', p ? poleLabel(p) : '', p?.tipo, p?.En, p?.Es, p?.altura, n(rr?.Fp.toFixed(0)), n(rr?.Fs.toFixed(0)), n(rr ? (rr.u * 100).toFixed(1) : ''), n(rr?.phi.toFixed(0)), st.txt, n(st.txt === 'Existente válido' ? 0 : p?.coste), n(st.txt === 'Existente válido' ? 0 : p?.venta), n(r.z?.toFixed(2)), n(r.zAmarre?.toFixed(2)), n(r.gravivano?.toFixed(1))];
+    const a = [apName(i), FUNCS[r.func], n(r.desvio?.toFixed(1)), i ? n(c.spans[i - 1].a.toFixed(2)) : '', p ? poleLabel(p) : '', p?.tipo, p?.En, p?.Es, p?.altura, n(rr?.Fp.toFixed(0)), n(rr?.Fs.toFixed(0)), n(rr ? (rr.u * 100).toFixed(1) : ''), n(rr?.phi.toFixed(0)), st.txt, n(st.txt === 'Existente válido' ? 0 : p?.coste), n(st.txt === 'Existente válido' ? 0 : p?.venta), n(r.z?.toFixed(2)), n(r.zAmarre?.toFixed(2)), n(r.gravivano?.toFixed(1))];
     if (g) { const pt = g.pts[i]; a.push(n(pt.x.toFixed(2)), n(pt.y.toFixed(2)), n(pt.lat.toFixed(8)), n(pt.lon.toFixed(8))); }
     return a.join(sep);
   });
@@ -1565,7 +1596,7 @@ function drawPerfil() {
   c.results.forEach((r, i) => {
     const d = X(N[i].ch), [x, y0] = P(d, N[i].z), [, y1] = P(d, tops[i]);
     const st = statusOf(r, i); g.strokeStyle = col('--' + st.col); g.lineWidth = 3; g.beginPath(); g.moveTo(x, y0); g.lineTo(x, y1); g.stroke();
-    g.fillStyle = col('--ink'); g.font = '600 11px ' + col('--f-body'); g.textAlign = 'center'; g.fillText('A' + (i + 1), x, y1 - 5);
+    g.fillStyle = col('--ink'); g.font = '600 11px ' + col('--f-body'); g.textAlign = 'center'; g.fillText(apName(i), x, y1 - 5);
   });
   const exag = sy / sx; $('#perfilNote').textContent = `Escala vertical ×${fmt(exag, exag < 10 ? 1 : 0)} · conductor a flecha máxima`;
 }
@@ -1812,7 +1843,7 @@ async function exportPdf() {
       const cols = [['Apoyo', 14], ['Nombre', 30], ['Función', 30], ['Modelo', 26], ['Util. %', 13], ['Estado', 32], ['Cota (m)', 15], [S.proj.zone ? 'X UTM' : 'X (m)', 24], [S.proj.zone ? 'Y UTM' : 'Y (m)', 25]];
       const g = getGeo(c.nodes);
       const rowsT = c.results.map((r, i) => { const sel = r.existenteCheck?.ok ? r.existenteCheck : r.elegido, p = sel?.pole; const pt = g?.pts?.[i] || c.nodes[i];
-        return ['A' + (i + 1), S.proj.geo?.pts?.[i]?.nombre || '', FUNCS[r.func], p ? poleLabel(p) : '—', sel?.r ? fmt(sel.r.u * 100, 1) : '—', statusOf(r, i).txt, r.z != null ? fmt(r.z, 1) : '—', fmt(pt.x, 2), fmt(pt.y, 2)]; });
+        return [apName(i), S.proj.geo?.pts?.[i]?.nombre || '', FUNCS[r.func], p ? poleLabel(p) : '—', sel?.r ? fmt(sel.r.u * 100, 1) : '—', statusOf(r, i).txt, r.z != null ? fmt(r.z, 1) : '—', fmt(pt.x, 2), fmt(pt.y, 2)]; });
       const ve = verifEstado();
       if (ve.it) ve.it.apoyos.forEach(a => { const v = apoyoVerif(a.k), p = S.poles.find(x => x.id === v.modeloId), P = exNodes()[a.k];
         const cc = a.k === S.proj.entronque.k ? null : (p ? calcApoyoExistente(a.k) : null);
