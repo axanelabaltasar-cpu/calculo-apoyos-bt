@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.8.0';
+const VERSION = '1.9.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -7,7 +7,7 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '
 const FUNCS = { auto: 'Automática', alineacion: 'Alineación', angulo: 'Ángulo', fin: 'Fin / inicio de línea', estrellamiento: 'Estrellamiento', derivacion: 'Derivación (existente)' };
 function toast(m) { const t = $('#toast'); t.textContent = m; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 3200); }
 
-const DEF_CTX = { zona: 'A', thetaMax: 50, tenseModo: 'max', tenseValor: 400, sobreEdificios: false, desequilibrio: 8, umbralAngulo: 3, distSuelo: 4, depthAmarre: 0.4, terreno: 'normal', tipos: 'HV+HVH', criterioPrecio: 'coste', vientoPoste: true, vanoMax: 40, dividir: true, rumbo0: 0 };
+const DEF_CTX = { zona: 'A', thetaMax: 50, tenseModo: 'normal', tenseNormal: 180, tenseReducido: 90, sobreEdificios: false, desequilibrio: 8, umbralAngulo: 3, distSuelo: 4, depthAmarre: 0.4, terreno: 'normal', tipos: 'HV+HVH', criterioPrecio: 'coste', vientoPoste: true, vanoMax: 40, dividir: true, rumbo0: 0 };
 const newRow = () => ({ vano: 35, angulo: 0, funcion: 'auto', alturaFija: '', modeloFijo: '', cruce: false, existente: { activo: false, modeloId: '', azPrincipal: '', conductores: [] } });
 function exampleProject() {
   const rows = [newRow(), newRow(), newRow(), newRow(), newRow()];
@@ -75,7 +75,7 @@ async function updateDoc(coll, id, field, value) {
 }
 
 /* ---------- Formulario de proyecto ---------- */
-const CTX_FIELDS = ['zona', 'tenseModo', 'tenseValor', 'thetaMax', 'desequilibrio', 'depthAmarre', 'distSuelo', 'terreno', 'tipos', 'criterioPrecio', 'umbralAngulo', 'sobreEdificios', 'vientoPoste', 'vanoMax', 'dividir', 'rumbo0'];
+const CTX_FIELDS = ['zona', 'tenseModo', 'tenseNormal', 'tenseReducido', 'thetaMax', 'desequilibrio', 'depthAmarre', 'distSuelo', 'terreno', 'tipos', 'criterioPrecio', 'umbralAngulo', 'sobreEdificios', 'vientoPoste', 'vanoMax', 'dividir', 'rumbo0'];
 function loadForm() {
   const c = S.proj.ctx; $('#p_nombre').value = S.proj.nombre || '';
   for (const k of CTX_FIELDS) { const el = $('#p_' + k); if (!el) continue; if (el.type === 'checkbox') el.checked = !!c[k]; else el.value = c[k]; }
@@ -239,7 +239,8 @@ function renderResults() {
   const tiro = c.results.filter(r => r.tiroArriba);
   if (tiro.length) w.push(`<div class="banner warn">Tiro hacia arriba (componente vertical ascendente) en ${tiro.map(r => 'A' + (r.i + 1)).join(', ')}: usa amarre en lugar de suspensión y asegura la sujeción (ITC-BT-06 3.9.1.1).</div>`);
   if (!c.conPerfil && (S.proj.modo === 'kml' || S.proj.entronque?.k != null)) w.push('<div class="banner warn">Cálculo sin perfil de elevación: se ha supuesto terreno llano. Carga el perfil de GPS Visualizer en «Trazado».</div>');
-  if (c.Tmax < c.TmaxReg - 0.5) w.push(`<div class="banner info">Tense reducido a ${fmt(c.Tmax)} daN (máximo reglamentario ${fmt(c.TmaxReg)} daN).</div>`);
+  { const mo = S.proj.ctx.tenseModo; const pedido = mo === 'normal' ? S.proj.ctx.tenseNormal : mo === 'reducido' ? S.proj.ctx.tenseReducido : null;
+    w.push(`<div class="banner info">Tense de cálculo ${mo === 'max' ? 'máximo reglamentario' : mo}: ${fmt(c.Tmax)} daN (máximo reglamentario ${fmt(c.TmaxReg)} daN).${pedido != null && Number(pedido) > c.TmaxReg ? ' El valor indicado supera el máximo y se ha limitado.' : ''}</div>`); }
   const keep = S.dbMissingShown ? $('#warnings').querySelector('.banner.bad')?.outerHTML || '' : '';
   $('#warnings').innerHTML = keep + w.join('');
   drawMap();
@@ -546,11 +547,11 @@ function initCollapsibles() {
   };
 }
 
-/* Puntos D-C: solo se rotula parte del CUPS (7 caracteres a partir del 11.º) */
+/* Puntos D-C: solo se rotula parte del CUPS (7 caracteres a partir del 12.º) */
 function exDC() { return redEx()?.puntosDC || []; }
 const CUPS_RE = /ES[\s.-]?(?:\d[\s.-]?){16}[A-Z]{2}(?:[\s.-]?\d[A-Z])?/i;
 function findCups(txt) { const m = String(txt || '').match(CUPS_RE); return m ? m[0].replace(/[\s.-]/g, '').toUpperCase() : ''; }
-function cupsCorto(c) { c = String(c || '').replace(/\s/g, ''); return c.length >= 17 ? c.substring(10, 17) : ''; }
+function cupsCorto(c) { c = String(c || '').replace(/\s/g, ''); return c.length >= 18 ? c.substring(11, 18) : ''; }
 function dcLabel(p) { return p.etiqueta != null ? p.etiqueta : cupsCorto(p.cups); }
 function exLineas() { return redEx()?.lineas || []; }
 /* Apoyos existentes: los importados; si no hay, los vértices de las líneas existentes */
@@ -811,6 +812,16 @@ function editClick(mx, my) {
     }
     refreshAll(); return;
   }
+  if (tool === 'text') {
+    const pick = (lay, list) => { let best = null; list.forEach((n, i) => { const [x, y] = S.mapT.P(n); const d = Math.hypot(x - mx, y - my); if (d < 14 && (!best || d < best.d)) best = { lay, i, d }; }); return best; };
+    let hit = pick('exDC', exDC()) || (redEx()?.apoyos?.length ? pick('exApoyos', exNodes()) : null) || pick('nuevo', S.mapT.nodes || []);
+    if (!hit) { let hl = null; exLineas().forEach((l, li) => { const h = hitSegment(l.pts, mx, my, 10); if (h && (!hl || h.d < hl.d)) hl = { ...h, li }; }); if (hl) hit = { lay: 'exLineas', li: hl.li, i: hl.i }; }
+    if (!hit) return toast('Pulsa sobre un apoyo, un tramo existente o un punto D-C para editar su texto.');
+    S.selPt = { layer: hit.lay, li: hit.li || 0, i: hit.i }; renderPtEdit(); drawMap();
+    const f = { exDC: '#pe_dcl', exApoyos: '#pe_lab', exLineas: '#pe_ll', nuevo: '#pe_n' }[hit.lay]; const el = $(f);
+    if (el) { el.focus(); el.select(); el.scrollIntoView({ block: 'nearest' }); }
+    return;
+  }
   if (tool === 'delete') {
     const h = hitPoint(layer, mx, my); if (!h) return;
     if (layer === 'nuevo') {
@@ -869,7 +880,7 @@ function bindMap() {
     }
     if (d.moved) return;
     const mx = d.mx, my = d.my;
-    if (S.tool === 'insert' || S.tool === 'delete') return editClick(mx, my);
+    if (S.tool === 'insert' || S.tool === 'delete' || S.tool === 'text') return editClick(mx, my);
     const near = list => { let best = -1, bd = 16; list.forEach((n, i) => { const [x, y] = S.mapT.P(n); const dd = Math.hypot(x - mx, y - my); if (dd < bd) { bd = dd; best = i; } }); return best; };
     if (S.pickEntronque) { const k = near(S.mapT.ex); if (k >= 0) { S.pickEntronque = false; setEntronque(k); } return; }
     const i = near(S.mapT.nodes);
@@ -915,8 +926,9 @@ function bindMap() {
 }
 function renderEdBar() {
   document.querySelectorAll('#edBar [data-tool]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tool === S.tool)));
-  $('#edLayer').value = S.editLayer; $('#map').style.cursor = S.tool === 'pan' ? 'grab' : S.tool === 'move' ? 'move' : 'crosshair';
-  const hint = { pan: 'Arrastra para mover el plano. Pulsa un apoyo para seleccionarlo y editar sus coordenadas.', move: `Arrastra un punto de «${LAYERS[S.editLayer]}» para moverlo.`, insert: S.editLayer === 'nuevo' ? 'Pulsa sobre un vano para intercalar un apoyo, o fuera del trazado para añadirlo al final.' : S.editLayer === 'exApoyos' ? 'Pulsa en el plano para añadir un apoyo existente.' : 'Pulsa sobre un tramo para insertar un vértice.', delete: `Pulsa un punto de «${LAYERS[S.editLayer]}» para borrarlo.` }[S.tool];
+  $('#edLayer').value = S.editLayer; $('#map').style.cursor = S.tool === 'pan' ? 'grab' : S.tool === 'move' ? 'move' : S.tool === 'text' ? 'text' : 'crosshair';
+  $('#edLayer').disabled = S.tool === 'text' || S.tool === 'pan';
+  const hint = { pan: 'Arrastra para mover el plano. Pulsa un apoyo para seleccionarlo y editar sus coordenadas.', move: `Arrastra un punto de «${LAYERS[S.editLayer]}» para moverlo.`, insert: S.editLayer === 'nuevo' ? 'Pulsa sobre un vano para intercalar un apoyo, o fuera del trazado para añadirlo al final.' : S.editLayer === 'exApoyos' ? 'Pulsa en el plano para añadir un apoyo existente.' : 'Pulsa sobre un tramo para insertar un vértice.', delete: `Pulsa un punto de «${LAYERS[S.editLayer]}» para borrarlo.`, text: 'Pulsa un apoyo existente, un tramo baja, un punto D-C o un apoyo nuevo para cambiar el texto que se rotula en el plano.' }[S.tool];
   $('#edHint').textContent = hint; updUndo();
 }
 function p0dc(sp) { return exDC()[sp.i]?.nombre || ''; }
@@ -929,12 +941,12 @@ function renderPtEdit() {
   if (!p) { box.hidden = true; return; }
   box.hidden = false;
   box.innerHTML = `<b>${label}</b>${isEntronqueA1(sp.layer === 'nuevo' ? sp.i : -1) ? ' · es el apoyo de entronque: edítalo como apoyo existente' : ''}
-    <div class="fields" style="margin-top:6px"><label class="f">${S.proj.zone ? `X UTM (huso ${S.proj.zone})` : 'X local (m)'}<input id="pe_x" class="num" type="number" step="0.01" value="${p.x.toFixed(2)}" ${isEntronqueA1(sp.layer === 'nuevo' ? sp.i : -1) ? 'disabled' : ''}></label>
+    <div class="fields hfields" style="margin-top:6px"><label class="f">${S.proj.zone ? `X UTM (huso ${S.proj.zone})` : 'X local (m)'}<input id="pe_x" class="num" type="number" step="0.01" value="${p.x.toFixed(2)}" ${isEntronqueA1(sp.layer === 'nuevo' ? sp.i : -1) ? 'disabled' : ''}></label>
     <label class="f">${S.proj.zone ? 'Y UTM' : 'Y local (m)'}<input id="pe_y" class="num" type="number" step="0.01" value="${p.y.toFixed(2)}" ${isEntronqueA1(sp.layer === 'nuevo' ? sp.i : -1) ? 'disabled' : ''}></label>
     ${sp.layer === 'nuevo' || sp.layer === 'exApoyos' || sp.layer === 'exDC' ? `<label class="f full">Nombre<input id="pe_n" type="text" value="${esc(p.nombre || '')}"></label>` : ''}
     ${sp.layer === 'exApoyos' ? `<label class="f full">Texto en el plano<input id="pe_lab" type="text" value="${esc(exLabel(sp.i))}" placeholder="E${sp.i + 1}"><span class="hint">Vacío: no se rotula. Por defecto: E${sp.i + 1}</span></label>` : ''}
     ${sp.layer === 'exDC' ? `<label class="f full">CUPS<input id="pe_cups" type="text" value="${esc(p.cups || '')}" placeholder="ES0000000000000000XX"></label>
-      <label class="f full">Texto en el plano<input id="pe_dcl" type="text" value="${esc(dcLabel(p))}" placeholder="${esc(cupsCorto(p.cups))}"><span class="hint">Por defecto: caracteres 11 a 17 del CUPS (${esc(cupsCorto(p.cups) || '—')}).</span></label>` : ''}
+      <label class="f full">Texto en el plano<input id="pe_dcl" type="text" value="${esc(dcLabel(p))}" placeholder="${esc(cupsCorto(p.cups))}"><span class="hint">Por defecto: caracteres 12 a 18 del CUPS (${esc(cupsCorto(p.cups) || '—')}).</span></label>` : ''}
     ${sp.layer === 'exLineas' ? `<label class="f full">Texto de la línea en el plano<input id="pe_ll" type="text" value="${esc(exLineas()[sp.li]?.etiqueta ?? exLineas()[sp.li]?.nombre ?? '')}"><span class="hint">El cable verificado se añade detrás. Vacío: solo el cable.</span></label>` : ''}</div>
     ${p.lat != null ? `<p class="note mono" style="margin:6px 0 0">${p.lat.toFixed(7)}, ${p.lon.toFixed(7)}</p>` : ''}`;
 }
@@ -1067,7 +1079,7 @@ function applyExDC(points, fname) {
   toast(`${nuevos.length} punto(s) D-C importado(s) de ${fname}.` + (sin ? ` ${sin} sin CUPS reconocible: escríbelo seleccionando el punto en el plano.` : ''));
 }
 function ensureEntronque() {
-  if (!S.proj.entronque) S.proj.entronque = { k: null, cableId: (S.cables.find(c => /3x95/.test(c.designacion)) || S.cables[0] || {}).id || '', tense: 500, depth: S.proj.ctx.depthAmarre };
+  if (!S.proj.entronque) S.proj.entronque = { k: null, cableId: (S.cables.find(c => /3x95/.test(c.designacion)) || S.cables[0] || {}).id || '', tense: S.proj.ctx.tenseNormal || 180, depth: S.proj.ctx.depthAmarre };
 }
 function setEntronque(k) {
   const en = S.proj.entronque; if (!en) return;
@@ -1089,10 +1101,44 @@ function snapToEntronque(silent) {
   else { g.pts.unshift(p0); S.proj.rows.unshift(newRow()); if (!silent) toast(`Añadido el apoyo existente E${en.k + 1} como A1 (estaba a ${fmt(d(first), 1)} m del inicio del trazado).`); }
   S.proj.rows[0].existente.activo = true;
 }
+/* ===== Carga automática de fondos y perfil ===== */
+function scheduleAuto() { clearTimeout(S.autoT); S.autoT = setTimeout(runAuto, 1200); }
+async function runAuto() {
+  if (S.drag) return scheduleAuto();
+  autoFondos();
+  await autoPerfilMaybe();
+}
+function autoFondos() {
+  if (!LOCAL || !S.proj.zone) return; const fb = fondoBbox(); if (!fb) return;
+  const covers = (a, b) => a && a[0] <= b[0] + 1 && a[1] <= b[1] + 1 && a[2] >= b[2] - 1 && a[3] >= b[3] - 1;
+  let changed = false; S.proj.fondos = S.proj.fondos || {};
+  for (const k of Object.keys(FONDOS)) {
+    const f = S.proj.fondos[k];
+    if (f?.off || f?.blobUrl || f?.assetId) continue;
+    if (f?.url && covers(f.bbox, fb.bbox)) continue;
+    S.proj.fondos[k] = { bbox: fb.bbox, w: fb.w, h: fb.h, url: FONDOS[k].url(fb.bbox, S.proj.zone, fb.w, fb.h), op: f?.op ?? 50, visible: f?.userVis ? f.visible : true, userVis: f?.userVis, auto: true };
+    if (S.img) delete S.img[k]; changed = true;
+  }
+  if (changed) { renderFondos(); drawMap(); }
+}
+function perfilKey(g) { return g.zone + ':' + g.pts.map(p => p.x.toFixed(0) + ',' + p.y.toFixed(0)).join(';'); }
+async function autoPerfilMaybe() {
+  const g = getGeo(); if (!g || g.pts.length < 2) return;
+  const P = S.proj.perfil; if (P && !P.auto) return;           // perfil cargado por el usuario: se respeta
+  const key = perfilKey(g); if (P?.key === key || S.perfilFail === key || S.perfilBusy) return;
+  S.perfilBusy = true;
+  try {
+    const prev = S.proj.perfil;
+    if (LOCAL) await autoPerfilLocal(g); else await autoPerfil();
+    if (S.proj.perfil && S.proj.perfil !== prev) { S.proj.perfil.auto = true; S.proj.perfil.key = key; }
+    else S.perfilFail = key;
+  } finally { S.perfilBusy = false; }
+}
 function refreshAll() {
   $('#geoInfo').hidden = !(S.proj.modo === 'kml' && S.proj.geo); $('#geoInfo').innerHTML = geoInfoHtml();
   const tm = $('#toManual'); if (tm) tm.onclick = toManual;
   renderRows(); renderEntronque(); recalc(); renderFondos(); renderPerfilInfo(); renderPtEdit(); updUndo();
+  scheduleAuto();
 }
 
 /* ---------- Plano: vista con desplazamiento y zoom ---------- */
@@ -1135,7 +1181,7 @@ function renderFondos() {
     const link = fb ? F.url(fb.bbox, S.proj.zone, fb.w, fb.h) : '#';
     const stale = has && fb && f.bbox && (fb.bbox[0] < f.bbox[0] || fb.bbox[1] < f.bbox[1] || fb.bbox[2] > f.bbox[2] || fb.bbox[3] > f.bbox[3]);
     return `<div class="fondo"><div class="row" style="justify-content:space-between"><label class="chk"><input type="checkbox" data-fv="${k}" ${f.visible && has ? 'checked' : ''} ${has ? '' : 'disabled'}> <b>${F.nombre}</b></label>
-      <label class="chk note">Opacidad <input type="range" min="10" max="100" step="5" data-fo="${k}" value="${f.op ?? (k === 'catastro' ? 80 : 100)}" ${has ? '' : 'disabled'} aria-label="Opacidad ${F.nombre}"></label></div>
+      <label class="chk note">Opacidad <input type="range" min="10" max="100" step="5" data-fo="${k}" value="${f.op ?? 50}" ${has ? '' : 'disabled'} aria-label="Opacidad ${F.nombre}"></label></div>
       <div class="row" style="margin-top:6px">${LOCAL ? `<button class="btn small" data-fauto="${k}">${has ? 'Actualizar' : 'Cargar'} ${F.nombre.toLowerCase()}</button>` : `<a class="btn small" href="${esc(link)}" target="_blank" rel="noopener" data-fl="${k}">1 · Abrir imagen de la zona</a>`}
       <label class="btn small" for="ff_${k}">${LOCAL ? 'Cargar imagen propia' : '2 · Cargar imagen guardada'}</label><input id="ff_${k}" type="file" accept="image/png,image/jpeg" data-ff="${k}" hidden>
       ${has ? `<button class="btn small ghost" data-fd="${k}">Quitar</button>` : ''}</div>
@@ -1148,13 +1194,13 @@ function bindFondos() {
     const a = ev.target.closest('[data-fl]'); if (a) { const fb = fondoBbox(); S.proj.fondos[a.dataset.fl] = { ...(S.proj.fondos[a.dataset.fl] || {}), pend: fb }; }
     const au = ev.target.closest('[data-fauto]');
     if (au) { const k = au.dataset.fauto, fb = fondoBbox(); if (!fb) return; const prev = S.proj.fondos[k] || {};
-      S.proj.fondos[k] = { bbox: fb.bbox, w: fb.w, h: fb.h, url: FONDOS[k].url(fb.bbox, S.proj.zone, fb.w, fb.h), op: prev.op ?? (k === 'catastro' ? 80 : 100), visible: true };
+      S.proj.fondos[k] = { bbox: fb.bbox, w: fb.w, h: fb.h, url: FONDOS[k].url(fb.bbox, S.proj.zone, fb.w, fb.h), op: prev.op ?? 50, visible: true };
       S.img = S.img || {}; delete S.img[k]; renderFondos(); drawMap(); toast(`Cargando ${FONDOS[k].nombre}…`); }
-    const d = ev.target.closest('[data-fd]'); if (d) { const k = d.dataset.fd; const f = S.proj.fondos[k]; if (f?.assetId) delAsset(f.assetId); S.proj.fondos[k] = {}; renderFondos(); drawMap(); }
+    const d = ev.target.closest('[data-fd]'); if (d) { const k = d.dataset.fd; const f = S.proj.fondos[k]; if (f?.assetId) delAsset(f.assetId); S.proj.fondos[k] = { off: true }; renderFondos(); drawMap(); }
   });
   box.addEventListener('change', async ev => {
     const t = ev.target;
-    if (t.dataset.fv) { S.proj.fondos[t.dataset.fv].visible = t.checked; drawMap(); }
+    if (t.dataset.fv) { S.proj.fondos[t.dataset.fv].visible = t.checked; S.proj.fondos[t.dataset.fv].userVis = true; drawMap(); }
     if (t.dataset.ff) {
       const k = t.dataset.ff, file = t.files[0]; t.value = ''; if (!file) return;
       const prev = S.proj.fondos[k] || {}; const fb = prev.pend || fondoBbox();
@@ -1162,7 +1208,7 @@ function bindFondos() {
       const im = new Image(); im.src = blobUrl; await im.decode().catch(() => null);
       if (!im.naturalWidth) { toast('No se ha podido leer la imagen.'); return; }
       if (Math.abs(im.naturalWidth / im.naturalHeight - fb.w / fb.h) > 0.02) toast('Las proporciones de la imagen no coinciden con la zona pedida. Comprueba que es la imagen correcta.');
-      const f = { bbox: fb.bbox, w: im.naturalWidth, h: im.naturalHeight, op: prev.op ?? (k === 'catastro' ? 80 : 100), visible: true, blobUrl, nombre: file.name };
+      const f = { bbox: fb.bbox, w: im.naturalWidth, h: im.naturalHeight, op: prev.op ?? 50, visible: true, blobUrl, nombre: file.name };
       S.proj.fondos[k] = f; S.img = S.img || {}; delete S.img[k]; renderFondos(); drawMap();
       const assets = LOCAL ? null : await window.claude?.use?.('assets').catch(() => null);
       if (assets) {
@@ -1479,7 +1525,7 @@ async function autoPerfil() {
       if (!vals || vals.length !== chunk.length) throw { code: 'api', message: 'el servicio no devolvió las cotas' };
       z.push(...vals);
     }
-    S.proj.perfil = { fuente: `Copernicus DEM GLO-90 vía Open-Meteo (${sp.length} puntos cada ${fmt(step, 1)} m)`, pts: sp.map((p, i) => ({ x: p.x, y: p.y, z: z[i] })) };
+    S.proj.perfil = { fuente: `Copernicus DEM GLO-90 vía Open-Meteo (${sp.length} puntos cada ${fmt(step, 1)} m)`, pts: sp.map((p, i) => ({ x: p.x, y: p.y, z: z[i] })), auto: true, key: perfilKey(g) };
     const altMax = Math.max(...z), zn = altMax > 1000 ? 'C' : altMax > 500 ? 'B' : 'A';
     if (zn !== S.proj.ctx.zona) { S.proj.ctx.zona = zn; $('#p_zona').value = zn; }
     msg.textContent = `Perfil obtenido: cotas ${fmt(Math.min(...z))}–${fmt(altMax)} m. Zona ${zn}.`;
@@ -1523,7 +1569,7 @@ async function autoPerfilLocal(g) {
       }
       fuente = `Copernicus DEM GLO-90 vía Open-Meteo (${sp.length} puntos cada ${fmt(step, 1)} m)`;
     }
-    S.proj.perfil = { fuente, pts: sp.map((p, i) => ({ x: p.x, y: p.y, z: z[i] })) };
+    S.proj.perfil = { fuente, pts: sp.map((p, i) => ({ x: p.x, y: p.y, z: z[i] })), auto: true, key: perfilKey(g) };
     const altMax = Math.max(...z), zn = altMax > 1000 ? 'C' : altMax > 500 ? 'B' : 'A';
     if (zn !== S.proj.ctx.zona) { S.proj.ctx.zona = zn; $('#p_zona').value = zn; }
     msg.textContent = `Perfil obtenido de ${fuente}: cotas ${fmt(Math.min(...z))}–${fmt(altMax)} m. Zona ${zn}.`;
@@ -1623,7 +1669,7 @@ async function exportPdf() {
     const leg = [
       ['sq', acc, 'Apoyo nuevo (A)'], ['line', acc, 'Línea nueva: ' + shortCable(S.cables.find(x => x.id === S.proj.cableId)?.designacion || '')],
       ['circ', exi, 'Apoyo existente'], ['dash', exi, 'Tramo baja existente'], ['circ', acc, 'Apoyo de entronque']];
-    if (exDC().length) leg.push(['diam', rgb(0.478, 0.243, 0.561), 'Punto D-C (CUPS, caracteres 11-17)']);
+    if (exDC().length) leg.push(['diam', rgb(0.478, 0.243, 0.561), 'Punto D-C (CUPS, caracteres 12-18)']);
     const lstep = leg.length > 5 ? 4.0 : 4.6;
     leg.forEach((it, k) => {
       const yy = ly + 8 + k * lstep, [kind, colr, label] = it;

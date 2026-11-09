@@ -35,7 +35,7 @@ nav.tabs{display:flex;gap:2px;flex-wrap:wrap;margin-top:14px;border-bottom:1px s
 nav.tabs button{font:600 .95rem var(--f-display);letter-spacing:.02em;background:none;border:none;color:var(--muted);padding:10px 14px;border-bottom:3px solid transparent;cursor:pointer}
 nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
 nav.tabs button:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.grid{display:grid;grid-template-columns:minmax(0,430px) minmax(0,1fr);gap:16px;margin-top:16px;align-items:start}
+.grid{display:grid;grid-template-columns:minmax(0,520px) minmax(0,1fr);gap:16px;margin-top:16px;align-items:start}
 @media (max-width:980px){.grid{grid-template-columns:minmax(0,1fr)}}
 .col{display:flex;flex-direction:column;gap:16px;min-width:0}
 section.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px 16px;min-width:0}
@@ -73,7 +73,7 @@ tr.sel td{background:var(--accent-soft)}
 .bar{height:6px;background:var(--grid);border-radius:3px;overflow:hidden;min-width:60px}
 .bar i{display:block;height:100%;background:var(--ok)}
 .bar i.w{background:var(--warn)} .bar i.b{background:var(--bad)}
-canvas#map{width:100%;height:440px;cursor:grab;display:block;background:var(--map);border:1px solid var(--line);border-radius:4px;touch-action:none}
+canvas#map{width:100%;height:clamp(360px,62vh,640px);cursor:grab;display:block;background:var(--map);border:1px solid var(--line);border-radius:4px;touch-action:none}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
 .kpi{border-left:3px solid var(--accent);padding:2px 0 2px 10px}
 .kpi b{display:block;font:600 1.25rem var(--f-mono);font-variant-numeric:tabular-nums}
@@ -88,6 +88,10 @@ canvas#map{width:100%;height:440px;cursor:grab;display:block;background:var(--ma
 canvas#perfil{width:100%;height:240px;display:block;background:var(--map);border:1px solid var(--line);border-radius:4px}
 summary{cursor:pointer}
 .mapbox{position:relative}
+section.card.wide{margin-top:16px}
+.fields.hfields{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+.fields.hfields .w2{grid-column:span 2}
+@media (max-width:420px){.fields.hfields .w2{grid-column:1/-1}}
 #anexoCard.inactive h2{color:var(--muted)}
 section.card h2{justify-content:flex-start}
 section.card h2 > span.row, section.card h2 > span.note{margin-left:auto}
@@ -119,7 +123,7 @@ a.btn{text-decoration:none;display:inline-block}
 <div class="wrap">
   <header class="top">
     <h1><small>Redes aéreas trenzadas · ITC-BT-06</small>Cálculo de Apoyos BT</h1>
-    <div class="row"><button class="btn small" id="foldAll" type="button">Minimizar / desplegar todo</button><div class="ver" id="ver">v1.8.0</div></div>
+    <div class="row"><button class="btn small" id="foldAll" type="button">Minimizar / desplegar todo</button><div class="ver" id="ver">v1.9.0</div></div>
   </header>
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="calc" aria-selected="true">Proyecto</button>
@@ -131,32 +135,54 @@ a.btn{text-decoration:none;display:inline-block}
 
   <!-- ============ PROYECTO ============ -->
   <div id="tab-calc">
-    <div class="grid">
-      <div class="col">
-        <section class="card">
+        <section class="card wide" id="datosCard">
           <h2>Datos de la línea</h2>
-          <div class="fields">
-            <label class="f full">Nombre del proyecto<input id="p_nombre" type="text"></label>
+          <div class="fields hfields">
+            <label class="f w2">Nombre del proyecto<input id="p_nombre" type="text"></label>
             <label class="f">Zona (ITC-BT-06 2.1)
               <select id="p_zona"><option value="A">A · &lt; 500 m</option><option value="B">B · 500–1000 m</option><option value="C">C · &gt; 1000 m</option></select>
               <span class="hint" id="zonaHint"></span></label>
             <label class="f">Cable trenzado<select id="p_cable"></select></label>
             <label class="f">Tense de cálculo
-              <select id="p_tenseModo"><option value="max">Máximo reglamentario</option><option value="reducido">Reducido (daN)</option></select></label>
-            <label class="f">Tense reducido (daN)<input id="p_tenseValor" class="num" type="number" step="10"></label>
-            <label class="f">Temperatura máxima (°C)<input id="p_thetaMax" class="num" type="number" min="50" step="5"><span class="hint">ITC: no inferior a 50 °C</span></label>
-            <label class="f">Desequilibrio en alineación (%)<input id="p_desequilibrio" class="num" type="number" step="1"></label>
-            <label class="f">Amarre bajo cogolla (m)<input id="p_depthAmarre" class="num" type="number" step="0.05"></label>
+              <select id="p_tenseModo"><option value="normal">Normal</option><option value="reducido">Reducido</option><option value="max">Máximo reglamentario</option></select></label>
+            <label class="f">Tense normal (daN)<input id="p_tenseNormal" class="num" type="number" step="10"></label>
+            <label class="f">Tense reducido (daN)<input id="p_tenseReducido" class="num" type="number" step="10"></label>
             <label class="f">Distancia mínima al suelo (m)<input id="p_distSuelo" class="num" type="number" step="0.5"><span class="hint">Cruces marcados: 6 m</span></label>
             <label class="f">Terreno (empotramiento)<select id="p_terreno"><option value="flojo">Flojo</option><option value="normal">Normal</option><option value="fuerte">Fuerte</option></select></label>
             <label class="f">Tipos de apoyo<select id="p_tipos"><option value="HV+HVH">HV y HVH</option><option value="HV">Solo HV</option><option value="HVH">Solo HVH</option></select></label>
             <label class="f">Elegir apoyo por<select id="p_criterioPrecio"><option value="coste">Menor coste</option><option value="venta">Menor precio de venta</option></select></label>
-            <label class="f">Umbral de ángulo (°)<input id="p_umbralAngulo" class="num" type="number" step="1"><span class="hint">Por debajo: alineación</span></label>
-            <label class="chk full"><input id="p_sobreEdificios" type="checkbox"> Red sobre edificaciones o apoyos en fachada (coef. +25 %)</label>
-            <label class="chk full"><input id="p_vientoPoste" type="checkbox"> Incluir viento sobre el fuste del apoyo (100 daN/m²)</label>
+            <label class="chk w2"><input id="p_sobreEdificios" type="checkbox"> Red sobre edificaciones o apoyos en fachada (coef. +25 %)</label>
+            <label class="chk w2"><input id="p_vientoPoste" type="checkbox"> Incluir viento sobre el fuste del apoyo (100 daN/m²)</label>
           </div>
         </section>
 
+        <section class="card wide" id="planoCard">
+          <h2>Plano del trazado <span class="note" id="mapInfo"></span></h2>
+          <div class="edbar row" id="edBar" role="toolbar" aria-label="Edición del plano">
+            <button class="btn small" data-tool="pan" aria-pressed="true">Navegar</button>
+            <button class="btn small" data-tool="move" aria-pressed="false">Mover</button>
+            <button class="btn small" data-tool="insert" aria-pressed="false">Insertar</button>
+            <button class="btn small" data-tool="delete" aria-pressed="false">Borrar</button>
+            <button class="btn small" data-tool="text" aria-pressed="false">Editar texto</button>
+            <label class="chk note">Capa <select id="edLayer"><option value="nuevo">Apoyos nuevos</option><option value="exApoyos">Apoyos existentes</option><option value="exLineas">Tramos baja existentes</option><option value="exDC">Puntos D-C</option><option value="ruta">Ruta del trazado</option></select></label>
+            <button class="btn small" id="edUndo" disabled title="Ctrl+Z">Deshacer</button>
+          </div>
+          <p class="note" id="edHint" style="margin:4px 0 8px"></p>
+          <div class="mapbox">
+            <canvas id="map" aria-label="Plano con la línea existente, el trazado nuevo y los apoyos numerados"></canvas>
+            <div class="zoom"><button class="btn small" id="zIn" aria-label="Acercar">+</button><button class="btn small" id="zOut" aria-label="Alejar">−</button><button class="btn small" id="zFit" aria-label="Encajar el trazado" title="Encajar">⤢</button></div>
+          </div>
+          <div id="ptEdit" class="exist" hidden></div>
+          <div class="row" style="margin-top:8px;justify-content:space-between">
+            <span class="note">Cuadros: apoyos nuevos (verde válido · ámbar existente a sustituir · rojo sin apoyo válido). Círculos discontinuos: línea existente. Arrastra para mover, rueda para zoom.</span>
+            <span class="row"><button class="btn" id="exportPdf">Descargar plano (PDF)</button><button class="btn primary" id="exportZip">Exportar para Catastro (ZIP)</button></span>
+          </div>
+          <p class="note" id="exportNote" style="margin-top:6px"></p>
+          <details style="margin-top:6px"><summary class="note">Opciones del plano en PDF</summary><div id="pdfOpts" style="margin-top:8px"></div></details>
+        </section>
+
+    <div class="grid">
+      <div class="col">
         <section class="card">
           <h2>Red existente y entronque</h2>
           <div class="row" style="margin-bottom:8px">
@@ -219,30 +245,6 @@ a.btn{text-decoration:none;display:inline-block}
       </div>
 
       <div class="col">
-        <section class="card">
-          <h2>Plano del trazado <span class="note" id="mapInfo"></span></h2>
-          <div class="edbar row" id="edBar" role="toolbar" aria-label="Edición del plano">
-            <button class="btn small" data-tool="pan" aria-pressed="true">Navegar</button>
-            <button class="btn small" data-tool="move" aria-pressed="false">Mover</button>
-            <button class="btn small" data-tool="insert" aria-pressed="false">Insertar</button>
-            <button class="btn small" data-tool="delete" aria-pressed="false">Borrar</button>
-            <label class="chk note">Capa <select id="edLayer"><option value="nuevo">Apoyos nuevos</option><option value="exApoyos">Apoyos existentes</option><option value="exLineas">Tramos baja existentes</option><option value="exDC">Puntos D-C</option><option value="ruta">Ruta del trazado</option></select></label>
-            <button class="btn small" id="edUndo" disabled title="Ctrl+Z">Deshacer</button>
-          </div>
-          <p class="note" id="edHint" style="margin:4px 0 8px"></p>
-          <div class="mapbox">
-            <canvas id="map" aria-label="Plano con la línea existente, el trazado nuevo y los apoyos numerados"></canvas>
-            <div class="zoom"><button class="btn small" id="zIn" aria-label="Acercar">+</button><button class="btn small" id="zOut" aria-label="Alejar">−</button><button class="btn small" id="zFit" aria-label="Encajar el trazado" title="Encajar">⤢</button></div>
-          </div>
-          <div id="ptEdit" class="exist" hidden></div>
-          <div class="row" style="margin-top:8px;justify-content:space-between">
-            <span class="note">Cuadros: apoyos nuevos (verde válido · ámbar existente a sustituir · rojo sin apoyo válido). Círculos discontinuos: línea existente. Arrastra para mover, rueda para zoom.</span>
-            <span class="row"><button class="btn" id="exportPdf">Descargar plano (PDF)</button><button class="btn primary" id="exportZip">Exportar para Catastro (ZIP)</button></span>
-          </div>
-          <p class="note" id="exportNote" style="margin-top:6px"></p>
-          <details style="margin-top:6px"><summary class="note">Opciones del plano en PDF</summary><div id="pdfOpts" style="margin-top:8px"></div></details>
-        </section>
-
         <section class="card">
           <h2>Perfil longitudinal <span class="note" id="perfilNote"></span></h2>
           <canvas id="perfil" aria-label="Perfil longitudinal del terreno con apoyos y catenaria a flecha máxima"></canvas>
@@ -329,7 +331,7 @@ a.btn{text-decoration:none;display:inline-block}
       </ul>
       <h3>Apoyos (Tabla 1)</h3>
       <ul>
-        <li>Alineación: cargas permanentes y viento; en la segunda hipótesis, desequilibrio de tracciones. La ITC no fija su valor: se aplica el porcentaje indicado en los datos de la línea (8 % por defecto, por analogía con la ITC-LAT 07).</li>
+        <li>Alineación: cargas permanentes y viento; en la segunda hipótesis, desequilibrio de tracciones. La ITC no fija su valor: se aplica un 8 %, por analogía con la ITC-LAT 07.</li>
         <li>Ángulo: resultante de ángulo en ambas hipótesis, con el viento sobre conductores.</li>
         <li>Estrellamiento y derivación de apoyo existente: 2/3 de la resultante con viento a 15 °C y resultante total en la segunda hipótesis. Los conductores existentes entran con su tense, acimut, vano y altura de amarre.</li>
         <li>Fin e inicio de línea: tracción total de los conductores.</li>

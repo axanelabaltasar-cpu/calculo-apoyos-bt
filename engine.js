@@ -200,7 +200,8 @@ function calcular(input) {
   const cp = cableProps(cable);
   const csBase = c0.sobreEdificios ? 2.5 * 1.25 : 2.5;
   const TmaxReg = cp.rotura / csBase;
-  const Tmax = c0.tenseModo === 'reducido' ? Math.min(Number(c0.tenseValor) || TmaxReg, TmaxReg) : TmaxReg;
+  const Tsel = c0.tenseModo === 'normal' ? c0.tenseNormal : c0.tenseModo === 'reducido' ? (c0.tenseReducido ?? c0.tenseValor) : null;
+  const Tmax = Tsel != null && Number(Tsel) > 0 ? Math.min(Number(Tsel), TmaxReg) : TmaxReg;
   const hyp = hypotheses(c0.zona, cp, c0.thetaMax);
   const ctx = { ...c0, hyp, deseq: (c0.desequilibrio || 0) / 100 };
   const spans = buildGeometry(nodes);
