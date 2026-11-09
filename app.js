@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.23.0';
+const VERSION = '1.24.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -679,7 +679,11 @@ function bindCapas() {
 /* Textos del plano de la red existente (editables) y del cable */
 const shortCable = d => String(d || '').replace(/^RZ\s*0,6\/1\s*kV\s*/i, 'RZ ');
 /* Nombre de los apoyos de la línea nueva: A1 toma el nombre del apoyo existente de entronque */
-function apName(i) { const k = S.proj.entronque?.k; if (i === 0 && k != null && exNodes()[k]) return exLabel(k); return 'A' + (i + 1); }
+/* Textos del plano: el texto propio (editable) o el automático */
+function txtVano(i, a) { const t = S.proj.rows[i + 1]?.txtVano; return t || fmt(a, 1) + ' m'; }
+function txtCable(cable) { return S.proj.txtCable || (cable ? shortCable(cable.designacion) : ''); }
+function txtModelo(i, r, p) { const t = S.proj.rows[i]?.txtModelo; if (t) return t; return p ? (isEntronqueA1(i) ? 'Sustituir por ' : '') + poleLabel(p) : ''; }
+function apName(i) { const t = S.proj.rows[i]?.txt; if (t) return t; const k = S.proj.entronque?.k; if (i === 0 && k != null && exNodes()[k]) return exLabel(k); return 'A' + (i + 1); }
 /* Modelo de la base que corresponde a los datos del GIS de un apoyo existente (altura y esfuerzo) */
 function modeloGis(k) {
   const a = redEx()?.apoyos?.[k], P = exNodes()[k]; if (!P) return null;
@@ -732,7 +736,28 @@ function drawMap(T) {
     for (let x = Math.floor(x0 / step) * step; (x - cx) * sc + W / 2 < W; x += step) { const px = W / 2 + (x - cx) * sc; g.beginPath(); g.moveTo(px, 0); g.lineTo(px, Hh); g.stroke(); }
     for (let y = Math.floor(y0 / step) * step; Hh / 2 - (y - cy) * sc > 0; y += step) { const py = Hh / 2 - (y - cy) * sc; g.beginPath(); g.moveTo(0, py); g.lineTo(W, py); g.stroke(); }
   }
-  const halo = (txt, x, y) => { g.lineWidth = 3; g.strokeStyle = col('--map'); g.strokeText(txt, x, y); g.fillText(txt, x, y); };
+  /* PDF: letra según el papel y textos sin solapes (se busca un hueco libre y, si se aleja, se une con una guía) */
+  const placed = !screen && T.noOverlap !== false ? [] : null;
+  if (!screen && T.fs && T.fs !== 1) { const fd = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'font'); Object.defineProperty(g, 'font', { configurable: true, get() { return fd.get.call(this); }, set(v) { fd.set.call(this, String(v).replace(/(\d+(?:\.\d+)?)px/, (m0, n) => (n * T.fs).toFixed(2) + 'px')); } }); }
+  const quad = (x0, y0, x1, y1) => { const M = g.getTransform(); return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map(([x, y]) => [M.a * x + M.c * y + M.e, M.b * x + M.d * y + M.f]); };
+  const sepAxis = (A, B) => { for (const Q of [A, B]) for (let i = 0; i < 4; i++) { const [x1, y1] = Q[i], [x2, y2] = Q[(i + 1) % 4], nx = y2 - y1, ny = x1 - x2; const pa = A.map(([x, y]) => x * nx + y * ny), pb = B.map(([x, y]) => x * nx + y * ny); if (Math.max(...pa) < Math.min(...pb) || Math.max(...pb) < Math.min(...pa)) return true; } return false; };
+  const hits = Q => placed.filter(R => !sepAxis(Q, R)).length;
+  if (placed) { const M0 = g.getTransform(); const obst = (n, r) => { const [x, y] = P(n); placed.push([[x - r, y - r], [x + r, y - r], [x + r, y + r], [x - r, y + r]].map(([u, v]) => [M0.a * u + M0.e, M0.d * v + M0.f])); };
+    nodes.forEach(n => obst(n, 7)); ex.forEach(n => obst(n, 5)); exDC().forEach(n => obst(n, 5)); if (S.proj.sum?.cgp?.x != null) obst(S.proj.sum.cgp, 9); }
+  const placeText = (txt, x, y) => {
+    const m = g.measureText(txt), w = m.width, asc = m.actualBoundingBoxAscent || 8, des = m.actualBoundingBoxDescent || 2, h = asc + des, pad = 1.5;
+    const al = g.textAlign, bl = g.textBaseline; const ox = al === 'center' ? -w / 2 : al === 'right' || al === 'end' ? -w : 0;
+    const oy = bl === 'top' ? 0 : bl === 'bottom' ? -h : bl === 'middle' ? -h / 2 : -asc;
+    const box = (dx, dy) => quad(x + dx + ox - pad, y + dy + oy - pad, x + dx + ox + w + pad, y + dy + oy + h + pad);
+    const st = h * 1.15, cands = [[0, 0]];
+    for (let k = 1; k <= 6; k++) cands.push([0, -st * k], [0, st * k], [w * 0.55 * k, 0], [-w * 0.55 * k, 0], [w * 0.4 * k, -st * k], [-w * 0.4 * k, st * k], [w * 0.4 * k, st * k], [-w * 0.4 * k, -st * k]);
+    let best = null;
+    for (const [dx, dy] of cands) { const Q = box(dx, dy), n = hits(Q); if (!n) { best = { dx, dy, Q }; break; } if (!best || n < best.n) best = { dx, dy, Q, n }; }
+    placed.push(best.Q);
+    if (Math.hypot(best.dx, best.dy) > h * 1.6) { g.save(); g.strokeStyle = g.fillStyle; g.lineWidth = 0.5; g.beginPath(); g.moveTo(x, y + oy + h / 2); g.lineTo(x + best.dx + (best.dx < 0 ? ox + w : ox), y + best.dy + oy + h / 2); g.stroke(); g.restore(); }
+    return [x + best.dx, y + best.dy];
+  };
+  const halo = (txt, x, y) => { if (placed && txt) [x, y] = placeText(txt, x, y); g.lineWidth = 3; g.strokeStyle = col('--map'); g.strokeText(txt, x, y); g.fillText(txt, x, y); };
   /* Texto a lo largo de un tramo, a un lado (side = -1 encima, +1 debajo) */
   const alongText = (txt, A, B, side, font, color) => {
     if (!txt) return; const [x1, y1] = P(A), [x2, y2] = P(B); let ang = Math.atan2(y2 - y1, x2 - x1); if (ang > Math.PI / 2) ang -= Math.PI; if (ang < -Math.PI / 2) ang += Math.PI;
@@ -777,10 +802,10 @@ function drawMap(T) {
   if (nodes.length > 1) {
     if (vis('linea')) { g.strokeStyle = col('--accent'); g.lineWidth = 2.5; g.beginPath(); nodes.forEach((n, i) => { const [x, y] = P(n); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); }
     g.font = '11px ' + col('--f-mono'); g.textAlign = 'center';
-    if (vis('vanos')) for (let i = 0; i < nodes.length - 1; i++) { const sp = !S.drag && S.calc?.spans?.[i]; const a = sp ? sp.a : Math.hypot(nodes[i + 1].x - nodes[i].x, nodes[i + 1].y - nodes[i].y); alongText(fmt(a, 1) + ' m', nodes[i], nodes[i + 1], -1, '11px ' + col('--f-mono'), col('--ink')); }
+    if (vis('vanos')) for (let i = 0; i < nodes.length - 1; i++) { const sp = !S.drag && S.calc?.spans?.[i]; const a = sp ? sp.a : Math.hypot(nodes[i + 1].x - nodes[i].x, nodes[i + 1].y - nodes[i].y); alongText(txtVano(i, a), nodes[i], nodes[i + 1], -1, '11px ' + col('--f-mono'), col('--ink')); }
     // Cable del proyecto sobre el vano más largo de la línea nueva
     const cable = S.cables.find(c => c.id === S.proj.cableId);
-    if (cable && vis('cable')) { const ls = longestSeg(nodes); if (ls.i >= 0) alongText(shortCable(cable.designacion), nodes[ls.i], nodes[ls.i + 1], 1, '600 11px ' + col('--f-body'), col('--accent')); }
+    if (cable && vis('cable')) { const ls = longestSeg(nodes); if (ls.i >= 0) alongText(txtCable(cable), nodes[ls.i], nodes[ls.i + 1], 1, '600 11px ' + col('--f-body'), col('--accent')); }
     nodes.forEach(n => {
       const e = n.existente; if (!e?.activo) return; const [x, y] = P(n);
       g.strokeStyle = col('--exist'); g.setLineDash([4, 4]); g.lineWidth = 1.5;
@@ -795,7 +820,7 @@ function drawMap(T) {
       if (!vis('nuevoTxt')) return;
       g.fillStyle = col('--ink'); g.font = '600 12px ' + col('--f-body'); g.textAlign = 'left'; halo(apName(i), x + 9, y - 8);
       const p = r && (r.existenteCheck?.ok ? r.existenteCheck.pole : r.elegido?.pole);
-      if (p && !(isEntronqueA1(i) && r.existenteCheck?.ok)) { g.fillStyle = col('--muted'); g.font = '10px ' + col('--f-mono'); halo((isEntronqueA1(i) ? 'Sustituir por ' : '') + poleLabel(p), x + 9, y + 15); }
+      const tm = (p && !(isEntronqueA1(i) && r.existenteCheck?.ok)) || S.proj.rows[i]?.txtModelo ? txtModelo(i, r, p) : ''; if (tm) { g.fillStyle = col('--muted'); g.font = '10px ' + col('--f-mono'); halo(tm, x + 9, y + 15); }
     });
   }
   if (screen) {
@@ -914,7 +939,8 @@ function editClick(mx, my) {
       const R = redEx() || (S.proj.redEx = { lineas: [], apoyos: [] }); if (!S.proj.zone) return toast('Importa primero algún elemento con coordenadas para fijar el huso UTM.');
       snapshot(); const np = { id: uid('d'), x: w.x, y: w.y, nombre: '', cups: '', fuente: 'añadido en el plano' }; setLL(np); R.puntosDC = R.puntosDC || []; R.puntosDC.push(np);
       S.selPt = { layer: 'exDC', li: 0, i: R.puntosDC.length - 1 }; toast('Punto D-C añadido: escribe su CUPS abajo.');
-    } else if (layer === 'exLineas' || layer === 'ruta') {
+    } else if (layer === 'ruta') { return rutaInsert(mx, my);
+    } else if (layer === 'exLineas') {
       const arrs = layerPts(layer); let hit = null, li = -1;
       arrs.forEach((arr, k) => { const h = hitSegment(arr, mx, my); if (h && (!hit || h.d < hit.d)) { hit = h; li = k; } });
       if (!hit) return toast('Pulsa sobre un tramo de la línea para insertar un vértice.');
@@ -922,7 +948,7 @@ function editClick(mx, my) {
     }
     refreshAll(); return;
   }
-  if (tool === 'text') {
+  if (tool === 'text') { return textToolClick(mx, my);
     const pick = (lay, list) => { if (!vis(lay)) return null; let best = null; list.forEach((n, i) => { const [x, y] = S.mapT.P(n); const d = Math.hypot(x - mx, y - my); if (d < 14 && (!best || d < best.d)) best = { lay, i, d }; }); return best; };
     let hit = pick('exDC', exDC()) || (redEx()?.apoyos?.length ? pick('exApoyos', exNodes()) : null) || pick('nuevo', S.mapT.nodes || []);
     if (!hit && vis('exLineas')) { let hl = null; exLineas().forEach((l, li) => { const h = hitSegment(l.pts, mx, my, 10); if (h && (!hl || h.d < hl.d)) hl = { ...h, li }; }); if (hl) hit = { lay: 'exLineas', li: hl.li, i: hl.i }; }
@@ -1004,9 +1030,11 @@ function bindMap() {
     if (i >= 0) { S.sel = S.sel === i ? null : i; S.selPt = S.sel == null ? null : { layer: 'nuevo', li: 0, i }; renderRows(); renderResults(); renderPtEdit(); return; }
     const kd = vis('exDC') ? near(exDC()) : -1; if (kd >= 0) { S.selPt = { layer: 'exDC', li: 0, i: kd }; renderPtEdit(); drawMap(); return; }
     const k = vis('exApoyos') ? near(S.mapT.ex) : -1; if (k >= 0 && redEx()?.apoyos?.length) { S.selPt = { layer: 'exApoyos', li: 0, i: k }; renderPtEdit(); drawMap(); return; }
+    if (selectExtra(mx, my, 'pre')) return;
     let hl = null; if (vis('exLineas')) exLineas().forEach((l, li) => { const h = hitSegment(l.pts, mx, my, 8); if (h && (!hl || h.d < hl.d)) hl = { ...h, li }; });
     if (hl) { S.selPt = { layer: 'exLineas', li: hl.li, i: hl.t < 0.5 ? hl.i : hl.i + 1 }; renderPtEdit(); drawMap(); return; }
-    S.selPt = null; renderPtEdit(); drawMap();
+    if (selectExtra(mx, my, 'post')) return;
+    S.selPt = null; S.selObj = null; renderPtEdit(); drawMap();
   });
   cv.addEventListener('wheel', ev => { ev.preventDefault(); const rc = cv.getBoundingClientRect(); zoomAt(ev.deltaY < 0 ? 1.25 : 0.8, ev.clientX - rc.left, ev.clientY - rc.top); }, { passive: false });
   $('#zIn').onclick = () => zoomAt(1.5, cv.clientWidth / 2, cv.clientHeight / 2);
@@ -1014,6 +1042,7 @@ function bindMap() {
   $('#zFit').onclick = () => { fitView(); drawMap(); };
   $('#resTable').addEventListener('click', ev => { const tr = ev.target.closest('tr[data-i]'); if (!tr) return; const i = Number(tr.dataset.i); S.sel = S.sel === i ? null : i; renderRows(); renderResults(); });
   window.addEventListener('resize', () => { drawMap(); drawPerfil(); });
+  try { let rt; new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(drawMap, 30); }).observe($('#map')); } catch (e) { }
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', drawMap);
   // Barra de edición
   $('#edBar').addEventListener('click', ev => {
@@ -1295,7 +1324,7 @@ function refreshAll() {
   $('#geoInfo').hidden = !(S.proj.modo === 'kml' && S.proj.geo); $('#geoInfo').innerHTML = geoInfoHtml();
   const tm = $('#toManual'); if (tm) tm.onclick = toManual;
   renderRows(); renderEntronque(); recalc(); renderFondos(); renderPerfilInfo(); renderPtEdit(); updUndo();
-  renderCapas(); renderProjName(); renderSub(); renderSum(); scheduleAuto();
+  renderCapas(); renderProjName(); renderSub(); renderSum(); renderDetail(); renderWizard(); renderAerAuto(); scheduleAuto();
 }
 
 /* ---------- Plano: vista con desplazamiento y zoom ---------- */
@@ -1463,15 +1492,16 @@ function dxf(c, geo) {
   for (let i = 0; i < N.length - 1; i++) {
     p(0, 'LINE', 8, 'BT_TRAZADO', 10, f3(N[i].x), 20, f3(N[i].y), 30, 0, 11, f3(N[i + 1].x), 21, f3(N[i + 1].y), 31, 0);
     const mx = (N[i].x + N[i + 1].x) / 2, my = (N[i].y + N[i + 1].y) / 2; let ang = Math.atan2(N[i + 1].y - N[i].y, N[i + 1].x - N[i].x) * 180 / Math.PI; if (ang > 90) ang -= 180; if (ang < -90) ang += 180;
-    p(0, 'TEXT', 8, 'BT_TEXTO_VANOS', 10, f3(mx), 20, f3(my + 0.6), 30, 0, 40, 0.8, 1, ascii(`${c.spans[i].a.toFixed(1)} m`), 50, ang.toFixed(2), 72, 1, 11, f3(mx), 21, f3(my + 0.6), 31, 0);
+    p(0, 'TEXT', 8, 'BT_TEXTO_VANOS', 10, f3(mx), 20, f3(my + 0.6), 30, 0, 40, 0.8, 1, ascii(txtVano(i, c.spans[i].a).replace(',', '.')), 50, ang.toFixed(2), 72, 1, 11, f3(mx), 21, f3(my + 0.6), 31, 0);
   }
   { const cab = c.cable; let bi = 0, bl = 0; for (let i = 0; i < N.length - 1; i++) { const d = Math.hypot(N[i + 1].x - N[i].x, N[i + 1].y - N[i].y); if (d > bl) { bl = d; bi = i; } }
-    if (cab && N.length > 1) { const A = N[bi], B = N[bi + 1]; let an = Math.atan2(B.y - A.y, B.x - A.x) * 180 / Math.PI; if (an > 90) an -= 180; if (an < -90) an += 180; p(0, 'TEXT', 8, 'BT_TEXTO_VANOS', 10, f3((A.x + B.x) / 2), 20, f3((A.y + B.y) / 2 - 1.6), 30, 0, 40, 0.9, 1, ascii(shortCable(cab.designacion)), 50, an.toFixed(2), 72, 1, 11, f3((A.x + B.x) / 2), 21, f3((A.y + B.y) / 2 - 1.6), 31, 0); } }
+    if (cab && N.length > 1) { const A = N[bi], B = N[bi + 1]; let an = Math.atan2(B.y - A.y, B.x - A.x) * 180 / Math.PI; if (an > 90) an -= 180; if (an < -90) an += 180; p(0, 'TEXT', 8, 'BT_TEXTO_VANOS', 10, f3((A.x + B.x) / 2), 20, f3((A.y + B.y) / 2 - 1.6), 30, 0, 40, 0.9, 1, ascii(txtCable(cab)), 50, an.toFixed(2), 72, 1, 11, f3((A.x + B.x) / 2), 21, f3((A.y + B.y) / 2 - 1.6), 31, 0); } }
   N.forEach((n, i) => {
     const r = c.results[i]; const pole = r.existenteCheck?.ok ? r.existenteCheck.pole : r.elegido?.pole;
     p(0, 'CIRCLE', 8, 'BT_APOYOS', 10, f3(n.x), 20, f3(n.y), 30, 0, 40, 0.5);
     p(0, 'TEXT', 8, 'BT_TEXTO_APOYOS', 10, f3(n.x + 1), 20, f3(n.y + 1), 30, 0, 40, 1.2, 1, ascii(apName(i) + (S.proj.geo?.pts?.[i]?.nombre && !isEntronqueA1(i) ? ' ' + S.proj.geo.pts[i].nombre : '')));
-    if (!(isEntronqueA1(i) && r.existenteCheck?.ok)) p(0, 'TEXT', 8, 'BT_TEXTO_APOYOS', 10, f3(n.x + 1), 20, f3(n.y - 0.6), 30, 0, 40, 0.8, 1, ascii(pole ? poleLabel(pole) + (n.existente?.activo ? (r.existenteCheck?.ok ? ' (existente)' : ' (sustituye)') : '') : 'SIN APOYO VALIDO'));
+    if (S.proj.rows[i]?.txtModelo) p(0, 'TEXT', 8, 'BT_TEXTO_APOYOS', 10, f3(n.x + 1), 20, f3(n.y - 0.6), 30, 0, 40, 0.8, 1, ascii(S.proj.rows[i].txtModelo));
+    else if (!(isEntronqueA1(i) && r.existenteCheck?.ok)) p(0, 'TEXT', 8, 'BT_TEXTO_APOYOS', 10, f3(n.x + 1), 20, f3(n.y - 0.6), 30, 0, 40, 0.8, 1, ascii(pole ? poleLabel(pole) + (n.existente?.activo ? (r.existenteCheck?.ok ? ' (existente)' : ' (sustituye)') : '') : 'SIN APOYO VALIDO'));
     const e = n.existente; if (e?.activo) (e.conductores || []).filter(cd => !cd.deLinea || !ex.length).forEach(cd => { const u = { x: Math.sin(cd.az * Math.PI / 180), y: Math.cos(cd.az * Math.PI / 180) }; p(0, 'LINE', 8, 'BT_EXISTENTE', 10, f3(n.x), 20, f3(n.y), 30, 0, 11, f3(n.x + u.x * 10), 21, f3(n.y + u.y * 10), 31, 0); });
   });
   if (!geo) p(0, 'TEXT', 8, 'BT_TEXTO_APOYOS', 10, f3(N[0].x), 20, f3(N[0].y - 4), 30, 0, 40, 1, 1, 'COORDENADAS LOCALES - SIN GEORREFERENCIAR');
@@ -1801,7 +1831,7 @@ async function exportPdf() {
     const o = pdfOpts(), { PDFDocument, StandardFonts, rgb } = PDFLib;
     const MM = 72 / 25.4, PXMM = 96 / 25.4;
     let [pw, ph] = o.papel === 'A4' ? [297, 210] : [420, 297]; if (o.orient === 'v') [pw, ph] = [ph, pw];
-    const m = 10, strip = o.papel === 'A4' ? 34 : 40;
+    const vert = o.orient === 'v', m = 10, strip = vert ? (o.papel === 'A4' ? 62 : 66) : (o.papel === 'A4' ? 36 : 42);
     const mapW = pw - 2 * m, mapH = ph - 2 * m - strip;
     // Encuadre y escala
     const pts = allPts(); const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
@@ -1810,7 +1840,8 @@ async function exportPdf() {
     const N = o.escala === 'auto' ? (ESCALAS.find(e => e >= need) || Math.ceil(need / 1000) * 1000) : Number(o.escala);
     const W = mapW * PXMM, H = mapH * PXMM, dpr = 2.5;
     const cv = document.createElement('canvas');
-    const res = drawMap({ cv, W, H, dpr, sc: PXMM * 1000 / N, cx, cy, print: true });
+    const fs = Math.min(1.05, Math.max(0.72, Math.sqrt(mapW * mapH / (400 * 237))));
+    const res = drawMap({ cv, W, H, dpr, sc: PXMM * 1000 / N, cx, cy, print: true, fs });
     const conFondo = ['orto', 'catastro'].some(t => S.proj.fondos?.[t]?.visible && S.img?.[t]?.naturalWidth && !S.img[t].tainted);
     const blob = await new Promise(r => cv.toBlob(r, conFondo ? 'image/jpeg' : 'image/png', 0.92));
     const bytes = new Uint8Array(await blob.arrayBuffer());
@@ -1828,47 +1859,59 @@ async function exportPdf() {
     page.drawImage(img, { x: X(m), y: Y(m + mapH), width: X(mapW), height: X(mapH) });
     rect(m, m, mapW, mapH, { borderWidth: 0.8 });
     rect(m, m, pw - 2 * m, ph - 2 * m, { borderWidth: 1.2 });
+    // Banda inferior: leyenda, escala y cajetín sin solapes (en vertical: leyenda y escala arriba, cajetín debajo)
+    const kf = o.papel === 'A3' ? 1 : 0.88, fz = v => v * kf;
+    const sy = m + mapH, iw = pw - 2 * m;
+    const cajH = vert ? (o.papel === 'A4' ? 34 : 36) : strip, topH = strip - (vert ? cajH : 0);
+    const cw = vert ? iw : (o.papel === 'A4' ? 112 : 155), Sw = vert ? Math.min(78, iw * 0.38) : (o.papel === 'A4' ? 68 : 95), Lw = (vert ? iw : iw - cw) - Sw;
+    const lx0 = m + 3, ly = sy + 4.5, sx0 = m + Lw + 2;
+    if (vert) page.drawLine({ start: { x: X(m), y: Y(sy + topH) }, end: { x: X(m + iw), y: Y(sy + topH) }, thickness: 0.8, color: ink });
+    page.drawLine({ start: { x: X(m + Lw), y: Y(sy) }, end: { x: X(m + Lw), y: Y(sy + topH) }, thickness: 0.5, color: ink });
     // Leyenda
-    const ly = m + mapH + 4; let lx = m + 3;
-    txt('LEYENDA', lx, ly + 3, 7, FB);
+    txt('LEYENDA', lx0, ly, fz(7), FB);
     const leg = [
-      ['sq', acc, 'Apoyo nuevo (A)'], ['line', acc, 'Línea nueva: ' + shortCable(S.cables.find(x => x.id === S.proj.cableId)?.designacion || '')],
+      ['sq', acc, 'Apoyo nuevo (A)'], ['line', acc, 'Línea nueva: ' + txtCable(S.cables.find(x => x.id === S.proj.cableId))],
       ['circ', exi, 'Apoyo existente'], ['dash', exi, 'Tramo baja existente'], ['circ', acc, 'Apoyo de entronque']];
     if (exDC().length) leg.push(['diam', rgb(0.478, 0.243, 0.561), 'Punto D-C (CUPS, caracteres 12-18)']);
     if (S.proj.sum?.cgp?.x != null) leg.push(['rect', rgb(0.702, 0.212, 0.173), 'CGP del cliente']);
     if (subHasData()) { const sv = SUB(); if (sv.lineas.some(l => l.estado === 'nuevo')) leg.push(['dash', rgb(0.761, 0.255, 0.047), 'Línea subterránea nueva']); if (sv.lineas.some(l => l.estado !== 'nuevo')) leg.push(['dash', exi, 'Línea subterránea existente']); if (sv.zanjas.length) leg.push(['line', rgb(0.604, 0.396, 0.149), 'Zanja (cuadros: arquetas)']); }
-    const lstep = leg.length > 5 ? 4.0 : 4.6;
+    const lstep = fz(3.9), perCol = Math.max(1, Math.floor((topH - 9) / lstep)), ncol = Math.ceil(leg.length / perCol), colLw = (Lw - 6) / ncol;
     leg.forEach((it, k) => {
-      const cols = leg.length > 6 ? 2 : 1, kk = k % Math.ceil(leg.length / cols), lx = m + 3 + Math.floor(k / Math.ceil(leg.length / cols)) * 39;
-      const yy = ly + 8 + kk * lstep, [kind, colr, label] = it;
+      const lx = lx0 + Math.floor(k / perCol) * colLw, yy = ly + 5 + (k % perCol) * lstep, [kind, colr, label] = it;
       if (kind === 'diam') page.drawRectangle({ x: X(lx + 1.2), y: Y(yy + 1.5), width: X(2), height: X(2), color: colr, rotate: PDFLib.degrees(45) });
       if (kind === 'rect') page.drawRectangle({ x: X(lx - 0.3), y: Y(yy + 0.9), width: X(3.2), height: X(2.1), color: colr });
       if (kind === 'sq') page.drawRectangle({ x: X(lx), y: Y(yy + 1), width: X(2.4), height: X(2.4), color: rgb(0.184, 0.49, 0.31) });
       if (kind === 'circ') page.drawCircle({ x: X(lx + 1.2), y: Y(yy - 0.2), size: X(1.2), color: colr });
       if (kind === 'line') page.drawLine({ start: { x: X(lx - 0.5), y: Y(yy - 0.2) }, end: { x: X(lx + 3), y: Y(yy - 0.2) }, thickness: 1.6, color: colr });
       if (kind === 'dash') page.drawLine({ start: { x: X(lx - 0.5), y: Y(yy - 0.2) }, end: { x: X(lx + 3), y: Y(yy - 0.2) }, thickness: 1.6, color: colr, dashArray: [3, 2] });
-      txt(fit(label, leg.length > 6 ? 33 : 70, 6.5), lx + 5, yy + 0.8, 6.5);
+      txt(fit(label, colLw - 7, fz(6.3)), lx + 5, yy + 0.8, fz(6.3));
     });
-    // Barra de escala
-    const bx = m + 82, by = ly + 12, step = niceStep(N * 0.03), segMm = step * 1000 / N;
-    txt('ESCALA 1:' + N.toLocaleString('es-ES'), bx, ly + 3, 7, FB);
-    for (let k = 0; k < 4; k++) page.drawRectangle({ x: X(bx + k * segMm), y: Y(by + 1.5), width: X(segMm), height: X(1.5), color: k % 2 ? rgb(1, 1, 1) : ink, borderColor: ink, borderWidth: 0.4 });
-    for (let k = 0; k <= 4; k += 2) txt(fmt(step * k) + (k === 4 ? ' m' : ''), bx + k * segMm - 1, by + 5.5, 6);
-    txt(S.proj.zone ? `Sistema de referencia: ETRS89 · UTM huso ${S.proj.zone}N (EPSG:258${S.proj.zone})` : 'Coordenadas locales (sin georreferenciar)', bx, by + 10, 6, F, mut);
-    if (res?.fondoOmitido) txt('Fondo no incluido: el servidor de la imagen no permite copiarla al PDF.', bx, by + 14, 6, F, rgb(0.65, 0.42, 0));
+    // Barra de escala (4 tramos que caben en su recuadro)
+    const maxStep = (Sw - 10) / 4 * N / 1000; let step = 1; for (const e of [1e4, 5e3, 2e3, 1e3, 500, 200, 100, 50, 20, 10, 5, 2, 1, 0.5, 0.2, 0.1]) if (e <= maxStep) { step = e; break; }
+    const segMm = step * 1000 / N, by = ly + 7;
+    txt('ESCALA 1:' + N.toLocaleString('es-ES'), sx0, ly, fz(7), FB);
+    for (let k = 0; k < 4; k++) page.drawRectangle({ x: X(sx0 + k * segMm), y: Y(by + 1.5), width: X(segMm), height: X(1.5), color: k % 2 ? rgb(1, 1, 1) : ink, borderColor: ink, borderWidth: 0.4 });
+    for (let k = 0; k <= 4; k += 2) { const s = fmt(step * k) + (k === 4 ? ' m' : ''), w = F.widthOfTextAtSize(pdfTxt(s), fz(6)) / MM; txt(s, Math.min(sx0 + k * segMm - (k ? w / 2 : 0), sx0 + Sw - 4 - w), by + 5, fz(6)); }
+    let ry = by + 9;
+    const ref = S.proj.zone ? `ETRS89 · UTM huso ${S.proj.zone}N (EPSG:258${S.proj.zone})` : 'Coordenadas locales (sin georreferenciar)';
+    txt(fit(ref, Sw - 4, fz(5.8)), sx0, ry, fz(5.8), F, mut); ry += fz(3.4);
+    if (res?.fondoOmitido && ry < sy + topH - 1) txt(fit('Fondo no incluido (el servidor no permite copiarlo).', Sw - 4, fz(5.5)), sx0, ry, fz(5.5), F, rgb(0.65, 0.42, 0));
     // Cajetín
-    const cw = o.papel === 'A4' ? 120 : 150, cxp = pw - m - cw, cyp = m + mapH, ch = strip;
+    const cxp = vert ? m : pw - m - cw, cyp = vert ? sy + topH : sy, ch = cajH;
     rect(cxp, cyp, cw, ch, { borderWidth: 0.8 });
     const row = (y) => page.drawLine({ start: { x: X(cxp), y: Y(y) }, end: { x: X(cxp + cw), y: Y(y) }, thickness: 0.5, color: ink });
-    txt(fit(o.titulo, cw - 4, 9, FB), cxp + 2, cyp + 6, 9, FB);
-    txt(fit(S.proj.nombre || 'Proyecto sin nombre', cw - 4, 8), cxp + 2, cyp + 11, 8);
-    row(cyp + 13.5);
-    const cab = S.cables.find(x => x.id === S.proj.cableId);
-    const cells = [['Cable', cab ? cab.designacion : '—'], ['Zona', S.proj.ctx.zona], ['Escala', '1:' + N.toLocaleString('es-ES')], ['Formato', o.papel], ['Fecha', new Date().toLocaleDateString('es-ES')], ['Autor', o.autor || '—']];
-    const colW = cw / 2;
-    cells.forEach(([k, v], i) => { const cxx = cxp + 2 + (i % 2) * colW, cyy = cyp + 18 + Math.floor(i / 2) * 7.5; txt(k.toUpperCase(), cxx, cyy, 5.5, FB, mut); txt(fit(v, colW - 4, 7.5), cxx, cyy + 3.6, 7.5); });
-    page.drawLine({ start: { x: X(cxp + colW), y: Y(cyp + 13.5) }, end: { x: X(cxp + colW), y: Y(cyp + ch) }, thickness: 0.5, color: ink });
-    txt(`Hoja 1 · Cálculo de Apoyos BT v${VERSION} · ITC-BT-06`, cxp + 2, cyp + ch - 1.5, 5.5, F, mut);
+    txt(fit(o.titulo, cw - 4, fz(9), FB), cxp + 2, cyp + fz(5.2), fz(9), FB);
+    txt(fit(S.proj.nombre || 'Proyecto sin nombre', cw - 4, fz(7.5)), cxp + 2, cyp + fz(9.6), fz(7.5));
+    const hdr = fz(11.5); row(cyp + hdr);
+    const cab = S.cables.find(x => x.id === S.proj.cableId), ct = S.proj.ct || {};
+    const cells = [['Cable', txtCable(cab) || '—'], ['Zona', S.proj.ctx.zona], ['Escala', '1:' + N.toLocaleString('es-ES')], ['Formato', o.papel + (vert ? ' vertical' : ' horizontal')], ['Fecha', new Date().toLocaleDateString('es-ES')], ['Autor', o.autor || '—']];
+    if (ct.matricula || ct.potencia) cells.splice(1, 0, ['CT de origen', [ct.matricula, ct.potencia ? ct.potencia + ' kVA' : '', ct.tensionAT ? String(ct.tensionAT).replace('.', ',') + ' kV' : '', ct.tension ? ct.tension + ' V' : ''].filter(Boolean).join(' · ')]);
+    const foot = fz(3.2), ncl = cw >= 150 ? 4 : 3, nrw = Math.ceil(cells.length / ncl), colW = cw / ncl, cellH = (ch - hdr - foot - 1) / nrw;
+    const ks = Math.min(fz(5.3), cellH * 0.62), vs = Math.min(fz(7.2), cellH * 0.85);
+    cells.forEach(([k, v], i) => { const cxx = cxp + 2 + (i % ncl) * colW, cyy = cyp + hdr + 0.6 + Math.floor(i / ncl) * cellH + ks * 0.42; txt(k.toUpperCase(), cxx, cyy, ks, FB, mut); txt(fit(v, colW - 4, vs), cxx, cyy + Math.min(cellH * 0.5, vs * 0.45 + 1.4), vs); });
+    for (let k = 1; k < ncl; k++) page.drawLine({ start: { x: X(cxp + k * colW), y: Y(cyp + hdr) }, end: { x: X(cxp + k * colW), y: Y(cyp + ch - foot - 0.5) }, thickness: 0.5, color: ink });
+    row(cyp + ch - foot - 0.5);
+    txt(fit(`Hoja 1 · Cálculo de Apoyos BT v${VERSION} · ITC-BT-06 / ITC-BT-07`, cw - 4, fz(5.2)), cxp + 2, cyp + ch - 0.9, fz(5.2), F, mut);
     // Hoja 2: relación de apoyos
     if (c) {
       const cols = [['Apoyo', 14], ['Nombre', 30], ['Función', 30], ['Modelo', 26], ['Util. %', 13], ['Estado', 32], ['Cota (m)', 15], [S.proj.zone ? 'X UTM' : 'X (m)', 24], [S.proj.zone ? 'Y UTM' : 'Y (m)', 25]];
@@ -2084,7 +2127,7 @@ function bindProjects() {
 
 /* ---------- Bases editables ---------- */
 const POLE_COLS = [['tipo', 'Tipo', 'text'], ['En', 'Nominal'], ['Es', 'Secund.'], ['altura', 'Altura (m)'], ['cogA', 'Cogolla A'], ['cogB', 'Cogolla B'], ['conA', 'Conic. A'], ['conB', 'Conic. B'], ['empFlojo', 'Emp. flojo'], ['empNormal', 'Emp. normal'], ['empFuerte', 'Emp. fuerte'], ['cimA', 'Cim. A (m)'], ['pesoKg', 'Peso (kg)'], ['coste', 'Coste (€)'], ['venta', 'Venta (€)']];
-const CABLE_COLS = [['designacion', 'Designación', 'text'], ['secFase', 'Secc. fase'], ['diamHaz', 'Ø haz (mm)'], ['diamFase', 'Ø fase (mm)'], ['pesoKgKm', 'Peso (kg/km)'], ['secFiador', 'Secc. fiador'], ['roturaFiador', 'Rotura (daN)'], ['moduloE', 'E (daN/mm²)'], ['alpha', 'α (10⁻⁶/°C)'], ['coste', 'Coste (€/m)'], ['venta', 'Venta (€/m)']];
+const CABLE_COLS = [['designacion', 'Designación', 'text'], ['secFase', 'Secc. fase'], ['fases', 'Fases (1/2/3)'], ['Imax', 'I máx. (A)'], ['R20', 'R fase 20 °C (Ω/km)'], ['Rn20', 'R neutro 20 °C (Ω/km)'], ['X', 'X (Ω/km)'], ['diamHaz', 'Ø haz (mm)'], ['diamFase', 'Ø fase (mm)'], ['pesoKgKm', 'Peso (kg/km)'], ['secFiador', 'Secc. fiador'], ['roturaFiador', 'Rotura (daN)'], ['moduloE', 'E (daN/mm²)'], ['alpha', 'α (10⁻⁶/°C)'], ['coste', 'Coste (€/m)'], ['venta', 'Venta (€/m)']];
 function dbTable(sel, rows, cols, coll) {
   const t = $(sel);
   if (!rows.length) { t.innerHTML = `<tbody><tr><td class="empty">${S.db ? 'La base está vacía. Añade el primer elemento.' : 'Cargando la base…'}</td></tr></tbody>`; return; }
@@ -2133,7 +2176,7 @@ function start() {
   if (!LOCAL) $('#ver').textContent = 'v' + VERSION;
   loadForm(); bindForm(); bindRows(); bindMap(); bindProjects(); bindDbTables(); bindPrecios(); bindTabs();
   $('#kmlFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importFile(f, 'nuevo'); e.target.value = ''; });
-  bindEntronque(); bindCoordForm(); bindPerfilAuto(); bindSub(); bindSubBases(); renderSubBases(); bindSum(); renderSum();
+  bindEntronque(); bindCoordForm(); bindPerfilAuto(); bindSub(); bindSubBases(); renderSubBases(); bindSum(); renderSum(); bindDetail(); bindWizard(); bindAerAuto();
   $('#perfilFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importFile(f, 'perfil'); e.target.value = ''; });
   $('#exportZip').onclick = exportZip;
   $('#exportNote').textContent = 'Incluye DXF en ETRS89 UTM con la línea nueva y la existente, KML, GeoJSON, los fondos cargados con su archivo de mundo, tabla CSV y anexo de cálculo.';

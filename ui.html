@@ -26,7 +26,7 @@
   --map:#161c1f; --grid:#232c30; --exist:#b9b3a8; --dc:#c493d6; --sub:#f08a4b; --zanja:#d3a265; color-scheme:dark }
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45}
-.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 32px;max-width:1500px;margin:0 auto}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 32px;max-width:2400px;margin:0 auto}
 header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;padding-block:18px 12px;border-bottom:2px solid var(--ink)}
 h1{font-family:var(--f-display);font-weight:700;font-size:1.75rem;letter-spacing:.01em;margin:0;line-height:1.05;text-wrap:balance}
 h1 small{display:block;font-family:var(--f-body);font-weight:500;font-size:.8rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}
@@ -38,6 +38,24 @@ nav.tabs button:focus-visible,button:focus-visible,input:focus-visible,select:fo
 .grid{display:grid;grid-template-columns:minmax(0,520px) minmax(0,1fr);gap:16px;margin-top:16px;align-items:start}
 @media (max-width:980px){.grid{grid-template-columns:minmax(0,1fr)}}
 .col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;margin-top:16px;align-items:start}
+.leftcol{gap:16px}
+.rightcol{position:sticky;top:8px;height:calc(100vh - 16px);display:grid;grid-template-rows:minmax(0,1fr) minmax(0,1fr);gap:12px;min-width:0}
+.rightcol>.card{margin:0;min-height:0}
+#planoCard{display:flex;flex-direction:column;padding:12px 14px}
+#planoCard h2{margin-bottom:6px}
+#planoCard .mapbox{flex:1;min-height:160px;display:flex}
+#planoCard canvas#map{height:100%;flex:1;min-height:0}
+#planoCard #edHint{font-size:.78rem}
+#detailCard{overflow:auto}
+#planoCard #exportNote{display:none}
+#detailBody .fields{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.dsec{border-top:1px solid var(--line);margin-top:10px;padding-top:8px}
+.kv td{padding:2px 8px 2px 0;border:none;vertical-align:top}
+ol.wiz{margin:6px 0 0;padding-left:0;list-style:none;display:grid;gap:8px} ol.wiz li{border-left:3px solid var(--line);padding:4px 10px} ol.wiz li.cur{border-color:var(--warn)} ol.wiz li.done{border-color:var(--ok);opacity:.8}
+.dsec h4{margin:0 0 6px;font:600 .8rem var(--f-body);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+@media (max-width:1100px){.split{grid-template-columns:minmax(0,1fr)}.rightcol{position:static;height:auto;grid-template-rows:auto auto;order:-1}#planoCard canvas#map{height:60vh}#planoCard .mapbox{flex:none}}
+
 section.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px 16px;min-width:0}
 section.card h2{font:700 1.05rem var(--f-display);letter-spacing:.03em;text-transform:uppercase;margin:0 0 10px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
 .fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}
@@ -151,7 +169,7 @@ a.btn{text-decoration:none;display:inline-block}
       <label class="btn small" for="impProjFile">Abrir archivo</label><input id="impProjFile" type="file" accept=".json" hidden>
       <button class="btn small" id="expBases" type="button" hidden>Exportar bases</button>
       <button class="btn small" id="foldAll" type="button">Minimizar / desplegar todo</button>
-      <div class="ver" id="ver">v1.23.0</div>
+      <div class="ver" id="ver">v1.24.0</div>
     </div>
   </header>
   <nav class="tabs" role="tablist">
@@ -165,7 +183,9 @@ a.btn{text-decoration:none;display:inline-block}
 
   <!-- ============ PROYECTO ============ -->
   <div id="tab-calc">
-        <section class="card wide" id="datosCard">
+    <div class="split">
+      <div class="leftcol col">
+        <section class="card" id="datosCard">
           <h2>Datos de la línea</h2>
           <div class="fields hfields">
             <label class="f w2">Nombre del proyecto<input id="p_nombre" type="text"></label>
@@ -187,40 +207,6 @@ a.btn{text-decoration:none;display:inline-block}
           <div id="sumBox"></div>
         </section>
 
-        <section class="card wide" id="planoCard">
-          <h2>Plano del trazado <span class="note" id="mapInfo"></span></h2>
-          <div class="edbar row" id="edBar" role="toolbar" aria-label="Edición del plano">
-            <button class="btn small" data-tool="pan" aria-pressed="true">Navegar</button>
-            <button class="btn small" data-tool="move" aria-pressed="false">Mover</button>
-            <button class="btn small" data-tool="insert" aria-pressed="false">Insertar</button>
-            <button class="btn small" data-tool="delete" aria-pressed="false">Borrar</button>
-            <button class="btn small" data-tool="text" aria-pressed="false">Editar texto</button>
-            <label class="chk note">Capa <select id="edLayer"><option value="nuevo">Apoyos nuevos</option><option value="exApoyos">Apoyos existentes</option><option value="exLineas">Tramos baja existentes</option><option value="exDC">Puntos D-C</option><option value="ruta">Ruta del trazado</option><option value="subNueva">Líneas subterráneas nuevas</option><option value="subEx">Líneas subterráneas existentes</option><option value="zanjaNueva">Zanjas nuevas</option><option value="zanjaEx">Zanjas existentes</option></select></label>
-            <button class="btn small" id="edUndo" disabled title="Ctrl+Z">Deshacer</button>
-            <button class="btn small" id="capasBtn" aria-expanded="false" aria-controls="capasPanel">Capas</button>
-          </div>
-          <p class="note" id="edHint" style="margin:4px 0 8px"></p>
-          <div class="mapbox">
-            <div id="capasPanel" class="capas" hidden></div>
-            <canvas id="map" aria-label="Plano con la línea existente, el trazado nuevo y los apoyos numerados"></canvas>
-            <div class="zoom"><button class="btn small" id="zIn" aria-label="Acercar">+</button><button class="btn small" id="zOut" aria-label="Alejar">−</button><button class="btn small" id="zFit" aria-label="Encajar el trazado" title="Encajar">⤢</button></div>
-          </div>
-          <div id="ptEdit" class="exist" hidden></div>
-          <div class="row" style="margin-top:8px;justify-content:space-between">
-            <span class="note">Cuadros: apoyos nuevos (verde válido · ámbar existente a sustituir · rojo sin apoyo válido). Círculos discontinuos: línea existente. Arrastra para mover, rueda para zoom.</span>
-            <span class="row"><button class="btn" id="exportPdf">Descargar plano (PDF)</button><button class="btn primary" id="exportZip">Exportar para Catastro (ZIP)</button></span>
-          </div>
-          <p class="note" id="exportNote" style="margin-top:6px"></p>
-          <details style="margin-top:6px"><summary class="note">Opciones del plano en PDF</summary><div id="pdfOpts" style="margin-top:8px"></div></details>
-        </section>
-
-        <section class="card wide" id="subCard">
-          <h2>Red subterránea · ITC-BT-07</h2>
-          <div id="subBody"></div>
-        </section>
-
-    <div class="grid">
-      <div class="col">
         <section class="card">
           <h2>Red existente y entronque</h2>
           <div class="row" style="margin-bottom:8px">
@@ -271,10 +257,10 @@ a.btn{text-decoration:none;display:inline-block}
           </div>
           <p class="note">Desvío positivo: giro a la derecha en el sentido de avance. Marca «Cruce» en el vano que llega al apoyo si cruza carretera o ferrocarril. «Vano calc.» es la distancia medida en el plano; escribe otra en «Vano manual» para usarla en el cálculo y el presupuesto (vacío: la calculada).</p>
         </section>
-
-      </div>
-
-      <div class="col">
+        <section class="card" id="subCard">
+          <h2>Red subterránea · ITC-BT-07</h2>
+          <div id="subBody"></div>
+        </section>
         <section class="card">
           <h2>Perfil longitudinal <span class="note" id="perfilNote"></span></h2>
           <canvas id="perfil" aria-label="Perfil longitudinal del terreno con apoyos y catenaria a flecha máxima"></canvas>
@@ -312,6 +298,38 @@ a.btn{text-decoration:none;display:inline-block}
           <div class="tablewrap"><table id="budTable"></table></div>
         </section>
       </div>
+      <div class="rightcol">
+        <section class="card" id="planoCard">
+          <h2>Plano del trazado <span class="note" id="mapInfo"></span></h2>
+          <div class="edbar row" id="edBar" role="toolbar" aria-label="Edición del plano">
+            <button class="btn small" data-tool="pan" aria-pressed="true">Navegar</button>
+            <button class="btn small" data-tool="move" aria-pressed="false">Mover</button>
+            <button class="btn small" data-tool="insert" aria-pressed="false">Insertar</button>
+            <button class="btn small" data-tool="delete" aria-pressed="false">Borrar</button>
+            <button class="btn small" data-tool="text" aria-pressed="false">Editar texto</button>
+            <label class="chk note">Capa <select id="edLayer"><option value="nuevo">Apoyos nuevos</option><option value="exApoyos">Apoyos existentes</option><option value="exLineas">Tramos baja existentes</option><option value="exDC">Puntos D-C</option><option value="ruta">Ruta del trazado</option><option value="subNueva">Líneas subterráneas nuevas</option><option value="subEx">Líneas subterráneas existentes</option><option value="zanjaNueva">Zanjas nuevas</option><option value="zanjaEx">Zanjas existentes</option></select></label>
+            <button class="btn small" id="edUndo" disabled title="Ctrl+Z">Deshacer</button>
+            <button class="btn small" id="capasBtn" aria-expanded="false" aria-controls="capasPanel">Capas</button>
+          </div>
+          <p class="note" id="edHint" style="margin:4px 0 8px"></p>
+          <div class="mapbox">
+            <div id="capasPanel" class="capas" hidden></div>
+            <canvas id="map" aria-label="Plano con la línea existente, el trazado nuevo y los apoyos numerados"></canvas>
+            <div class="zoom"><button class="btn small" id="zIn" aria-label="Acercar">+</button><button class="btn small" id="zOut" aria-label="Alejar">−</button><button class="btn small" id="zFit" aria-label="Encajar el trazado" title="Encajar">⤢</button></div>
+          </div>
+          <div class="row" style="margin-top:8px;justify-content:space-between">
+            <span class="note" title="Cuadros: apoyos nuevos (verde válido · ámbar existente a sustituir · rojo sin apoyo válido). Círculos discontinuos: línea existente. Arrastra para mover, rueda para zoom.">Arrastra para mover · rueda para zoom</span>
+            <span class="row"><button class="btn" id="exportPdf">Descargar plano (PDF)</button><button class="btn primary" id="exportZip">Exportar para Catastro (ZIP)</button></span>
+          </div>
+          <p class="note" id="exportNote" style="margin-top:6px"></p>
+          <details style="margin-top:6px"><summary class="note">Opciones del plano en PDF</summary><div id="pdfOpts" style="margin-top:8px"></div></details>
+        </section>
+        <section class="card" id="detailCard">
+          <h2>Elemento seleccionado <span class="note" id="detailInfo"></span></h2>
+          <div id="ptEdit" class="exist" hidden></div>
+          <div id="detailBody"><p class="note">Pulsa en el plano un apoyo, un tramo, una línea subterránea, una zanja, un punto D-C o la CGP para ver y editar todos sus datos y sus textos.</p></div>
+        </section>
+      </div>
     </div>
   </div>
 
@@ -328,7 +346,7 @@ a.btn{text-decoration:none;display:inline-block}
   <div id="tab-cables" hidden>
     <section class="card" style="margin-top:16px">
       <h2>Base de cables trenzados <span class="row"><button class="btn small" id="addCable">Añadir cable</button></span></h2>
-      <p class="note">Cables RZ 0,6/1 kV con neutro fiador de Almelec (UNE 21030-1). El tense lo soporta el fiador: sección, carga de rotura y módulo son los del fiador. Diámetro del haz para viento; diámetro del conductor de fase para hielo (2,5 × d).</p>
+      <p class="note">Cables RZ 0,6/1 kV con neutro fiador de Almelec (UNE 21030-1) y sin neutro fiador (tensados con fiador de acero). El tense lo soporta el fiador: sección, carga de rotura y módulo son los del fiador; en los cables con fiador de acero se ha puesto la rotura mínima del ITC-BT-06 (800 daN): ajústala a la del fiador que uses. «I máx.» es la del ITC-BT-06 (tabla 3 con neutro fiador; tabla 4, columna «tendida con fiador de acero», sin él) a 40 °C. Fases: 1 = fase y neutro (monofásico), 2 = dos fases y neutro, 3 = trifásico. R y X para la caída de tensión. Diámetro del haz para viento; diámetro del conductor de fase para hielo (2,5 × d).</p>
       <div class="tablewrap dbtable" style="margin-top:8px"><table id="cableTable"></table></div>
     </section>
   </div>

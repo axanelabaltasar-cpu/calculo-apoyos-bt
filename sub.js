@@ -304,7 +304,7 @@ function drawSub(D) {
       g.lineWidth = Math.max(7, (Number(z.ancho) || 0.4) * sc); g.stroke(); g.globalAlpha = 1;
       path(z.pts); g.strokeStyle = col(zr?.est === 'bad' ? '--bad' : z.estado === 'nuevo' ? '--zanja' : '--exist'); g.lineWidth = 1; g.setLineDash([3, 3]); g.stroke(); g.setLineDash([]); g.lineCap = 'butt';
       if (vis('zanjaTxt')) { const ls = longestSeg(z.pts); const t = subTubo(z.tuboId);
-        const txt = `${z.nombre} · ${z.entubada ? `${z.nTubos}T${t ? t.dExt : ''}` : 'sin tubo'} · ${(ZANJA_TIPOS[z.tipo]?.n || '').toLowerCase()} ${fmt(z.prof, 2)} m${zr ? ` · ${fmt(zr.L, 1)} m` : ''}`;
+        const txt = z.txt || `${z.nombre} · ${z.entubada ? `${z.nTubos}T${t ? t.dExt : ''}` : 'sin tubo'} · ${(ZANJA_TIPOS[z.tipo]?.n || '').toLowerCase()} ${fmt(z.prof, 2)} m${zr ? ` · ${fmt(zr.L, 1)} m` : ''}`;
         if (ls.i >= 0) alongText(txt, z.pts[ls.i], z.pts[ls.i + 1], 1, '600 10px ' + col('--f-body'), col(z.estado === 'nuevo' ? '--zanja' : '--exist')); }
       if (vis('arquetas') && zr && z.estado === 'nuevo') zr.arq.filter(a => a.x != null).forEach(a => { const [x, y] = P(a); g.fillStyle = col('--panel'); g.strokeStyle = col('--zanja'); g.lineWidth = 1.5; g.fillRect(x - 4, y - 4, 8, 8); g.strokeRect(x - 4, y - 4, 8, 8); });
     }
@@ -317,7 +317,7 @@ function drawSub(D) {
     if (l.pts.length > 1) {
       path(l.pts); g.strokeStyle = col(lr?.est === 'bad' ? '--bad' : l.estado === 'nuevo' ? '--sub' : '--exist'); g.lineWidth = l.estado === 'nuevo' ? 2.5 : 2; g.setLineDash([12, 4, 2, 4]); g.stroke(); g.setLineDash([]);
       if (vis('subTxt')) { const ls = longestSeg(l.pts); const c = cabOf(l);
-        const txt = l.nombre + (c ? ' · ' + c.designacion.replace(/^XZ1 \(S\) 0,6\/1 kV /, '') : '') + (lr ? ' · ' + instalTxt(lr.entub) + ` · ${fmt(lr.L, 1)} m` : '');
+        const txt = l.txt || l.nombre + (c ? ' · ' + c.designacion.replace(/^XZ1 \(S\) 0,6\/1 kV /, '') : '') + (lr ? ' · ' + instalTxt(lr.entub) + ` · ${fmt(lr.L, 1)} m` : '');
         if (ls.i >= 0) alongText(txt, l.pts[ls.i], l.pts[ls.i + 1], -1, 'italic 600 11px ' + col('--f-body'), col(l.estado === 'nuevo' ? '--sub' : '--exist')); }
     } else { const [x, y] = P(l.pts[0]); g.fillStyle = col('--sub'); g.beginPath(); g.arc(x, y, 3, 0, 2 * Math.PI); g.fill(); }
     if (screen && tool !== 'pan' && L === lay) l.pts.forEach((n, i) => { const [x, y] = P(n); vtx(x, y, S.selPt?.layer === lay && S.selPt.li === subObjs(lay).indexOf(l) && S.selPt.i === i); });
@@ -466,14 +466,16 @@ function bindSubBases() {
 /* Suscripción a las bases nuevas; si están vacías la primera vez, se cargan los valores por defecto */
 function initSubDb(db) {
   // Carga una sola vez cada elemento de las bases por defecto que falte (registro en config/subSeed: lo que borres no vuelve)
-  let cfg = null; const got = { c: false, t: false };
+  let cfg = null; const got = { c: false, t: false, a: false }; let aer = [];
   const trySeed = async () => {
-    if (cfg === null || !got.c || !got.t || S.subSeeding) return; S.subSeeding = true;
+    if (cfg === null || !got.c || !got.t || !got.a || S.subSeeding) return; S.subSeeding = true;
     const hechos = new Set(cfg.ids || []), nuevos = [];
-    for (const [coll, arr, have] of [['cablesSub', SUB_DEF_CABLES, S.cablesSub], ['tubos', SUB_DEF_TUBOS, S.tubos]])
+    for (const c of aer) { const d = AER_ELEC_DEF[c.id]; if (d && !(Number(c.Imax) > 0) && !hechos.has('fill/' + c.id)) { nuevos.push('fill/' + c.id); try { await db.doc('cables/' + c.id).update({ ...d, fiador: 'almelec' }); } catch (e) { } } }
+    for (const [coll, arr, have] of [['cablesSub', SUB_DEF_CABLES, S.cablesSub], ['tubos', SUB_DEF_TUBOS, S.tubos], ['cables', AER_NEW, aer]])
       for (const o of arr) { const key = coll + '/' + o.id; if (hechos.has(key)) continue; nuevos.push(key); if (!have.some(x => x.id === o.id)) { const { id, ...v } = o; try { await db.doc(key).set(v); } catch (e) { } } }
     if (nuevos.length) try { await db.doc('config/subSeed').set({ ids: [...hechos, ...nuevos] }); } catch (e) { }
   };
+  db.collection('cables').onSnapshot(qs => { aer = qs.docs.map(d => ({ id: d.id, ...d.data() })); got.a = true; trySeed(); }, () => { });
   db.doc('config/subSeed').onSnapshot(d => { cfg = d.data() || {}; trySeed(); }, () => { cfg = cfg || {}; });
   db.collection('cablesSub').onSnapshot(qs => { S.cablesSub = qs.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden || 0) - (b.orden || 0)); got.c = true; S.subLoaded.c = true; trySeed(); renderSubBases(); renderSub(); drawMap(); }, () => { });
   db.collection('tubos').onSnapshot(qs => { S.tubos = qs.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden || 0) - (b.orden || 0)); got.t = true; S.subLoaded.t = true; trySeed(); renderSubBases(); renderSub(); drawMap(); }, () => { });
@@ -484,16 +486,16 @@ CAPAS.push(['grupo', 'Suministro'], ['cgp', 'CGP del cliente'], ['grupo', 'Red s
 /* ---------- Exportación ---------- */
 function subDxfLayers() { return [['BT_CGP', 1], ['BT_SUB_NUEVA', 6], ['BT_SUB_EXISTENTE', 8], ['BT_ZANJA_NUEVA', 40], ['BT_ZANJA_EXISTENTE', 9], ['BT_ARQUETAS', 40], ['BT_TEXTO_SUB', 6], ['BT_TEXTO_ZANJAS', 40]]; }
 function subDxf(p, f3) {
-  { const c = S.proj.sum?.cgp; if (c?.x != null) { p(0, 'LWPOLYLINE', 8, 'BT_CGP', 90, 4, 70, 1, 10, f3(c.x - 0.4), 20, f3(c.y - 0.25), 10, f3(c.x + 0.4), 20, f3(c.y - 0.25), 10, f3(c.x + 0.4), 20, f3(c.y + 0.25), 10, f3(c.x - 0.4), 20, f3(c.y + 0.25)); p(0, 'TEXT', 8, 'BT_CGP', 10, f3(c.x + 0.6), 20, f3(c.y + 0.3), 30, 0, 40, 0.9, 1, ascii('CGP ' + cgpTipoTxt(c.tipo) + (c.desc ? ' - ' + c.desc : ''))); } }
+  { const c = S.proj.sum?.cgp; if (c?.x != null) { p(0, 'LWPOLYLINE', 8, 'BT_CGP', 90, 4, 70, 1, 10, f3(c.x - 0.4), 20, f3(c.y - 0.25), 10, f3(c.x + 0.4), 20, f3(c.y - 0.25), 10, f3(c.x + 0.4), 20, f3(c.y + 0.25), 10, f3(c.x - 0.4), 20, f3(c.y + 0.25)); p(0, 'TEXT', 8, 'BT_CGP', 10, f3(c.x + 0.6), 20, f3(c.y + 0.3), 30, 0, 40, 0.9, 1, ascii(c.txt || 'CGP ' + cgpTipoTxt(c.tipo) + (c.desc ? ' - ' + c.desc : ''))); } }
   if (!S.proj.sub) return; const s = SUB(), R = S.subCalc || calcSub();
   const poly = (layer, pts) => { for (let i = 0; i < pts.length - 1; i++) p(0, 'LINE', 8, layer, 10, f3(pts[i].x), 20, f3(pts[i].y), 30, 0, 11, f3(pts[i + 1].x), 21, f3(pts[i + 1].y), 31, 0); };
   const label = (layer, pts, txt, off) => { if (pts.length < 2 || !txt) return; let bi = 0, bl = 0; for (let i = 0; i < pts.length - 1; i++) { const d = Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y); if (d > bl) { bl = d; bi = i; } }
     const A = pts[bi], B = pts[bi + 1]; let an = Math.atan2(B.y - A.y, B.x - A.x) * 180 / Math.PI; if (an > 90) an -= 180; if (an < -90) an += 180; const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2 + off;
     p(0, 'TEXT', 8, layer, 10, f3(mx), 20, f3(my), 30, 0, 40, 0.8, 1, ascii(txt), 50, an.toFixed(2), 72, 1, 11, f3(mx), 21, f3(my), 31, 0); };
   s.zanjas.filter(z => z.pts.length > 1).forEach(z => { const lay = z.estado === 'nuevo' ? 'BT_ZANJA_NUEVA' : 'BT_ZANJA_EXISTENTE'; poly(lay, z.pts); const t = subTubo(z.tuboId);
-    label('BT_TEXTO_ZANJAS', z.pts, `${z.nombre} ${z.entubada ? z.nTubos + 'T' + (t ? t.dExt : '') : 'sin tubo'} ${(ZANJA_TIPOS[z.tipo]?.n || '')} ${String(z.prof).replace('.', ',')} m`, -1.2); });
+    label('BT_TEXTO_ZANJAS', z.pts, z.txt || `${z.nombre} ${z.entubada ? z.nTubos + 'T' + (t ? t.dExt : '') : 'sin tubo'} ${(ZANJA_TIPOS[z.tipo]?.n || '')} ${String(z.prof).replace('.', ',')} m`, -1.2); });
   (R?.zanjas || []).filter(r => r.z.estado === 'nuevo').forEach(r => r.arq.filter(a => a.x != null).forEach(a => { const h = 0.3; p(0, 'LWPOLYLINE', 8, 'BT_ARQUETAS', 90, 4, 70, 1, 10, f3(a.x - h), 20, f3(a.y - h), 10, f3(a.x + h), 20, f3(a.y - h), 10, f3(a.x + h), 20, f3(a.y + h), 10, f3(a.x - h), 20, f3(a.y + h)); }));
-  s.lineas.filter(l => l.pts.length > 1).forEach(l => { poly(l.estado === 'nuevo' ? 'BT_SUB_NUEVA' : 'BT_SUB_EXISTENTE', l.pts); const c = cabOf(l); const lr = R?.lineas.find(q => q.l === l); label('BT_TEXTO_SUB', l.pts, l.nombre + (c ? ' ' + c.designacion : '') + (lr ? ' ' + instalTxt(lr.entub).toUpperCase() : ''), 0.6); });
+  s.lineas.filter(l => l.pts.length > 1).forEach(l => { poly(l.estado === 'nuevo' ? 'BT_SUB_NUEVA' : 'BT_SUB_EXISTENTE', l.pts); const c = cabOf(l); const lr = R?.lineas.find(q => q.l === l); label('BT_TEXTO_SUB', l.pts, l.txt || l.nombre + (c ? ' ' + c.designacion : '') + (lr ? ' ' + instalTxt(lr.entub).toUpperCase() : ''), 0.6); });
 }
 /* DXF solo con la red subterránea (proyectos sin línea aérea) */
 function dxfSubOnly() {
@@ -562,6 +564,9 @@ async function exportZipSub() {
 /* =====================================================================
    SUMINISTRO SOLICITADO Y ELECCIÓN DEL CONDUCTOR (REBT)
    ===================================================================== */
+/* Cables aéreos: datos eléctricos (ITC-BT-06 tablas 3 y 4) y cables sin neutro fiador */
+const AER_ELEC_DEF = {"RZ-1x25Al-54_6Alm": {"fases": 1, "Imax": 110, "R20": 1.2, "Rn20": 0.63, "X": 0.1}, "RZ-1x50Al-54_6Alm": {"fases": 1, "Imax": 165, "R20": 0.641, "Rn20": 0.63, "X": 0.1}, "RZ-2x25Al-54_6Alm": {"fases": 2, "Imax": 100, "R20": 1.2, "Rn20": 0.63, "X": 0.1}, "RZ-3x25Al-54_6Alm": {"fases": 3, "Imax": 100, "R20": 1.2, "Rn20": 0.63, "X": 0.1}, "RZ-3x50Al-54_6Alm": {"fases": 3, "Imax": 150, "R20": 0.641, "Rn20": 0.63, "X": 0.1}, "RZ-3x95Al-54_6Alm": {"fases": 3, "Imax": 230, "R20": 0.32, "Rn20": 0.63, "X": 0.1}, "RZ-3x150Al-80Alm": {"fases": 3, "Imax": 305, "R20": 0.206, "Rn20": 0.43, "X": 0.1}};
+const AER_NEW = [{"id": "RZ-2x16Al-acero", "designacion": "RZ 0,6/1 kV 2x16Al (sin neutro fiador, con fiador de acero)", "secFase": 16, "diamHaz": 15.0, "pesoKgKm": 150, "diamFase": 7.5, "secFiador": 22, "roturaFiador": 800, "moduloE": 17000, "alpha": 11.5, "fases": 1, "Imax": 81, "R20": 1.91, "Rn20": 1.91, "X": 0.1, "fiador": "acero", "coste": 0, "venta": 0, "activo": true, "orden": 10}, {"id": "RZ-2x25Al-acero", "designacion": "RZ 0,6/1 kV 2x25Al (sin neutro fiador, con fiador de acero)", "secFase": 25, "diamHaz": 17.5, "pesoKgKm": 210, "diamFase": 8.7, "secFiador": 22, "roturaFiador": 800, "moduloE": 17000, "alpha": 11.5, "fases": 1, "Imax": 109, "R20": 1.2, "Rn20": 1.2, "X": 0.1, "fiador": "acero", "coste": 0, "venta": 0, "activo": true, "orden": 11}, {"id": "RZ-4x16Al-acero", "designacion": "RZ 0,6/1 kV 4x16Al (sin neutro fiador, con fiador de acero)", "secFase": 16, "diamHaz": 20.5, "pesoKgKm": 290, "diamFase": 7.5, "secFiador": 22, "roturaFiador": 800, "moduloE": 17000, "alpha": 11.5, "fases": 3, "Imax": 72, "R20": 1.91, "Rn20": 1.91, "X": 0.1, "fiador": "acero", "coste": 0, "venta": 0, "activo": true, "orden": 12}, {"id": "RZ-4x25Al-acero", "designacion": "RZ 0,6/1 kV 4x25Al (sin neutro fiador, con fiador de acero)", "secFase": 25, "diamHaz": 24.0, "pesoKgKm": 420, "diamFase": 8.7, "secFiador": 22, "roturaFiador": 800, "moduloE": 17000, "alpha": 11.5, "fases": 3, "Imax": 97, "R20": 1.2, "Rn20": 1.2, "X": 0.1, "fiador": "acero", "coste": 0, "venta": 0, "activo": true, "orden": 13}, {"id": "RZ-4x50Al-acero", "designacion": "RZ 0,6/1 kV 4x50Al (sin neutro fiador, con fiador de acero)", "secFase": 50, "diamHaz": 30.5, "pesoKgKm": 760, "diamFase": 11.2, "secFiador": 22, "roturaFiador": 800, "moduloE": 17000, "alpha": 11.5, "fases": 3, "Imax": 144, "R20": 0.641, "Rn20": 0.641, "X": 0.1, "fiador": "acero", "coste": 0, "venta": 0, "activo": true, "orden": 14}, {"id": "RZ-3x95-50Al-acero", "designacion": "RZ 0,6/1 kV 3x95/50Al (sin neutro fiador, con fiador de acero)", "secFase": 95, "diamHaz": 38.0, "pesoKgKm": 1250, "diamFase": 14.6, "secFiador": 22, "roturaFiador": 800, "moduloE": 17000, "alpha": 11.5, "fases": 3, "Imax": 223, "R20": 0.32, "Rn20": 0.641, "X": 0.1, "fiador": "acero", "coste": 0, "venta": 0, "activo": true, "orden": 15}, {"id": "RZ-3x150-95Al-acero", "designacion": "RZ 0,6/1 kV 3x150/95Al (sin neutro fiador, con fiador de acero)", "secFase": 150, "diamHaz": 46.0, "pesoKgKm": 1900, "diamFase": 17.8, "secFiador": 22, "roturaFiador": 800, "moduloE": 17000, "alpha": 11.5, "fases": 3, "Imax": 301, "R20": 0.206, "Rn20": 0.32, "X": 0.1, "fiador": "acero", "coste": 0, "venta": 0, "activo": true, "orden": 16}];
 const USOS = [['vivienda', 'Vivienda'], ['local', 'Local comercial u oficina'], ['industrial', 'Industrial'], ['agricola', 'Agrícola o ganadero'], ['alumbrado', 'Alumbrado público'], ['recarga', 'Recarga de vehículo eléctrico'], ['obras', 'Suministro de obra o provisional'], ['servicios', 'Servicios comunes de edificio'], ['otros', 'Otros usos']];
 const TENSIONES = [['230', '230 V · monofásica'], ['400', '400 V · trifásica (3x400/230 V)']];
 const SUM_DEF = { pSol: '', tension: '400', uso: 'vivienda', cos: 0.9, pDisp: '', dUcon: 0, dUmax: 5, auto: true };
@@ -573,8 +578,8 @@ const AL_R20 = { 16: 1.91, 25: 1.20, 35: 0.868, 50: 0.641, 70: 0.443, 95: 0.320,
 const ALM_R20 = { 54.6: 0.630, 80: 0.430 };
 function aerElec(c) {
   if (!c) return null;
-  const m = String(c.designacion || '').match(/(\d)\s*x\s*(\d+)\s*Al\s*\/\s*([\d,.]+)/i), n = m ? Number(m[1]) : 3, sec = Number(c.secFase) || (m ? Number(m[2]) : 0), neu = Number(c.secFiador) || (m ? Number(m[3].replace(',', '.')) : 54.6);
-  return { fases: Number(c.fases) || n, sec, Imax: Number(c.Imax) || AER_IMAX[n + 'x' + sec] || 0, R20: Number(c.R20) || AL_R20[sec] || 0, Rn20: Number(c.Rn20) || ALM_R20[neu] || 0.630, X: Number(c.X) || 0.1 };
+  const m = String(c.designacion || '').match(/(\d)\s*x\s*(\d+)\s*(?:\/\s*\d+\s*)?Al\s*\/?\s*([\d,.]+)?/i), n = m ? Number(m[1]) : 3, sec = Number(c.secFase) || (m ? Number(m[2]) : 0), neu = Number(c.secFiador) || (m && m[3] ? Number(m[3].replace(',', '.')) : 54.6), dd = AER_ELEC_DEF[c.id] || {};
+  return { fases: Number(c.fases) || dd.fases || (n === 4 ? 3 : n === 2 ? 1 : n), sec, Imax: Number(c.Imax) || dd.Imax || AER_IMAX[n + 'x' + sec] || 0, R20: Number(c.R20) || dd.R20 || AL_R20[sec] || 0, Rn20: Number(c.Rn20) || dd.Rn20 || ALM_R20[neu] || 0.630, X: Number(c.X) || dd.X || 0.1 };
 }
 function evalAereo(c, L) {
   const sp = sumPar(), e = aerElec(c), ch = [], add = (ok, txt) => ch.push({ ok, txt });
@@ -602,7 +607,7 @@ function autoCableAereo() {
   const nodes = currentNodes(), spans = E.buildGeometry(nodes), L = spans.reduce((t, s) => t + s.a, 0);
   const act = S.cables.filter(c => c.activo !== false && aerElec(c).Imax > 0);
   const fam = sp.tipo === 'mono' ? [...act.filter(c => aerElec(c).fases === 1), ...act.filter(c => aerElec(c).fases >= 3)] : act.filter(c => aerElec(c).fases >= 3);
-  const ord = (a, b) => aerElec(a).sec - aerElec(b).sec || aerElec(a).Imax - aerElec(b).Imax;
+  const ord = (a, b) => aerElec(a).sec - aerElec(b).sec || (a.fiador === 'acero') - (b.fiador === 'acero') || aerElec(a).Imax - aerElec(b).Imax;
   const cand = sp.tipo === 'mono' ? [...fam.filter(c => aerElec(c).fases === 1).sort(ord), ...fam.filter(c => aerElec(c).fases >= 3).sort(ord)] : fam.sort(ord);
   let pick = cand.find(c => evalAereo(c, L).ok), ok = !!pick; if (!pick) pick = cand[cand.length - 1];
   if (!pick) return;
@@ -616,7 +621,8 @@ function elecAereoRes() {
   return r;
 }
 function sumBanners() {
-  const sp = sumPar(), out = [];
+  const sp = sumPar(), out = [], ct = S.proj.ct || {};
+  if (Number(ct.potencia) > 0 && Number(sp.pSol) > 0) { const kva = Number(sp.pSol) / (Number(sp.cos) || 0.9); out.push(kva <= Number(ct.potencia) ? { ok: 'ok', txt: `Potencia aparente solicitada ${fmt(kva, 1)} kVA ≤ ${fmt(ct.potencia)} kVA del CT ${ct.matricula || ''}`.trim() + '.' } : { ok: 'bad', txt: `La potencia aparente solicitada (${fmt(kva, 1)} kVA) supera la potencia del CT ${ct.matricula || ''} (${fmt(ct.potencia)} kVA).` }); }
   if (Number(sp.pDisp) > 0 && Number(sp.pSol) > Number(sp.pDisp)) out.push({ ok: 'bad', txt: `La potencia solicitada (${fmt(sp.pSol, 2)} kW) supera la potencia disponible en el punto de conexión (${fmt(sp.pDisp, 2)} kW).` });
   else if (Number(sp.pDisp) > 0 && Number(sp.pSol) > 0) out.push({ ok: 'ok', txt: `Potencia solicitada ${fmt(sp.pSol, 2)} kW ≤ disponible en el punto de conexión ${fmt(sp.pDisp, 2)} kW.` });
   return out;
@@ -624,7 +630,14 @@ function sumBanners() {
 function renderSum() {
   const box = $('#sumBox'); if (!box) return; if (box.contains(document.activeElement) && document.activeElement.matches('input')) return renderSumRes();
   const sp = sumPar();
-  box.innerHTML = `<h3 class="sub">Suministro solicitado</h3><div class="fields hfields">
+  const ct = S.proj.ct || (S.proj.ct = { matricula: '', potencia: '', tensionAT: '', tension: 400 });
+  box.innerHTML = `<h3 class="sub">Centro de transformación de origen</h3><div class="fields hfields">
+    <label class="f">Matrícula del CT<input type="text" data-ct="matricula" value="${esc(ct.matricula || '')}" placeholder="p. ej. CT-12345"></label>
+    <label class="f">Potencia (kVA)<input class="num" type="number" step="1" min="0" data-ct="potencia" value="${ct.potencia ?? ''}"></label>
+    <label class="f">Tensión primaria (kV)<input class="num" type="number" step="0.1" min="0" data-ct="tensionAT" value="${ct.tensionAT ?? ''}"></label>
+    <label class="f">Tensión secundaria (V)<input class="num" type="number" step="1" min="0" data-ct="tension" value="${ct.tension ?? ''}"></label>
+  </div>
+  <h3 class="sub">Suministro solicitado</h3><div class="fields hfields">
     <label class="f">Potencia solicitada (kW)<input class="num" type="number" step="0.01" min="0" data-s="pSol" value="${sp.pSol}"></label>
     <label class="f">Tensión solicitada<select data-s="tension">${TENSIONES.map(([v, t]) => `<option value="${v}" ${String(sp.tension) === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
     <label class="f w2">Uso solicitado<select data-s="uso">${USOS.map(([v, t]) => `<option value="${v}" ${sp.uso === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
@@ -660,6 +673,7 @@ function bindSum() {
   });
   box.addEventListener('change', ev => {
     const t = ev.target;
+    if (t.dataset.ct) { const ct = S.proj.ct || (S.proj.ct = {}); ct[t.dataset.ct] = t.type === 'number' ? (t.value === '' ? '' : Number(t.value)) : t.value; renderSumRes(); recalc(); return; }
     if (t.dataset.cg) { const sp = sumPar(); sp.cgp = sp.cgp || { tipo: 'fachada', desc: '' };
       if (t.dataset.cg === 'coord') { const ll = parseCoordText(t.value); if (!ll) { toast('Escribe las coordenadas como «latitud, longitud» o «X Y» en UTM.'); return; } const zone = setZoneFrom(ll); const u = E.utmFromLatLon(ll.lat, ll.lon, zone); setCgp(u.x, u.y); return; }
       sp.cgp[t.dataset.cg] = t.value; if (sp.cgp.x == null) { renderSumRes(); return; } refreshAll(); renderSum(); return; }
@@ -679,7 +693,7 @@ function drawCgp(D) {
   const c = S.proj.sum?.cgp; if (c?.x == null || !vis('cgp')) return; const { g, P, col, halo } = D, [x, y] = P(c);
   g.fillStyle = col('--bad'); g.strokeStyle = col('--panel'); g.lineWidth = 2; g.fillRect(x - 9, y - 6, 18, 12); g.strokeRect(x - 9, y - 6, 18, 12);
   g.fillStyle = col('--panel'); g.font = '700 8px ' + col('--f-body'); g.textAlign = 'center'; g.fillText('CGP', x, y + 3);
-  g.fillStyle = col('--bad'); g.font = '600 11px ' + col('--f-body'); g.textAlign = 'left'; halo('CGP cliente' + (c.desc ? ' · ' + c.desc : ''), x + 13, y - 8);
+  g.fillStyle = col('--bad'); g.font = '600 11px ' + col('--f-body'); g.textAlign = 'left'; halo(c.txt || 'CGP cliente' + (c.desc ? ' · ' + c.desc : ''), x + 13, y - 8);
 }
 function cgpDist() {
   const c = S.proj.sum?.cgp; if (c?.x == null) return [];
@@ -700,11 +714,9 @@ function informeElec() {
   const sp = sumPar(); if (!(Number(sp.pSol) > 0) && !sp.cgp) return '';
   const r = elecAereoRes(), li = c => `<li>${esc(c.txt)}</li>`;
   return `<h2>2 bis. Suministro solicitado y comprobación eléctrica (REBT)</h2><table><tbody>
-<tr><td>Potencia solicitada</td><td>${fmt(sp.pSol, 2)} kW</td></tr><tr><td>Tensión solicitada</td><td>${esc((TENSIONES.find(t => t[0] === String(sp.tension)) || [, sp.tension])[1])}</td></tr>
+${S.proj.ct?.matricula || S.proj.ct?.potencia ? `<tr><td>Centro de transformación de origen</td><td>${esc(S.proj.ct.matricula || '—')}${S.proj.ct.potencia ? ' · ' + fmt(S.proj.ct.potencia) + ' kVA' : ''}${S.proj.ct.tensionAT ? ' · ' + fmt(S.proj.ct.tensionAT, 1) + ' kV' : ''}${S.proj.ct.tension ? ' / ' + fmt(S.proj.ct.tension) + ' V' : ''}</td></tr>` : ''}<tr><td>Potencia solicitada</td><td>${fmt(sp.pSol, 2)} kW</td></tr><tr><td>Tensión solicitada</td><td>${esc((TENSIONES.find(t => t[0] === String(sp.tension)) || [, sp.tension])[1])}</td></tr>
 <tr><td>Uso solicitado</td><td>${esc(usoTxt(sp.uso))}</td></tr><tr><td>cos φ</td><td>${fmt(sp.cos, 2)}</td></tr>
 ${Number(sp.pDisp) > 0 ? `<tr><td>Potencia disponible en el punto de conexión</td><td>${fmt(sp.pDisp, 2)} kW</td></tr>` : ''}
 ${sp.cgp ? `<tr><td>CGP del cliente</td><td>${esc(cgpTipoTxt(sp.cgp.tipo))}${sp.cgp.desc ? ' · ' + esc(sp.cgp.desc) : ''}${sp.cgp.lat != null ? ` · ${sp.cgp.lat.toFixed(6)}, ${sp.cgp.lon.toFixed(6)}` : ''}</td></tr>` : ''}<tr><td>Caída de tensión en el punto de conexión / máxima</td><td>${fmt(sp.dUcon, 2)} % / ${fmt(sp.dUmax, 1)} %</td></tr></tbody></table>
 <ul class="s">${sumBanners().map(li).join('')}${cgpChecks().map(li).join('')}${r ? r.checks.map(li).join('') : ''}</ul>`;
 }
-
-start();
