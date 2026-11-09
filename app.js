@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.10.0';
+const VERSION = '1.11.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -621,6 +621,35 @@ function fitView() {
   V.sc = Math.min((cv.clientWidth - 92) / Math.max(maxx - minx, 1), (cv.clientHeight - 92) / Math.max(maxy - miny, 1));
   V.fitted = true;
 }
+/* ===== Capas visibles del plano ===== */
+const CAPAS = [
+  ['grupo', 'Proyecto'], ['nuevo', 'Apoyos nuevos'], ['nuevoTxt', 'Textos de apoyos nuevos'], ['linea', 'Línea nueva'], ['vanos', 'Longitud de vanos'], ['cable', 'Cable del proyecto'], ['ruta', 'Ruta del trazado'],
+  ['grupo', 'Red existente'], ['exApoyos', 'Apoyos existentes'], ['exApoyosTxt', 'Textos y esfuerzos de apoyos'], ['exLineas', 'Tramos baja'], ['exLineasTxt', 'Textos y conductor de tramos'], ['exDC', 'Puntos D-C'], ['exDCTxt', 'CUPS de puntos D-C'],
+  ['grupo', 'Fondo'], ['orto', 'Ortofoto PNOA'], ['catastro', 'Catastro'], ['rejilla', 'Cuadrícula']];
+function vis(k) { if (k === 'orto' || k === 'catastro') return S.proj.fondos?.[k]?.visible !== false; return S.proj.capas?.[k] !== false; }
+function setVis(k, on) {
+  if (k === 'orto' || k === 'catastro') { S.proj.fondos = S.proj.fondos || {}; const f = S.proj.fondos[k] || (S.proj.fondos[k] = {}); f.visible = on; f.userVis = true; renderFondos(); }
+  else { S.proj.capas = S.proj.capas || {}; S.proj.capas[k] = on; }
+  drawMap(); renderCapas();
+}
+function renderCapas() {
+  const box = $('#capasPanel'); if (!box) return;
+  let html = '';
+  CAPAS.forEach(([k, n]) => {
+    if (k === 'grupo') { html += `${html ? '</div>' : ''}<div class="capgrp"><b>${n}</b>`; return; }
+    const fondoSin = (k === 'orto' || k === 'catastro') && !(S.proj.fondos?.[k]?.url || S.proj.fondos?.[k]?.blobUrl || S.proj.fondos?.[k]?.assetId);
+    html += `<label class="chk"><input type="checkbox" data-capa="${k}" ${vis(k) ? 'checked' : ''} ${fondoSin ? 'disabled' : ''}> ${n}${fondoSin ? ' <span class="note">(sin cargar)</span>' : ''}</label>`;
+  });
+  box.innerHTML = html + '</div><button class="btn small" id="capasTodas" type="button">Mostrar todas</button>';
+  $('#capasTodas').onclick = mostrarTodas;
+  const n = CAPAS.filter(([k]) => k !== 'grupo' && !vis(k)).length; $('#capasBtn').textContent = n ? `Capas (${n} ocultas)` : 'Capas';
+}
+function bindCapas() {
+  $('#capasBtn').onclick = () => { const p = $('#capasPanel'); p.hidden = !p.hidden; $('#capasBtn').setAttribute('aria-expanded', String(!p.hidden)); renderCapas(); };
+  $('#capasPanel').addEventListener('change', ev => { const k = ev.target.dataset.capa; if (k) setVis(k, ev.target.checked); });
+  window.mostrarTodas = () => { CAPAS.forEach(([k]) => { if (k !== 'grupo') { if (k === 'orto' || k === 'catastro') { if (S.proj.fondos?.[k]) { S.proj.fondos[k].visible = true; S.proj.fondos[k].userVis = true; } } else { S.proj.capas = S.proj.capas || {}; S.proj.capas[k] = true; } } }); renderFondos(); renderCapas(); drawMap(); };
+  renderCapas();
+}
 /* Textos del plano de la red existente (editables) y del cable */
 const shortCable = d => String(d || '').replace(/^RZ\s*0,6\/1\s*kV\s*/i, 'RZ ');
 function exLabel(i) { const p = exNodes()[i]; return p && p.etiqueta != null ? p.etiqueta : 'E' + (i + 1); }
@@ -659,7 +688,7 @@ function drawMap(T) {
     g.globalAlpha = (f.op ?? 100) / 100; g.drawImage(im, x0, y0, x1 - x0, y1 - y0); g.globalAlpha = 1;
   }
   const hasFondo = ['orto', 'catastro'].some(t => S.proj.fondos?.[t]?.visible && S.img?.[t]?.naturalWidth && (screen || !S.img[t].tainted));
-  if (!hasFondo) {
+  if (!hasFondo && vis('rejilla')) {
     const step = niceStep(80 / sc); g.strokeStyle = col('--grid'); g.lineWidth = 1;
     const x0 = cx - W / 2 / sc, y0 = cy - Hh / 2 / sc;
     for (let x = Math.floor(x0 / step) * step; (x - cx) * sc + W / 2 < W; x += step) { const px = W / 2 + (x - cx) * sc; g.beginPath(); g.moveTo(px, 0); g.lineTo(px, Hh); g.stroke(); }
@@ -675,54 +704,56 @@ function drawMap(T) {
   const longestSeg = pts => { let best = -1, bl = 0; for (let i = 0; i < pts.length - 1; i++) { const [a, b] = [P(pts[i]), P(pts[i + 1])]; if (!inView(a[0], a[1], 0) && !inView(b[0], b[1], 0)) continue; const d = Math.hypot(b[0] - a[0], b[1] - a[1]); if (d > bl) { bl = d; best = i; } } return { i: best, len: bl }; };
   const L = S.editLayer, tool = S.tool;
   const vtx = (x, y, on) => { g.fillStyle = on ? col('--accent') : col('--panel'); g.strokeStyle = col('--accent'); g.lineWidth = 1.5; g.beginPath(); g.rect(x - 4, y - 4, 8, 8); g.fill(); g.stroke(); };
-  if (ruta.length > 1) {
+  if (ruta.length > 1 && vis('ruta')) {
     g.strokeStyle = col('--accent'); g.globalAlpha = 0.45; g.lineWidth = 1.5; g.setLineDash([2, 4]); g.beginPath(); ruta.forEach((n, i) => { const [x, y] = P(n); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); g.setLineDash([]); g.globalAlpha = 1;
     if (screen && tool !== 'pan' && L === 'ruta') ruta.forEach((n, i) => { const [x, y] = P(n); vtx(x, y, S.selPt?.layer === 'ruta' && S.selPt.i === i); });
   }
   // Líneas existentes con su texto (y su cable verificado)
-  lines.forEach((l, li) => {
+  if (vis('exLineas')) lines.forEach((l, li) => {
     g.strokeStyle = col('--exist'); g.lineWidth = 3; g.setLineDash([8, 5]); g.beginPath(); l.pts.forEach((n, i) => { const [x, y] = P(n); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); g.setLineDash([]);
     const ls = longestSeg(l.pts); const txt = lineLabel(l);
-    if (ls.i >= 0 && txt && ls.len > g.measureText(txt).width * 0.6) alongText(txt, l.pts[ls.i], l.pts[ls.i + 1], -1, 'italic 600 11px ' + col('--f-body'), col('--exist'));
+    if (vis('exLineasTxt') && ls.i >= 0 && txt && ls.len > g.measureText(txt).width * 0.6) alongText(txt, l.pts[ls.i], l.pts[ls.i + 1], -1, 'italic 600 11px ' + col('--f-body'), col('--exist'));
     if (screen && tool !== 'pan' && L === 'exLineas') l.pts.forEach((n, i) => { const [x, y] = P(n); vtx(x, y, S.selPt?.layer === 'exLineas' && S.selPt.li === li && S.selPt.i === i); });
   });
-  ex.forEach((n, i) => {
+  if (vis('exApoyos') || S.pickEntronque) ex.forEach((n, i) => {
     const [x, y] = P(n); if (!inView(x, y)) return;
     const isEn = S.proj.entronque?.k === i, isSel = screen && S.selPt?.layer === 'exApoyos' && S.selPt.i === i;
     g.fillStyle = isEn ? col('--accent') : col('--exist'); g.strokeStyle = isSel ? col('--ink') : col('--panel'); g.lineWidth = isSel ? 3 : 2;
     g.beginPath(); g.arc(x, y, isEn ? 7 : 5, 0, Math.PI * 2); g.fill(); g.stroke();
     const lab = exLabel(i), esf = esfLabel(i);
-    if (lab && (sc > 0.6 || isEn || !screen)) { g.fillStyle = col('--exist'); g.font = '600 11px ' + col('--f-body'); g.textAlign = 'right'; halo(lab, x - 8, y - 7); }
-    if (esf && (sc > 0.6 || isEn || !screen)) { g.fillStyle = col('--exist'); g.font = '10px ' + col('--f-mono'); g.textAlign = 'right'; halo(esf, x - 8, y + 12); }
+    if (vis('exApoyosTxt') && lab && (sc > 0.6 || isEn || !screen)) { g.fillStyle = col('--exist'); g.font = '600 11px ' + col('--f-body'); g.textAlign = 'right'; halo(lab, x - 8, y - 7); }
+    if (vis('exApoyosTxt') && esf && (sc > 0.6 || isEn || !screen)) { g.fillStyle = col('--exist'); g.font = '10px ' + col('--f-mono'); g.textAlign = 'right'; halo(esf, x - 8, y + 12); }
   });
   // Puntos D-C: rombo y CUPS abreviado
-  exDC().forEach((d, i) => {
+  if (vis('exDC')) exDC().forEach((d, i) => {
     const [x, y] = P(d); if (!inView(x, y)) return;
     const isSel = screen && S.selPt?.layer === 'exDC' && S.selPt.i === i;
     g.fillStyle = col('--dc'); g.strokeStyle = isSel ? col('--ink') : col('--panel'); g.lineWidth = isSel ? 2.5 : 1.5;
     g.beginPath(); g.moveTo(x, y - 6); g.lineTo(x + 6, y); g.lineTo(x, y + 6); g.lineTo(x - 6, y); g.closePath(); g.fill(); g.stroke();
     const lab = dcLabel(d);
+    if (!vis('exDCTxt')) return;
     if (lab && (sc > 0.5 || !screen)) { g.fillStyle = col('--dc'); g.font = '600 10px ' + col('--f-mono'); g.textAlign = 'left'; halo(lab, x + 8, y + 4); }
     else if (!d.cups && screen) { g.fillStyle = col('--bad'); g.font = '600 10px ' + col('--f-body'); g.textAlign = 'left'; halo('sin CUPS', x + 8, y + 4); }
   });
   if (nodes.length > 1) {
-    g.strokeStyle = col('--accent'); g.lineWidth = 2.5; g.beginPath(); nodes.forEach((n, i) => { const [x, y] = P(n); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke();
+    if (vis('linea')) { g.strokeStyle = col('--accent'); g.lineWidth = 2.5; g.beginPath(); nodes.forEach((n, i) => { const [x, y] = P(n); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); }
     g.font = '11px ' + col('--f-mono'); g.textAlign = 'center';
-    for (let i = 0; i < nodes.length - 1; i++) { const a = Math.hypot(nodes[i + 1].x - nodes[i].x, nodes[i + 1].y - nodes[i].y); alongText(fmt(a, 1) + ' m', nodes[i], nodes[i + 1], -1, '11px ' + col('--f-mono'), col('--ink')); }
+    if (vis('vanos')) for (let i = 0; i < nodes.length - 1; i++) { const a = Math.hypot(nodes[i + 1].x - nodes[i].x, nodes[i + 1].y - nodes[i].y); alongText(fmt(a, 1) + ' m', nodes[i], nodes[i + 1], -1, '11px ' + col('--f-mono'), col('--ink')); }
     // Cable del proyecto sobre el vano más largo de la línea nueva
     const cable = S.cables.find(c => c.id === S.proj.cableId);
-    if (cable) { const ls = longestSeg(nodes); if (ls.i >= 0) alongText(shortCable(cable.designacion), nodes[ls.i], nodes[ls.i + 1], 1, '600 11px ' + col('--f-body'), col('--accent')); }
+    if (cable && vis('cable')) { const ls = longestSeg(nodes); if (ls.i >= 0) alongText(shortCable(cable.designacion), nodes[ls.i], nodes[ls.i + 1], 1, '600 11px ' + col('--f-body'), col('--accent')); }
     nodes.forEach(n => {
       const e = n.existente; if (!e?.activo) return; const [x, y] = P(n);
       g.strokeStyle = col('--exist'); g.setLineDash([4, 4]); g.lineWidth = 1.5;
       (e.conductores || []).filter(c => !c.deLinea).forEach(c => { const u = { x: Math.sin(c.az * Math.PI / 180), y: Math.cos(c.az * Math.PI / 180) }; g.beginPath(); g.moveTo(x, y); g.lineTo(x + u.x * 40, y - u.y * 40); g.stroke(); });
       g.setLineDash([]);
     });
-    nodes.forEach((n, i) => {
+    if (vis('nuevo')) nodes.forEach((n, i) => {
       const [x, y] = P(n); const r = S.drag ? null : S.calc?.results[i]; const st = r ? statusOf(r, i) : { col: 'muted' };
       g.fillStyle = col('--' + st.col); g.strokeStyle = col('--panel'); g.lineWidth = 2;
       g.beginPath(); g.rect(x - 6, y - 6, 12, 12); g.fill(); g.stroke();
       if (screen && (S.sel === i || (S.selPt?.layer === 'nuevo' && S.selPt.i === i))) { g.strokeStyle = col('--ink'); g.lineWidth = 2; g.strokeRect(x - 10, y - 10, 20, 20); }
+      if (!vis('nuevoTxt')) return;
       g.fillStyle = col('--ink'); g.font = '600 12px ' + col('--f-body'); g.textAlign = 'left'; halo('A' + (i + 1), x + 9, y - 8);
       const p = r && (r.existenteCheck?.ok ? r.existenteCheck.pole : r.elegido?.pole);
       if (p) { g.fillStyle = col('--muted'); g.font = '10px ' + col('--f-mono'); halo(poleLabel(p), x + 9, y + 15); }
@@ -795,6 +826,7 @@ function worldAt(mx, my) { const cv = $('#map'); return { x: V.cx + (mx - cv.cli
 function isEntronqueA1(i) { return i === 0 && S.proj.entronque?.k != null && exNodes()[S.proj.entronque.k]; }
 function editClick(mx, my) {
   const layer = S.editLayer, tool = S.tool, w = worldAt(mx, my);
+  if ((tool === 'insert' || tool === 'delete') && !vis(layer)) return toast(`La capa «${LAYERS[layer]}» está oculta. Muéstrala en «Capas» para editarla.`);
   if (tool === 'insert') {
     if (layer === 'nuevo') {
       ensureGeoPts(); const pts = S.proj.geo.pts; const h = hitSegment(pts, mx, my);
@@ -818,9 +850,9 @@ function editClick(mx, my) {
     refreshAll(); return;
   }
   if (tool === 'text') {
-    const pick = (lay, list) => { let best = null; list.forEach((n, i) => { const [x, y] = S.mapT.P(n); const d = Math.hypot(x - mx, y - my); if (d < 14 && (!best || d < best.d)) best = { lay, i, d }; }); return best; };
+    const pick = (lay, list) => { if (!vis(lay)) return null; let best = null; list.forEach((n, i) => { const [x, y] = S.mapT.P(n); const d = Math.hypot(x - mx, y - my); if (d < 14 && (!best || d < best.d)) best = { lay, i, d }; }); return best; };
     let hit = pick('exDC', exDC()) || (redEx()?.apoyos?.length ? pick('exApoyos', exNodes()) : null) || pick('nuevo', S.mapT.nodes || []);
-    if (!hit) { let hl = null; exLineas().forEach((l, li) => { const h = hitSegment(l.pts, mx, my, 10); if (h && (!hl || h.d < hl.d)) hl = { ...h, li }; }); if (hl) hit = { lay: 'exLineas', li: hl.li, i: hl.i }; }
+    if (!hit && vis('exLineas')) { let hl = null; exLineas().forEach((l, li) => { const h = hitSegment(l.pts, mx, my, 10); if (h && (!hl || h.d < hl.d)) hl = { ...h, li }; }); if (hl) hit = { lay: 'exLineas', li: hl.li, i: hl.i }; }
     if (!hit) return toast('Pulsa sobre un apoyo, un tramo existente o un punto D-C para editar su texto.');
     S.selPt = { layer: hit.lay, li: hit.li || 0, i: hit.i }; renderPtEdit(); drawMap();
     const f = { exDC: '#pe_dcl', exApoyos: '#pe_lab', exLineas: '#pe_ll', nuevo: '#pe_n' }[hit.lay]; const el = $(f);
@@ -854,6 +886,7 @@ function bindMap() {
   cv.addEventListener('pointerdown', ev => {
     const rc = cv.getBoundingClientRect(), mx = ev.clientX - rc.left, my = ev.clientY - rc.top;
     drag = { x: ev.clientX, y: ev.clientY, cx: V.cx, cy: V.cy, moved: false, mx, my };
+    if (S.tool === 'move' && S.mapT && !vis(S.editLayer)) { toast(`La capa «${LAYERS[S.editLayer]}» está oculta. Muéstrala en «Capas» para editarla.`); drag = null; return; }
     if (S.tool === 'move' && S.mapT) {
       const h = hitPoint(S.editLayer, mx, my);
       if (h) {
@@ -888,11 +921,11 @@ function bindMap() {
     if (S.tool === 'insert' || S.tool === 'delete' || S.tool === 'text') return editClick(mx, my);
     const near = list => { let best = -1, bd = 16; list.forEach((n, i) => { const [x, y] = S.mapT.P(n); const dd = Math.hypot(x - mx, y - my); if (dd < bd) { bd = dd; best = i; } }); return best; };
     if (S.pickEntronque) { const k = near(S.mapT.ex); if (k >= 0) { S.pickEntronque = false; setEntronque(k); } return; }
-    const i = near(S.mapT.nodes);
+    const i = vis('nuevo') ? near(S.mapT.nodes) : -1;
     if (i >= 0) { S.sel = S.sel === i ? null : i; S.selPt = S.sel == null ? null : { layer: 'nuevo', li: 0, i }; renderRows(); renderResults(); renderPtEdit(); return; }
-    const kd = near(exDC()); if (kd >= 0) { S.selPt = { layer: 'exDC', li: 0, i: kd }; renderPtEdit(); drawMap(); return; }
-    const k = near(S.mapT.ex); if (k >= 0 && redEx()?.apoyos?.length) { S.selPt = { layer: 'exApoyos', li: 0, i: k }; renderPtEdit(); drawMap(); return; }
-    let hl = null; exLineas().forEach((l, li) => { const h = hitSegment(l.pts, mx, my, 8); if (h && (!hl || h.d < hl.d)) hl = { ...h, li }; });
+    const kd = vis('exDC') ? near(exDC()) : -1; if (kd >= 0) { S.selPt = { layer: 'exDC', li: 0, i: kd }; renderPtEdit(); drawMap(); return; }
+    const k = vis('exApoyos') ? near(S.mapT.ex) : -1; if (k >= 0 && redEx()?.apoyos?.length) { S.selPt = { layer: 'exApoyos', li: 0, i: k }; renderPtEdit(); drawMap(); return; }
+    let hl = null; if (vis('exLineas')) exLineas().forEach((l, li) => { const h = hitSegment(l.pts, mx, my, 8); if (h && (!hl || h.d < hl.d)) hl = { ...h, li }; });
     if (hl) { S.selPt = { layer: 'exLineas', li: hl.li, i: hl.t < 0.5 ? hl.i : hl.i + 1 }; renderPtEdit(); drawMap(); return; }
     S.selPt = null; renderPtEdit(); drawMap();
   });
@@ -1168,7 +1201,7 @@ function refreshAll() {
   $('#geoInfo').hidden = !(S.proj.modo === 'kml' && S.proj.geo); $('#geoInfo').innerHTML = geoInfoHtml();
   const tm = $('#toManual'); if (tm) tm.onclick = toManual;
   renderRows(); renderEntronque(); recalc(); renderFondos(); renderPerfilInfo(); renderPtEdit(); updUndo();
-  scheduleAuto();
+  renderCapas(); scheduleAuto();
 }
 
 /* ---------- Plano: vista con desplazamiento y zoom ---------- */
@@ -1230,7 +1263,7 @@ function bindFondos() {
   });
   box.addEventListener('change', async ev => {
     const t = ev.target;
-    if (t.dataset.fv) { S.proj.fondos[t.dataset.fv].visible = t.checked; S.proj.fondos[t.dataset.fv].userVis = true; drawMap(); }
+    if (t.dataset.fv) { S.proj.fondos[t.dataset.fv].visible = t.checked; S.proj.fondos[t.dataset.fv].userVis = true; drawMap(); renderCapas(); }
     if (t.dataset.ff) {
       const k = t.dataset.ff, file = t.files[0]; t.value = ''; if (!file) return;
       const prev = S.proj.fondos[k] || {}; const fb = prev.pend || fondoBbox();
@@ -1959,7 +1992,7 @@ function bindTabs() {
   }));
 }
 function start() {
-  initCollapsibles(); bindPdf(); bindAnexo();
+  initCollapsibles(); bindPdf(); bindAnexo(); bindCapas();
   if (LOCAL) { document.title = 'Cálculo de Apoyos BT (local)'; $('#ver').textContent = 'v' + VERSION + ' · local'; }
   if (!LOCAL) $('#ver').textContent = 'v' + VERSION;
   loadForm(); bindForm(); bindRows(); bindMap(); bindProjects(); bindDbTables(); bindPrecios(); bindTabs();

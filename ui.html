@@ -103,6 +103,10 @@ section.card.folded h2{margin-bottom:0}
 table.vt td select{max-width:190px}
 table.vt td{white-space:normal}
 .edbar{gap:4px}
+.capas{position:absolute;top:8px;right:max(8px,env(safe-area-inset-right,0px));z-index:3;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 12px;max-height:calc(100% - 16px);overflow:auto;display:flex;flex-direction:column;gap:8px;box-shadow:0 4px 14px rgba(0,0,0,.12);max-width:calc(100% - 60px)}
+.capas .capgrp{display:flex;flex-direction:column;gap:3px}
+.capas .capgrp b{font:700 .75rem var(--f-display);text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.capas .chk{font-size:.82rem}
 .edbar .btn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .edbar select{width:auto;padding:3px 6px}
 .zoom{position:absolute;top:8px;left:8px;display:flex;flex-direction:column;gap:4px}
@@ -123,7 +127,7 @@ a.btn{text-decoration:none;display:inline-block}
 <div class="wrap">
   <header class="top">
     <h1><small>Redes aéreas trenzadas · ITC-BT-06</small>Cálculo de Apoyos BT</h1>
-    <div class="row"><button class="btn small" id="foldAll" type="button">Minimizar / desplegar todo</button><div class="ver" id="ver">v1.10.0</div></div>
+    <div class="row"><button class="btn small" id="foldAll" type="button">Minimizar / desplegar todo</button><div class="ver" id="ver">v1.11.0</div></div>
   </header>
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="calc" aria-selected="true">Proyecto</button>
@@ -166,9 +170,11 @@ a.btn{text-decoration:none;display:inline-block}
             <button class="btn small" data-tool="text" aria-pressed="false">Editar texto</button>
             <label class="chk note">Capa <select id="edLayer"><option value="nuevo">Apoyos nuevos</option><option value="exApoyos">Apoyos existentes</option><option value="exLineas">Tramos baja existentes</option><option value="exDC">Puntos D-C</option><option value="ruta">Ruta del trazado</option></select></label>
             <button class="btn small" id="edUndo" disabled title="Ctrl+Z">Deshacer</button>
+            <button class="btn small" id="capasBtn" aria-expanded="false" aria-controls="capasPanel">Capas</button>
           </div>
           <p class="note" id="edHint" style="margin:4px 0 8px"></p>
           <div class="mapbox">
+            <div id="capasPanel" class="capas" hidden></div>
             <canvas id="map" aria-label="Plano con la línea existente, el trazado nuevo y los apoyos numerados"></canvas>
             <div class="zoom"><button class="btn small" id="zIn" aria-label="Acercar">+</button><button class="btn small" id="zOut" aria-label="Alejar">−</button><button class="btn small" id="zFit" aria-label="Encajar el trazado" title="Encajar">⤢</button></div>
           </div>
