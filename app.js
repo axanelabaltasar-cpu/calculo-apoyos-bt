@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.9.0';
+const VERSION = '1.10.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -415,7 +415,7 @@ function applyExLineas(lines, fname) {
   const zone = setZoneFrom(lines[0].pts[0]);
   const R = redEx() || (S.proj.redEx = { lineas: [], apoyos: [] });
   snapshot();
-  R.lineas = R.lineas.filter(l => l.fuente !== fname).concat(lines.map(l => ({ id: uid('l'), nombre: l.nombre, fuente: fname, pts: l.pts.map(p => ({ lat: p.lat, lon: p.lon, ...E.utmFromLatLon(p.lat, p.lon, zone) })) })));
+  R.lineas = R.lineas.filter(l => l.fuente !== fname).concat(lines.map(l => ({ id: uid('l'), nombre: l.nombre, fuente: fname, attrs: l.attrs || {}, pts: l.pts.map(p => ({ lat: p.lat, lon: p.lon, ...E.utmFromLatLon(p.lat, p.lon, zone) })) })));
   invalidateVert(); ensureEntronque(); V.fitted = false; refreshAll();
   toast(`${lines.length} línea(s) existente(s) importada(s) de ${fname}. Elige el apoyo de entronque y verifica sus datos.`);
 }
@@ -425,7 +425,7 @@ function applyExApoyos(points, fname) {
   const R = redEx() || (S.proj.redEx = { lineas: [], apoyos: [] });
   snapshot();
   const prevEn = S.proj.entronque?.k != null ? exNodes()[S.proj.entronque.k] : null;
-  R.apoyos = (R.apoyos || []).filter(a => a.fuente !== fname).concat(points.map(p => ({ id: uid('e'), lat: p.lat, lon: p.lon, nombre: p.nombre || '', fuente: fname, ...E.utmFromLatLon(p.lat, p.lon, zone) })));
+  R.apoyos = (R.apoyos || []).filter(a => a.fuente !== fname).concat(points.map(p => ({ id: uid('e'), lat: p.lat, lon: p.lon, nombre: p.nombre || '', attrs: p.attrs || {}, fuente: fname, ...E.utmFromLatLon(p.lat, p.lon, zone) })));
   invalidateVert(); ensureEntronque();
   if (prevEn) { const k = exNodes().findIndex(a => Math.hypot(a.x - prevEn.x, a.y - prevEn.y) < 1); S.proj.entronque.k = k >= 0 ? k : null; }
   V.fitted = false; refreshAll();
@@ -443,6 +443,7 @@ function renderEntronque() {
   const poleOpts = sel => `<option value="">Elegir modelo…</option>` + S.poles.map(p => `<option value="${esc(p.id)}" ${sel === p.id ? 'selected' : ''}>${poleLabel(p)}</option>`).join('');
   const cabOpts = sel => `<option value="">Elegir cable…</option>` + S.cables.map(c => `<option value="${esc(c.id)}" ${sel === c.id ? 'selected' : ''}>${esc(c.designacion)}</option>`).join('');
   const est = verifEstado(), it = est.it;
+  if (it) it.lineas.forEach(L => { const l = exLineas().find(x => x.id === L.lineId), v = verifData().lineas[L.lineId] || (verifData().lineas[L.lineId] = {}); if (l && !v.cableId && !v.gisTried) { v.gisTried = true; const id = cableFromConductor(conductorTramo(l)); if (id) v.cableId = id; } });
   let html = `<div class="row" style="gap:6px">${fuentes(R.apoyos || [], 'apoyos')} ${fuentes(R.lineas, 'tramos')} ${fuentes(R.puntosDC || [], 'puntos D-C')}</div>
     ${!R.apoyos?.length ? '<p class="note" style="margin-top:6px">Sin archivo de apoyos existentes: se toman como apoyos los vértices de las líneas.</p>' : ''}
     <div class="fields" style="margin-top:10px">
@@ -455,7 +456,7 @@ function renderEntronque() {
     html += `<h3 class="vh">Verificación obligatoria <span class="chip ${done ? 'ok' : 'bad'}">${done ? 'completa' : `faltan ${est.faltan.length}`}</span></h3>
       <p class="note">Comprueba en campo o en tu inventario cada dato y marca «Verificado». Si cambias un dato verificado, hay que volver a marcarlo. Sin la verificación completa no se puede exportar.</p>
       <div class="tablewrap"><table class="vt"><thead><tr><th>Línea que pasa por E${en.k + 1}</th><th class="n">Vanos (m)</th><th>Cable</th><th class="n">Tense (daN)</th><th>Verificada</th></tr></thead><tbody>
-      ${it.lineas.map(L => { const d = lineData(L.lineId); return `<tr><td>${esc(L.nombre)}</td><td class="n">${L.vanos.map(v => fmt(v, 1)).join(' / ')}</td>
+      ${it.lineas.map(L => { const d = lineData(L.lineId), cond = conductorTramo(exLineas().find(x => x.id === L.lineId) || {}); return `<tr><td>${esc(L.nombre)}${cond ? `<br><span class="note">GIS: ${esc(cond)}</span>` : ''}</td><td class="n">${L.vanos.map(v => fmt(v, 1)).join(' / ')}</td>
         <td><select data-vl="cableId" data-id="${esc(L.lineId)}">${cabOpts(d.v.cableId)}</select></td>
         <td class="n"><input class="num" type="number" step="10" data-vl="tense" data-id="${esc(L.lineId)}" value="${d.v.tense ?? ''}" placeholder="daN"></td>
         <td><label class="chk"><input type="checkbox" data-vl="ok" data-id="${esc(L.lineId)}" ${d.ok ? 'checked' : ''} ${d.v.cableId && d.tense > 0 ? '' : 'disabled'}> ${d.ok ? '<span class="chip ok">sí</span>' : '<span class="chip bad">no</span>'}</label></td></tr>`; }).join('') || '<tr><td colspan="5" class="empty">Ninguna línea existente pasa por este apoyo (tolerancia 3 m). Revisa el apoyo de entronque o mueve el apoyo en el plano.</td></tr>'}
@@ -464,12 +465,13 @@ function renderEntronque() {
       ${it.apoyos.map(a => {
         const v = apoyoVerif(a.k), P = ex[a.k], isEn = a.k === en.k;
         let comp = '—';
+        { const pm = S.poles.find(x => x.id === v.modeloId), eg = parseFloat(String(esfuerzoApoyo(redEx()?.apoyos?.[a.k] || {})).replace(',', '.')); if (pm && eg && Math.abs(pm.En - eg) > 1) v.avisoEsf = `El modelo elegido (${pm.En} daN) no coincide con el esfuerzo del GIS (${eg} daN).`; else delete v.avisoEsf; }
         if (isEn) { const r = S.calc?.results?.[0]; const c = r?.existenteCheck; comp = c?.r ? `${fmt(c.r.u * 100)} % · ${c.ok ? '<span class="chip ok">válido</span>' : '<span class="chip bad">sustituir</span>'}` : (v.modeloId ? 'pendiente de cálculo' : '—'); }
         else { const c = v.modeloId ? calcApoyoExistente(a.k) : null; comp = c?.r ? `${FUNCS[c.func]} · ${fmt(c.r.u * 100)} % · ${c.r.u <= 1 ? '<span class="chip ok">válido</span>' : '<span class="chip bad">no cumple</span>'}` : (v.modeloId ? 'sin conductores' : '—'); }
-        return `<tr data-k="${a.k}"><td><b>E${a.k + 1}</b>${P.nombre ? ' · ' + esc(P.nombre) : ''}<br><span class="note">${isEn ? 'Entronque (A1)' : esc(a.rol)}</span></td>
+        return `<tr data-k="${a.k}"><td><b>E${a.k + 1}</b>${P.nombre ? ' · ' + esc(P.nombre) : ''}<br><span class="note">${isEn ? 'Entronque (A1)' : esc(a.rol)}${esfLabel(a.k) ? ' · GIS: ' + esc(esfLabel(a.k)) : ''}</span></td>
           <td><select data-va="modeloId" data-k="${a.k}">${poleOpts(v.modeloId)}</select></td>
           <td class="n"><input class="num" type="number" data-va="azPrincipal" data-k="${a.k}" value="${esc(v.azPrincipal ?? '')}" placeholder="Desconocido"></td>
-          <td>${comp}</td>
+          <td>${comp}${v.avisoEsf ? `<br><span class="chip warn">${esc(v.avisoEsf)}</span>` : ''}</td>
           <td><label class="chk"><input type="checkbox" data-va="ok" data-k="${a.k}" ${v.ok ? 'checked' : ''} ${v.modeloId ? '' : 'disabled'}> ${v.ok ? '<span class="chip ok">sí</span>' : '<span class="chip bad">no</span>'}</label></td></tr>`; }).join('')}
       </tbody></table></div>
       ${!done ? `<div class="banner bad" style="margin-top:8px">Falta verificar: ${est.faltan.map(esc).join(', ')}.</div>` : ''}`;
@@ -624,9 +626,11 @@ const shortCable = d => String(d || '').replace(/^RZ\s*0,6\/1\s*kV\s*/i, 'RZ ');
 function exLabel(i) { const p = exNodes()[i]; return p && p.etiqueta != null ? p.etiqueta : 'E' + (i + 1); }
 function lineLabel(l) {
   const base = l.etiqueta != null ? l.etiqueta : l.nombre || '';
-  const d = lineData(l.id); const cab = d.v.cableId && d.cab ? shortCable(d.cab.designacion) : '';
+  const cond = conductorTramo(l);
+  const d = lineData(l.id); const cab = cond || (d.v.cableId && d.cab ? shortCable(d.cab.designacion) : '');
   return [base, cab].filter(Boolean).join(' · ');
 }
+function esfLabel(i) { const a = redEx()?.apoyos?.[i]; if (!a) return ''; const v = esfuerzoApoyo(a); if (!v) return ''; return /dan/i.test(v) ? v : `${v} daN`; }
 const PRINT_COLORS = { '--dc': '#7a3e8f', '--map': '#ffffff', '--ink': '#1b2328', '--muted': '#4c5960', '--accent': '#1d5b86', '--exist': '#6d6a64', '--panel': '#ffffff', '--grid': '#e6eaec', '--ok': '#2f7d4f', '--warn': '#a66a00', '--bad': '#b3362c', '--f-body': 'Arial, sans-serif', '--f-mono': 'Consolas, monospace' };
 /* Dibuja el plano. Sin argumento, en el lienzo de la pantalla; con T = {cv, W, H, dpr, sc, cx, cy, print}, en otro lienzo (PDF) */
 function drawMap(T) {
@@ -687,8 +691,9 @@ function drawMap(T) {
     const isEn = S.proj.entronque?.k === i, isSel = screen && S.selPt?.layer === 'exApoyos' && S.selPt.i === i;
     g.fillStyle = isEn ? col('--accent') : col('--exist'); g.strokeStyle = isSel ? col('--ink') : col('--panel'); g.lineWidth = isSel ? 3 : 2;
     g.beginPath(); g.arc(x, y, isEn ? 7 : 5, 0, Math.PI * 2); g.fill(); g.stroke();
-    const lab = exLabel(i);
+    const lab = exLabel(i), esf = esfLabel(i);
     if (lab && (sc > 0.6 || isEn || !screen)) { g.fillStyle = col('--exist'); g.font = '600 11px ' + col('--f-body'); g.textAlign = 'right'; halo(lab, x - 8, y - 7); }
+    if (esf && (sc > 0.6 || isEn || !screen)) { g.fillStyle = col('--exist'); g.font = '10px ' + col('--f-mono'); g.textAlign = 'right'; halo(esf, x - 8, y + 12); }
   });
   // Puntos D-C: rombo y CUPS abreviado
   exDC().forEach((d, i) => {
@@ -948,10 +953,35 @@ function renderPtEdit() {
     ${sp.layer === 'exDC' ? `<label class="f full">CUPS<input id="pe_cups" type="text" value="${esc(p.cups || '')}" placeholder="ES0000000000000000XX"></label>
       <label class="f full">Texto en el plano<input id="pe_dcl" type="text" value="${esc(dcLabel(p))}" placeholder="${esc(cupsCorto(p.cups))}"><span class="hint">Por defecto: caracteres 12 a 18 del CUPS (${esc(cupsCorto(p.cups) || '—')}).</span></label>` : ''}
     ${sp.layer === 'exLineas' ? `<label class="f full">Texto de la línea en el plano<input id="pe_ll" type="text" value="${esc(exLineas()[sp.li]?.etiqueta ?? exLineas()[sp.li]?.nombre ?? '')}"><span class="hint">El cable verificado se añade detrás. Vacío: solo el cable.</span></label>` : ''}</div>
-    ${p.lat != null ? `<p class="note mono" style="margin:6px 0 0">${p.lat.toFixed(7)}, ${p.lon.toFixed(7)}</p>` : ''}`;
+    ${p.lat != null ? `<p class="note mono" style="margin:6px 0 0">${p.lat.toFixed(7)}, ${p.lon.toFixed(7)}</p>` : ''}
+    ${(() => { const at = sp.layer === 'exLineas' ? exLineas()[sp.li]?.attrs : p.attrs; const ks = at ? Object.keys(at) : []; return ks.length ? `<details style="margin-top:6px"><summary class="note">Datos del GIS (${ks.length})</summary><div class="tablewrap" style="margin-top:4px;max-height:200px;overflow:auto"><table class="vt"><tbody>${ks.map(k => `<tr><td class="note">${esc(k)}</td><td>${esc(at[k])}</td></tr>`).join('')}</tbody></table></div></details>` : ''; })()}`;
 }
 
 /* ===== Lectura de archivos: KML, KMZ, GPX y texto de GPS Visualizer ===== */
+/* Atributos de un elemento del GIS: ExtendedData (Data, SimpleData) y tabla o líneas «Campo: valor» de la descripción */
+function kmlAttrs(pm, doc) {
+  const A = {}; const put = (k, v) => { k = String(k || '').replace(/\s+/g, ' ').trim(); v = String(v ?? '').replace(/\s+/g, ' ').trim(); if (k && v && !(k in A)) A[k] = v; };
+  [...pm.getElementsByTagNameNS('*', 'Data')].forEach(d => { const dn = [...d.children].find(c => c.localName === 'displayName')?.textContent; const val = [...d.children].find(c => c.localName === 'value')?.textContent; put(dn || d.getAttribute('name'), val); });
+  [...pm.getElementsByTagNameNS('*', 'SimpleData')].forEach(d => put(d.getAttribute('name'), d.textContent));
+  const desc = [...pm.children].find(c => c.localName === 'description')?.textContent || '';
+  if (desc) {
+    const h = new DOMParser().parseFromString(desc, 'text/html');
+    h.querySelectorAll('tr').forEach(tr => { const cells = [...tr.children].filter(c => /^(TD|TH)$/.test(c.tagName)); if (cells.length === 2) put(cells[0].textContent, cells[1].textContent); });
+    (h.body?.innerText || h.body?.textContent || desc).split(/\n|<br\s*\/?>/i).forEach(line => { const m = line.match(/^\s*([^:=]{2,60}?)\s*[:=]\s*(.+)$/); if (m) put(m[1], m[2]); });
+  }
+  return A;
+}
+const normKey = k => String(k).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+function attrFind(attrs, test) { if (!attrs) return ''; for (const [k, v] of Object.entries(attrs)) if (test(normKey(k))) return v; return ''; }
+function esfuerzoApoyo(a) { return a.esfuerzo ?? attrFind(a.attrs, k => /esfuerzo/.test(k) && /max/.test(k)) ?? ''; }
+function conductorTramo(l) { return l.conductor ?? attrFind(l.attrs, k => k === 'conductor' || /^conductor\b/.test(k) || /dato tecnico.*conductor/.test(k)) ?? ''; }
+/* Busca en la base el cable que corresponde al texto del conductor (p. ej. «RZ 3x95 + 54,6 AL») */
+function cableFromConductor(txt) {
+  const m = String(txt || '').replace(/\s/g, '').match(/(\d)[x×](\d+(?:[,.]\d+)?)/i); if (!m) return '';
+  const n = m[1], s = m[2].replace('.', ',');
+  const c = S.cables.find(c => new RegExp(`\\b${n}[x×]${s.replace(',', '[,.]')}\\s*Al`, 'i').test(c.designacion.replace(/\s/g, ' ')) || c.designacion.replace(/\s/g, '').includes(`${n}x${s}Al`));
+  return c ? c.id : '';
+}
 async function parseGeoFile(file) {
   const name = file.name.toLowerCase();
   if (/\.(txt|csv|tsv)$/.test(name)) { const o = parseGpsvText(await file.text(), file.name); return { lines: [o], points: [] }; }
@@ -975,10 +1005,10 @@ async function parseGeoFile(file) {
     tag(doc, 'wpt').forEach(w => points.push({ ...pt(w), raw: w.textContent }));
   } else {
     const parseCoords = s => s.trim().split(/\s+/).map(t => t.split(',').map(Number)).filter(a => a.length >= 2 && !isNaN(a[0]) && !isNaN(a[1])).map(([lon, lat, alt]) => ({ lat, lon, alt: isNaN(alt) ? null : alt }));
-    tag(doc, 'LineString').forEach(ls => { const pts = parseCoords(tag(ls, 'coordinates')[0]?.textContent || ''); if (pts.length >= 2) lines.push({ nombre: nameOf(ls) || `Línea ${lines.length + 1}`, pts }); });
+    tag(doc, 'LineString').forEach(ls => { const pts = parseCoords(tag(ls, 'coordinates')[0]?.textContent || ''); if (pts.length >= 2) lines.push({ nombre: nameOf(ls) || `Línea ${lines.length + 1}`, pts, attrs: kmlAttrs(ls.closest('Placemark') || ls, doc) }); });
     tag(doc, 'Point').forEach(pe => { const c = parseCoords(tag(pe, 'coordinates')[0]?.textContent || '')[0]; const pm = pe.closest('Placemark') || pe;
       const ed = [...tag(pm, 'Data'), ...tag(pm, 'SimpleData')].map(d => (d.getAttribute('name') || '') + ' ' + (d.textContent || '')).join(' ');
-      if (c) points.push({ ...c, nombre: nameOf(pe), raw: [nameOf(pe), ed, tag(pm, 'description')[0]?.textContent || ''].join(' ') }); });
+      if (c) points.push({ ...c, nombre: nameOf(pe), attrs: kmlAttrs(pm, doc), raw: [nameOf(pe), ed, tag(pm, 'description')[0]?.textContent || ''].join(' ') }); });
   }
   lines.forEach(l => l.conCota = hasAlt(l.pts));
   return { lines, points };
@@ -1298,6 +1328,7 @@ function dxf(c, geo) {
     p(0, 'CIRCLE', 8, 'BT_APOYOS_EXISTENTES', 10, f3(ex[i].x), 20, f3(ex[i].y), 30, 0, 40, 0.4);
     if (i === 0 && geo) exDC().forEach(d => { p(0, 'CIRCLE', 8, 'BT_PUNTOS_DC', 10, f3(d.x), 20, f3(d.y), 30, 0, 40, 0.3); const lb = dcLabel(d); if (lb) p(0, 'TEXT', 8, 'BT_TEXTO_PUNTOS_DC', 10, f3(d.x + 0.8), 20, f3(d.y - 0.4), 30, 0, 40, 0.8, 1, ascii(lb)); });
     if (exLabel(i)) p(0, 'TEXT', 8, 'BT_TEXTO_EXISTENTE', 10, f3(ex[i].x - 3), 20, f3(ex[i].y + 1), 30, 0, 40, 1, 1, ascii(exLabel(i)));
+    if (esfLabel(i)) p(0, 'TEXT', 8, 'BT_TEXTO_EXISTENTE', 10, f3(ex[i].x - 3), 20, f3(ex[i].y - 1), 30, 0, 40, 0.8, 1, ascii(esfLabel(i)));
   }
   for (let i = 0; i < N.length - 1; i++) {
     p(0, 'LINE', 8, 'BT_TRAZADO', 10, f3(N[i].x), 20, f3(N[i].y), 30, 0, 11, f3(N[i + 1].x), 21, f3(N[i + 1].y), 31, 0);
