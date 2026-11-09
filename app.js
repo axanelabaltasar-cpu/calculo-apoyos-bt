@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.27.0';
+const VERSION = '1.28.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -904,9 +904,9 @@ function snapTargets(dp) {
   const linkedA1 = (dp.layer === 'exApoyos' && dp.i === enK) || (dp.layer === 'nuevo' && dp.i === 0 && enK != null);
   if (vis('nuevo')) {
     const pts = S.proj.modo === 'kml' && S.proj.geo ? S.proj.geo.pts : currentNodes();
-    pts.forEach((p, i) => { if (own('nuevo', 0, i) || (i === 0 && linkedA1)) return; out.push({ x: p.x, y: p.y, label: 'Apoyo A' + (i + 1) }); });
+    pts.forEach((p, i) => { if (own('nuevo', 0, i) || (i === 0 && linkedA1)) return; out.push({ x: p.x, y: p.y, label: 'Apoyo ' + apName(i) }); });
   }
-  if (vis('exApoyos')) (redEx()?.apoyos || []).forEach((p, i) => { if (own('exApoyos', 0, i) || (i === enK && linkedA1)) return; out.push({ x: p.x, y: p.y, label: 'Apoyo existente E' + (i + 1), exK: i }); });
+  if (vis('exApoyos')) (redEx()?.apoyos || []).forEach((p, i) => { if (own('exApoyos', 0, i) || (i === enK && linkedA1)) return; out.push({ x: p.x, y: p.y, label: 'Apoyo existente ' + exLabel(i), exK: i }); });
   if (vis('exLineas')) exLineas().forEach((l, li) => { const n = l.pts.length; [0, n - 1].forEach((i, k) => { if (n < 2 || (k && i === 0) || own('exLineas', li, i)) return; out.push({ x: l.pts[i].x, y: l.pts[i].y, label: (k ? 'Fin' : 'Inicio') + ' de tramo ' + (lineLabel(l) || 'L' + (li + 1)) }); }); });
   if (vis('ruta') && S.proj.geo?.ruta?.length > 1) { const r = S.proj.geo.ruta; [0, r.length - 1].forEach((i, k) => { if (!own('ruta', 0, i)) out.push({ x: r[i].x, y: r[i].y, label: (k ? 'Fin' : 'Inicio') + ' de ruta' }); }); }
   if (vis('exDC')) exDC().forEach((p, i) => { if (!own('exDC', 0, i)) out.push({ x: p.x, y: p.y, label: 'Punto D-C' + (dcLabel(p) ? ' ' + dcLabel(p) : '') }); });
@@ -921,7 +921,7 @@ function findSnap(dp, mx, my) {
 function worldAt(mx, my) { const cv = $('#map'); return { x: V.cx + (mx - cv.clientWidth / 2) / V.sc, y: V.cy - (my - cv.clientHeight / 2) / V.sc }; }
 function isEntronqueA1(i) { return i === 0 && S.proj.entronque?.k != null && exNodes()[S.proj.entronque.k]; }
 function editClick(mx, my) {
-  const layer = S.editLayer, tool = S.tool, w = worldAt(mx, my);
+  const layer = S.editLayer, tool = S.tool, snI = tool === 'insert' ? findSnap({ layer: '__hover__' }, mx, my) : null, w = snI ? { x: snI.x, y: snI.y } : worldAt(mx, my);
   if ((tool === 'insert' || tool === 'delete') && !vis(layer)) return toast(`La capa «${LAYERS[layer]}» está oculta. Muéstrala en «Capas» para editarla.`);
   if (tool === 'insert' && isSubLayer(layer)) return subInsert(layer, mx, my);
   if (tool === 'insert') {
@@ -1006,6 +1006,11 @@ function bindMap() {
     cv.setPointerCapture(ev.pointerId);
   });
   cv.addEventListener('pointermove', ev => {
+    if (!drag && V.sc && S.mapT && (S.tool === 'insert' || S.pickCgp)) { // al añadir: círculo de enganche sobre apoyos y extremos de tramos
+      const rc = cv.getBoundingClientRect(), sn = findSnap({ layer: '__hover__' }, ev.clientX - rc.left, ev.clientY - rc.top);
+      if ((sn?.x ?? null) !== (S.snap?.x ?? null) || (sn?.y ?? null) !== (S.snap?.y ?? null)) { S.snap = sn; if (!S.hoverRaf) S.hoverRaf = requestAnimationFrame(() => { S.hoverRaf = null; drawMap(); }); }
+      return;
+    }
     if (!drag || !V.sc) return; const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
     if (Math.hypot(dx, dy) > 4) drag.moved = true;
     if (!drag.moved) return;
@@ -1017,6 +1022,7 @@ function bindMap() {
       if (!drag.raf) drag.raf = requestAnimationFrame(() => { drag && (drag.raf = null); drawMap(); });
     } else { V.cx = drag.cx - dx / V.sc; V.cy = drag.cy + dy / V.sc; drawMap(); }
   });
+  cv.addEventListener('pointerleave', () => { if (!drag && S.snap) { S.snap = null; drawMap(); } });
   cv.addEventListener('pointerup', ev => {
     const d = drag; drag = null; S.drag = false; const snapped = S.snap; S.snap = null; if (!d || !S.mapT) return;
     if (d.pt) {
