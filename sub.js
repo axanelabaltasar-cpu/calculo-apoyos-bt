@@ -581,29 +581,36 @@ function aerElec(c) {
   const m = String(c.designacion || '').match(/(\d)\s*x\s*(\d+)\s*(?:\/\s*\d+\s*)?Al\s*\/?\s*([\d,.]+)?/i), n = m ? Number(m[1]) : 3, sec = Number(c.secFase) || (m ? Number(m[2]) : 0), neu = Number(c.secFiador) || (m && m[3] ? Number(m[3].replace(',', '.')) : 54.6), dd = AER_ELEC_DEF[c.id] || {};
   return { fases: Number(c.fases) || dd.fases || (n === 4 ? 3 : n === 2 ? 1 : n), sec, Imax: Number(c.Imax) || dd.Imax || AER_IMAX[n + 'x' + sec] || 0, R20: Number(c.R20) || dd.R20 || AL_R20[sec] || 0, Rn20: Number(c.Rn20) || dd.Rn20 || ALM_R20[neu] || 0.630, X: Number(c.X) || dd.X || 0.1 };
 }
+/* Línea aérea nueva: datos propios (vacíos = los del suministro solicitado) */
+const AER_INSTAL = [['tensado', 'Tensado sobre apoyos'], ['posado', 'Posado sobre fachada']];
+const AER_POSADA = { 'RZ-2x16Al-acero': 73, 'RZ-2x25Al-acero': 101, 'RZ-4x16Al-acero': 67, 'RZ-4x25Al-acero': 90, 'RZ-4x50Al-acero': 133, 'RZ-3x95-50Al-acero': 207, 'RZ-3x150-95Al-acero': 277 };
+function aerLinea() { return S.proj.aerLinea = { nombre: 'LBT-1', instal: 'tensado', potencia: '', cosphi: '', dUprev: '', ...(S.proj.aerLinea || {}) }; }
 function evalAereo(c, L) {
-  const sp = sumPar(), e = aerElec(c), ch = [], add = (ok, txt) => ch.push({ ok, txt });
-  const P = Number(sp.pSol) || 0, cos = Math.min(1, Math.max(0.5, Number(sp.cos) || 0.9)), sin = Math.sqrt(1 - cos * cos), mono = sp.tipo === 'mono';
+  const sp = sumPar(), A = aerLinea(), e = aerElec(c), ch = [], add = (ok, txt) => ch.push({ ok, txt });
+  const P = Number(A.potencia) > 0 ? Number(A.potencia) : Number(sp.pSol) || 0, cos = Math.min(1, Math.max(0.5, Number(A.cosphi) || Number(sp.cos) || 0.9)), sin = Math.sqrt(1 - cos * cos), mono = sp.tipo === 'mono';
+  const posado = A.instal === 'posado', Imax = e ? (posado && c && AER_POSADA[c.id] ? AER_POSADA[c.id] : e.Imax) : 0;
   const I = P > 0 ? (mono ? P * 1000 / (230 * cos) : P * 1000 / (Math.sqrt(3) * 400 * cos)) : 0, k90 = 1 + 0.00403 * 70;
   const dU = !e ? 0 : mono ? I * (L / 1000) * ((e.R20 + e.Rn20) * k90 * cos + 2 * e.X * sin) : Math.sqrt(3) * I * (L / 1000) * (e.R20 * k90 * cos + e.X * sin);
-  const dUp = dU / (mono ? 230 : 400) * 100, dUtot = dUp + (Number(sp.dUcon) || 0), dUmax = Number(sp.dUmax) || 5;
+  const dUprev = Number(A.dUprev) > 0 ? Number(A.dUprev) : Number(sp.dUcon) || 0;
+  const dUp = dU / (mono ? 230 : 400) * 100, dUtot = dUp + dUprev, dUmax = Number(sp.dUmax) || 5;
   let ok = !!e && P > 0;
   if (e) {
+    add('ok', `Instalación: ${posado ? 'posado sobre fachada' : 'tensado sobre apoyos'} (ITC-BT-06 ${posado ? '3.1.1' : '3.1.2'}); conductores aislados 0,6/1 kV de aluminio${c.fiador === 'acero' ? ', con fiador de acero' : ', con neutro fiador de Almelec'}.`);
     if (e.sec < 16) { ok = false; add('bad', 'Sección mínima de los conductores de aluminio: 16 mm² (ITC-BT-06 1.1.1).'); }
     if (!mono && e.fases < 3) { ok = false; add('bad', `${c.designacion} no tiene tres fases: no sirve para un suministro trifásico.`); }
     if (P > 0) {
-      if (!(I <= e.Imax + 1e-9)) ok = false;
-      add(I <= e.Imax + 1e-9 ? 'ok' : 'bad', `Intensidad ${fmt(I, 1)} A (${fmt(P, 2)} kW a ${mono ? '230 V' : '400 V'}, cos φ ${fmt(cos, 2)}) ${I <= e.Imax ? '≤' : '>'} ${fmt(e.Imax)} A admisible de ${c.designacion} (ITC-BT-06 tabla 3, 40 °C).`);
+      if (!(I <= Imax + 1e-9)) ok = false;
+      add(I <= Imax + 1e-9 ? 'ok' : 'bad', `Intensidad ${fmt(I, 1)} A (${fmt(P, 2)} kW a ${mono ? '230 V' : '400 V'}, cos φ ${fmt(cos, 2)}) ${I <= Imax ? '≤' : '>'} ${fmt(Imax)} A admisible de ${c.designacion} ${posado ? 'posado' : 'tensado'} (ITC-BT-06 tabla ${c.fiador === 'acero' ? 4 : 3}, 40 °C).`);
       if (dUtot > dUmax + 1e-9) ok = false;
-      add(dUtot <= dUmax + 1e-9 ? 'ok' : 'bad', `Caída de tensión ${fmt(dUp, 2)} % en ${fmt(L, 1)} m${Number(sp.dUcon) ? ` + ${fmt(sp.dUcon, 2)} % en el punto de conexión = ${fmt(dUtot, 2)} %` : ''} ${dUtot <= dUmax ? '≤' : '>'} ${fmt(dUmax, 1)} % (carga al final de la línea, R a 90 °C).`);
-    }
+      add(dUtot <= dUmax + 1e-9 ? 'ok' : 'bad', `Caída de tensión ${fmt(dUp, 2)} % en ${fmt(L, 1)} m${dUprev ? ` + ${fmt(dUprev, 2)} % en el punto de conexión = ${fmt(dUtot, 2)} %` : ''} ${dUtot <= dUmax ? '≤' : '>'} ${fmt(dUmax, 1)} % (carga al final de la línea, R a 90 °C).`);
+    } else add('warn', 'Indica la potencia solicitada (en «Datos de la línea» o en la línea) para comprobar intensidad y caída de tensión.');
   }
-  return { c, e, P, I, L, dUp, dUtot, ok, checks: ch };
+  return { c, e, P, I, Imax, L, dUp, dUtot, ok, checks: ch };
 }
 /* Elige el cable trenzado de menor sección que cumple (se ejecuta antes del cálculo mecánico) */
 function autoCableAereo() {
   S.elecAer = null; const sp = sumPar();
-  if (!sp.auto || !(Number(sp.pSol) > 0) || S.proj.rows.length < 2 || !S.cables.length) return;
+  if (!sp.auto || !(Number(aerLinea().potencia) > 0 || Number(sp.pSol) > 0) || S.proj.rows.length < 2 || !S.cables.length) return;
   const nodes = currentNodes(), spans = E.buildGeometry(nodes), L = spans.reduce((t, s) => t + s.a, 0);
   const act = S.cables.filter(c => c.activo !== false && aerElec(c).Imax > 0);
   const fam = sp.tipo === 'mono' ? [...act.filter(c => aerElec(c).fases === 1), ...act.filter(c => aerElec(c).fases >= 3)] : act.filter(c => aerElec(c).fases >= 3);
@@ -719,4 +726,47 @@ ${S.proj.ct?.matricula || S.proj.ct?.potencia ? `<tr><td>Centro de transformaci�
 ${Number(sp.pDisp) > 0 ? `<tr><td>Potencia disponible en el punto de conexión</td><td>${fmt(sp.pDisp, 2)} kW</td></tr>` : ''}
 ${sp.cgp ? `<tr><td>CGP del cliente</td><td>${esc(cgpTipoTxt(sp.cgp.tipo))}${sp.cgp.desc ? ' · ' + esc(sp.cgp.desc) : ''}${sp.cgp.lat != null ? ` · ${sp.cgp.lat.toFixed(6)}, ${sp.cgp.lon.toFixed(6)}` : ''}</td></tr>` : ''}<tr><td>Caída de tensión en el punto de conexión / máxima</td><td>${fmt(sp.dUcon, 2)} % / ${fmt(sp.dUmax, 1)} %</td></tr></tbody></table>
 <ul class="s">${sumBanners().map(li).join('')}${cgpChecks().map(li).join('')}${r ? r.checks.map(li).join('') : ''}</ul>`;
+}
+
+/* ---------- Tabla «Conductores de las líneas aéreas» (como «Líneas subterráneas») ---------- */
+function renderAerLineas() {
+  const box = $('#aerLineas'); if (!box) return;
+  if (box.contains(document.activeElement) && document.activeElement.matches('input[type=text],input[type=number]')) return renderAerChecks();
+  const A = aerLinea(), sp = sumPar(), c = S.calc, r = elecAereoRes(), cab = c?.cable || S.cables.find(x => x.id === S.proj.cableId);
+  const chip = e => `<span class="chip ${e}">${e === 'ok' ? 'cumple' : e === 'warn' ? 'revisar' : 'no cumple'}</span>`;
+  const malos = c ? c.results.filter(q => !(q.elegido || q.existenteCheck?.ok)).length : 0;
+  const est = !r ? null : (r.checks.some(x => x.ok === 'bad') || malos) ? 'bad' : r.checks.some(x => x.ok === 'warn') ? 'warn' : 'ok';
+  const opts = S.cables.filter(x => x.activo !== false).map(x => `<option value="${esc(x.id)}" ${!sp.auto && S.proj.cableId === x.id ? 'selected' : ''}>${esc(x.designacion)}</option>`).join('');
+  const nueva = S.proj.rows.length > 1 ? `<tr data-al="n">
+    <td><input type="text" data-a="nombre" value="${esc(A.nombre)}" style="width:8ch"></td><td>Nueva</td>
+    <td><select data-a="cable" style="min-width:18ch"><option value="auto" ${sp.auto ? 'selected' : ''}>Automático (REBT)${sp.auto && cab ? ': ' + esc(shortCable(cab.designacion)) : ''}</option>${opts}</select></td>
+    <td><select data-a="instal">${AER_INSTAL.map(([v, t]) => `<option value="${v}" ${A.instal === v ? 'selected' : ''}>${t}</option>`).join('')}</select></td>
+    <td class="n"><input class="num" type="number" step="any" min="0" data-a="potencia" value="${A.potencia}" placeholder="${sp.pSol || ''}" style="width:7ch"></td>
+    <td class="n"><input class="num" type="number" step="0.01" min="0.5" max="1" data-a="cosphi" value="${A.cosphi}" placeholder="${sp.cos}" style="width:8ch"></td>
+    <td class="n"><input class="num" type="number" step="0.1" min="0" data-a="dUprev" value="${A.dUprev}" placeholder="${sp.dUcon}" style="width:6ch"></td>
+    <td class="n">${c ? c.nodes.length : '—'}</td><td class="n">${r ? fmt(r.L, 1) : '—'}</td><td class="n">${r?.I ? fmt(r.I, 1) : '—'}</td><td class="n">${r?.Imax ? fmt(r.Imax) : '—'}</td><td class="n">${r?.I ? fmt(r.dUtot, 2) : '—'}</td>
+    <td>${est ? chip(est) : '<span class="note">sin calcular</span>'}</td></tr>` : '';
+  const exs = exLineas().map(l => { const d = lineData(l.id), cx = S.cables.find(x => x.id === d.v.cableId);
+    return `<tr><td>${esc(lineLabel(l) || '—')}</td><td>Existente</td><td>${cx ? esc(cx.designacion) : `<span class="note">${esc(conductorTramo?.(l) || 'sin verificar')}</span>`}</td><td>Tensado sobre apoyos</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">${fmt(polyLen(l.pts), 1)}</td><td class="n">—</td><td class="n">${cx ? fmt(aerElec(cx).Imax) : '—'}</td><td class="n">—</td><td>${d.v.ok ? '<span class="chip ok">verificada</span>' : '<span class="chip warn">sin verificar</span>'}</td></tr>`; }).join('');
+  box.innerHTML = `<h3 class="sub">Conductores de las líneas aéreas</h3>
+    <div class="tablewrap"><table class="subt"><thead><tr><th>Línea</th><th>Estado</th><th>Cable</th><th>Instalación</th><th class="n">P (kW)</th><th class="n">cos φ</th><th class="n">ΔU previa (%)</th><th class="n">Apoyos</th><th class="n">Long. (m)</th><th class="n">I (A)</th><th class="n">I máx. (A)</th><th class="n">ΔU (%)</th><th>Estado</th></tr></thead>
+    <tbody>${nueva + exs || '<tr><td colspan="13" class="empty">Sin líneas aéreas. Dibuja o importa el trazado.</td></tr>'}</tbody></table></div><div id="aerChecks"></div>`;
+  renderAerChecks();
+}
+function renderAerChecks() {
+  const box = $('#aerChecks'); if (!box) return; const r = elecAereoRes(), c = S.calc; if (!r) { box.innerHTML = ''; return; }
+  const malos = c.results.map((q, i) => !(q.elegido || q.existenteCheck?.ok) ? apName(i) : null).filter(Boolean);
+  const mec = malos.length ? { ok: 'bad', txt: `Apoyos sin modelo válido: ${malos.join(', ')}. Cambia la altura, el vano o la función, o amplía la base de apoyos.` } : { ok: 'ok', txt: `Los ${c.results.length} apoyos cumplen los esfuerzos de las hipótesis del ITC-BT-06 (zona ${S.proj.ctx.zona}) con coeficiente de seguridad 2,5.` };
+  const all = [...sumBanners(), ...r.checks, mec], est = all.some(x => x.ok === 'bad') ? 'bad' : all.some(x => x.ok === 'warn') ? 'warn' : 'ok';
+  box.innerHTML = `<h3 class="sub">Comprobaciones</h3><details ${est !== 'ok' ? 'open' : ''}><summary>Línea ${esc(aerLinea().nombre)} <span class="chip ${est}">${est === 'ok' ? 'cumple' : est === 'warn' ? 'revisar' : 'no cumple'}</span></summary><ul class="checks">${all.map(x => `<li class="${x.ok}">${esc(x.txt)}</li>`).join('')}</ul></details>`;
+}
+function bindAerLineas() {
+  const box = $('#aerLineas'); if (!box) return;
+  box.addEventListener('change', ev => {
+    const t = ev.target, k = t.dataset.a; if (!k) return; const A = aerLinea(); snapshot();
+    if (k === 'cable') { const sp = sumPar(); if (t.value === 'auto') sp.auto = true; else { sp.auto = false; S.proj.cableId = t.value; const s = $('#p_cable'); if (s) s.value = t.value; } }
+    else A[k] = t.type === 'number' ? (t.value === '' ? '' : Number(t.value)) : t.value;
+    recalc(); renderSum(); renderAerLineas(); drawMap();
+  });
+  box.addEventListener('focusout', () => setTimeout(() => { if (!box.contains(document.activeElement)) renderAerLineas(); }, 60));
 }

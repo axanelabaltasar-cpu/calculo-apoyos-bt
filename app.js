@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.25.0';
+const VERSION = '1.26.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -198,7 +198,7 @@ function recalc() {
   try { const perfil = perfilPts(); S.calc = E.calcular({ nodes, cable, ctx: S.proj.ctx, poles: S.poles, perfil }); S.calc.conPerfil = !!perfil; S.calc.perfilDist = perfil && S.proj.perfil ? Math.max(...nodes.map(n => n.dPerfil || 0)) : 0; S.calc.nodes = nodes; S.calc.cable = cable; S.calc.bud = E.presupuesto(S.calc, nodes, cable, S.precios, S.proj.ctx.terreno); }
   catch (e) { console.error(e); S.calc = null; toast('Error de cálculo: ' + e.message); }
   autoValidaEntronque();
-  renderResults(); renderPerfilInfo(); drawPerfil(); renderAnexo(); renderSumRes();
+  renderResults(); renderPerfilInfo(); drawPerfil(); renderAnexo(); renderSumRes(); renderAerLineas();
   if (S.proj.entronque?.k != null && !$('#exBody').contains(document.activeElement)) renderEntronque();
 }
 function statusOf(r, i) {
@@ -1324,7 +1324,7 @@ function refreshAll() {
   $('#geoInfo').hidden = !(S.proj.modo === 'kml' && S.proj.geo); $('#geoInfo').innerHTML = geoInfoHtml();
   const tm = $('#toManual'); if (tm) tm.onclick = toManual;
   renderRows(); renderEntronque(); recalc(); renderFondos(); renderPerfilInfo(); renderPtEdit(); updUndo();
-  renderCapas(); renderProjName(); renderSub(); renderSum(); renderDetail(); renderWizard(); renderAerAuto(); scheduleAuto();
+  renderCapas(); renderProjName(); renderSub(); renderSum(); renderDetail(); renderWizard(); renderAerAuto(); renderAerLineas(); scheduleAuto();
 }
 
 /* ---------- Plano: vista con desplazamiento y zoom ---------- */
@@ -2176,7 +2176,7 @@ function start() {
   if (!LOCAL) $('#ver').textContent = 'v' + VERSION;
   loadForm(); bindForm(); bindRows(); bindMap(); bindProjects(); bindDbTables(); bindPrecios(); bindTabs();
   $('#kmlFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importFile(f, 'nuevo'); e.target.value = ''; });
-  bindEntronque(); bindCoordForm(); bindPerfilAuto(); bindSub(); bindSubBases(); renderSubBases(); bindSum(); renderSum(); bindDetail(); bindWizard(); bindAerAuto();
+  bindEntronque(); bindCoordForm(); bindPerfilAuto(); bindSub(); bindSubBases(); renderSubBases(); bindSum(); renderSum(); bindDetail(); bindWizard(); bindAerAuto(); bindAerLineas();
   $('#perfilFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importFile(f, 'perfil'); e.target.value = ''; });
   $('#exportZip').onclick = exportZip;
   $('#exportNote').textContent = 'Incluye DXF en ETRS89 UTM con la línea nueva y la existente, KML, GeoJSON, los fondos cargados con su archivo de mundo, tabla CSV y anexo de cálculo.';

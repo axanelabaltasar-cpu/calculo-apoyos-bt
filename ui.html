@@ -182,7 +182,7 @@ a.btn{text-decoration:none;display:inline-block}
       <label class="btn small" for="impProjFile">Abrir archivo</label><input id="impProjFile" type="file" accept=".json" hidden>
       <button class="btn small" id="expBases" type="button" hidden>Exportar bases</button>
       <button class="btn small" id="foldAll" type="button">Minimizar / desplegar todo</button>
-      <div class="ver" id="ver">v1.25.0</div>
+      <div class="ver" id="ver">v1.26.0</div>
     </div>
   </header>
   <nav class="tabs" role="tablist">
@@ -270,6 +270,13 @@ a.btn{text-decoration:none;display:inline-block}
           </div>
           <p class="note">Desvío positivo: giro a la derecha en el sentido de avance. Marca «Cruce» en el vano que llega al apoyo si cruza carretera o ferrocarril. «Vano calc.» es la distancia medida en el plano; escribe otra en «Vano manual» para usarla en el cálculo y el presupuesto (vacío: la calculada).</p>
         </section>
+        <section class="card" id="aerCard">
+          <h2>Red aérea · ITC-BT-06</h2>
+          <h3 class="sub">Apoyos</h3>
+          <div class="tablewrap"><table id="resTable"></table></div>
+          <p class="note">Una fila por apoyo. Esfuerzos referidos al punto de aplicación del esfuerzo nominal (0,25 m bajo cogolla), comparados con el esfuerzo nominal y secundario del poste (coef. de seguridad 2,5 incluido). Pulsa una fila para ver el desglose.</p>
+          <div id="aerLineas"></div>
+        </section>
         <section class="card" id="subCard">
           <h2>Red subterránea · ITC-BT-07</h2>
           <div id="subBody"></div>
@@ -295,11 +302,6 @@ a.btn{text-decoration:none;display:inline-block}
           <div class="tablewrap"><table id="cantTable"></table></div>
         </section>
 
-        <section class="card">
-          <h2>Apoyos calculados</h2>
-          <div class="tablewrap"><table id="resTable"></table></div>
-          <p class="note">Esfuerzos referidos al punto de aplicación del esfuerzo nominal (0,25 m bajo cogolla), comparados con el esfuerzo nominal y secundario del poste (coef. de seguridad 2,5 incluido). Pulsa una fila para ver el desglose.</p>
-        </section>
 
         <section class="card" id="anexoCard">
           <h2>ANEXO I · Galicia</h2>
