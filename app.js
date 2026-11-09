@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.29.0';
+const VERSION = '1.30.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -462,7 +462,7 @@ function renderEntronque() {
   const box = $('#exBody'), R = redEx(), en = S.proj.entronque;
   if (!R || (!R.lineas.length && !R.apoyos?.length && !R.puntosDC?.length)) { box.innerHTML = '<p class="note">Importa por separado los tres archivos de la red existente: apoyos, tramo baja y puntos D-C (KMZ/KML; puedes importar varios de cada tipo). Después eliges el apoyo de entronque y verificas sus datos, los de los apoyos contiguos y los de los tramos que pasan por él. De los puntos D-C solo se rotula parte del CUPS.</p>'; return; }
   ensureEntronque();
-  if (!S.proj.rows.length) { S.proj.rows.push(Object.assign(newRow(), { vano: 0 })); S.proj.rows.push(newRow()); }
+  if (!S.proj.rows.length && S.proj.modo !== 'kml') { S.proj.rows.push(Object.assign(newRow(), { vano: 0 })); S.proj.rows.push(newRow()); }
   const ex = exNodes();
   const fuentes = (arr, tipo) => [...new Set(arr.map(x => x.fuente))].map(f => `<span class="chip info">${esc(f)} · ${arr.filter(x => x.fuente === f).length} ${tipo}</span> <button class="btn small ghost" data-delsrc="${esc(f)}" data-tipo="${tipo}" aria-label="Quitar ${esc(f)}">✕</button>`).join(' ');
   const poleOpts = sel => `<option value="">Elegir modelo…</option>` + S.poles.map(p => `<option value="${esc(p.id)}" ${sel === p.id ? 'selected' : ''}>${poleLabel(p)}</option>`).join('');
@@ -2188,6 +2188,8 @@ function start() {
   if (!LOCAL) $('#ver').textContent = 'v' + VERSION;
   loadForm(); bindForm(); bindRows(); bindMap(); bindProjects(); bindDbTables(); bindPrecios(); bindTabs();
   $('#kmlFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importFile(f, 'nuevo'); e.target.value = ''; });
+  $('#trApoFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importTrApoyos(f); e.target.value = ''; });
+  $('#trLinFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importTrTramos(f); e.target.value = ''; });
   bindEntronque(); bindCoordForm(); bindPerfilAuto(); bindSub(); bindSubBases(); renderSubBases(); bindSum(); renderSum(); bindDetail(); bindWizard(); bindAerAuto(); bindAerLineas();
   $('#perfilFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importFile(f, 'perfil'); e.target.value = ''; });
   $('#exportZip').onclick = exportZip;

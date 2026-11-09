@@ -205,7 +205,7 @@ function bindWizard() {
     if (j === 'go') st.go?.(); else st.acts?.[Number(j)]?.[1]();
   });
 }
-{ const _np = nuevoProyecto; nuevoProyecto = function () { _np(); S.proj.wizard = true; renderWizard(); $('#wizard')?.scrollIntoView({ block: 'start' }); setTimeout(() => $('#p_nombre')?.focus(), 50); }; }
+{ const _np = nuevoProyecto; nuevoProyecto = function () { _np(); S.trImpApoyos = null; S.proj.wizard = true; renderWizard(); $('#wizard')?.scrollIntoView({ block: 'start' }); setTimeout(() => $('#p_nombre')?.focus(), 50); }; }
 
 /* =====================================================================
    LÍNEA AÉREA AUTOMÁTICA: se dibuja la ruta y la aplicación coloca los apoyos,
@@ -317,3 +317,56 @@ addEventListener('scroll', ajustaColDerecha, { passive: true }); addEventListene
     h.addEventListener('dblclick', () => { delete st.rowP; save(st); apply(st); });
   }
 })();
+
+/* =====================================================================
+   TRAZADO: importar por separado los apoyos (puntos) y los tramos (líneas)
+   ===================================================================== */
+function puntoInicio() { const en = S.proj.entronque, ex = exNodes(); return en?.k != null && ex[en.k] ? ex[en.k] : null; }
+/* Une varias líneas en una sola ruta, empezando por la más cercana al entronque */
+function encadenarTramos(lines, zone) {
+  const U = p => ({ ...p, ...E.utmFromLatLon(p.lat, p.lon, zone) });
+  let rest = lines.filter(l => l.pts.length > 1).map(l => l.pts.map(U)); if (!rest.length) return [];
+  const d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y), P0 = puntoInicio();
+  let k = 0, rev = false;
+  if (P0) { let best = Infinity; rest.forEach((l, i) => { const a = d(l[0], P0), b = d(l[l.length - 1], P0); if (a < best) { best = a; k = i; rev = false; } if (b < best) { best = b; k = i; rev = true; } }); }
+  let ruta = rest.splice(k, 1)[0]; if (rev) ruta = ruta.reverse();
+  while (rest.length) {
+    const end = ruta[ruta.length - 1]; let bi = 0, br = false, bd = Infinity;
+    rest.forEach((l, i) => { const a = d(l[0], end), b = d(l[l.length - 1], end); if (a < bd) { bd = a; bi = i; br = false; } if (b < bd) { bd = b; bi = i; br = true; } });
+    let l = rest.splice(bi, 1)[0]; if (br) l = l.reverse(); if (d(l[0], end) < 0.5) l = l.slice(1); ruta = ruta.concat(l);
+  }
+  return ruta;
+}
+/* Ordena puntos sueltos en cadena (vecino más próximo) empezando cerca del entronque */
+function ordenarApoyos(pts) {
+  const d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y), P0 = puntoInicio(), rest = [...pts];
+  let i0 = 0; if (P0) { let bd = Infinity; rest.forEach((p, i) => { const q = d(p, P0); if (q < bd) { bd = q; i0 = i; } }); }
+  const out = [rest.splice(i0, 1)[0]];
+  while (rest.length) { const e = out[out.length - 1]; let bi = 0, bd = Infinity; rest.forEach((p, i) => { const q = d(p, e); if (q < bd) { bd = q; bi = i; } }); out.push(rest.splice(bi, 1)[0]); }
+  return out;
+}
+async function importTrApoyos(file) {
+  try {
+    const { points } = await parseGeoFile(file); if (points.length < 1) throw new Error('el archivo no tiene puntos (marcadores) de apoyos');
+    S.trImpApoyos = { pts: points, nombre: file.name };
+    const zone = setZoneFrom(points[0]), ruta = S.proj.geo?.ruta;
+    if (ruta?.length > 1) { applyTrace({ nombre: 'Ruta', pts: ruta.map(p => ({ lat: p.lat, lon: p.lon, alt: p.alt })), conCota: hasAlt(ruta) }, file.name, points); return; }
+    if (points.length < 2) throw new Error('hacen falta al menos dos apoyos o importar antes los tramos');
+    const ord = ordenarApoyos(points.map(p => ({ ...p, ...E.utmFromLatLon(p.lat, p.lon, zone) })));
+    applyTrace({ nombre: 'Apoyos', pts: ord.map(p => ({ lat: p.lat, lon: p.lon, alt: p.alt, nombre: p.nombre })), sinDividir: true, conCota: hasAlt(points) }, file.name, null);
+    toast(`${points.length} apoyos importados y ordenados desde el entronque. Importa los tramos si quieres ajustar el orden a la ruta.`);
+  } catch (e) { toast('No se pudieron importar los apoyos: ' + e.message); }
+}
+async function importTrTramos(file) {
+  try {
+    const { lines } = await parseGeoFile(file); if (!lines.length) throw new Error('el archivo no tiene líneas (tramos)');
+    const zone = setZoneFrom(lines[0].pts[0]), ruta = encadenarTramos(lines, zone); if (ruta.length < 2) throw new Error('los tramos no tienen al menos dos puntos');
+    const opt = { nombre: 'Tramos', pts: ruta.map(p => ({ lat: p.lat, lon: p.lon, alt: p.alt })), conCota: hasAlt(ruta) };
+    if (S.trImpApoyos?.pts?.length >= 2) { applyTrace(opt, file.name, S.trImpApoyos.pts); return; }
+    snapshot();
+    S.proj.geo = { zone, pts: [], ruta: ruta.map(({ x, y, lat, lon, alt }) => ({ x, y, lat, lon, alt })), fuente: file.name }; S.proj.modo = 'kml'; S.proj.rows = [];
+    if (opt.conCota) S.proj.perfil = { fuente: file.name, pts: ruta.map(p => ({ x: p.x, y: p.y, z: p.alt })) };
+    V.fitted = false; refreshAll();
+    toast(`${lines.length} tramo(s) importado(s): ruta de ${fmt(polyLen(ruta), 1)} m. Importa ahora los apoyos o pulsa «Calcular y optimizar» para colocarlos automáticamente.`);
+  } catch (e) { toast('No se pudieron importar los tramos: ' + e.message); }
+}
