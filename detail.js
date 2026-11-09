@@ -45,6 +45,9 @@ function bindDetail() {
   box.addEventListener('click', ev => {
     const b = ev.target.closest('button[data-act]'); if (!b) return;
     if (b.dataset.act === 'entronque') { setEntronque(Number(b.dataset.k)); renderDetail(); }
+    const zo = S.selObj?.kind === 'sub' ? S.selObj.o : (S.selPt && isSubLayer(S.selPt.layer) ? subObjs(S.selPt.layer)[S.selPt.li] : null);
+    if (zo && b.dataset.act === 'tuboAdd') { snapshot(); const used = new Set(tubosZ(zo).map(g => g.tuboId)); const nt = tubosSub().find(t => !used.has(t.id)) || tubosSub()[0]; zo.tubos.push({ tuboId: nt?.id || '', n: 1 }); tubosZ(zo); refreshAll(); renderSub(); renderDetail(); }
+    if (zo && b.dataset.act === 'tuboDel' && zo.tubos.length > 1) { snapshot(); zo.tubos.pop(); tubosZ(zo); refreshAll(); renderSub(); renderDetail(); }
   });
 }
 /* ---- Apoyo nuevo ---- */
@@ -124,7 +127,8 @@ function detSub(o) {
     dfield('Tipo', o.tipo, v => { o.tipo = v; if (ZANJA_TIPOS[v]?.horm) { o.entubada = true; o.hormigon = true; o.prof = Math.max(Number(o.prof) || 0, 0.8); } }, { options: Object.entries(ZANJA_TIPOS).map(([k, t]) => [k, t.n]) }) +
     dfield('Profundidad (m)', o.prof, v => { o.prof = v; }, { type: 'number' }) + dfield('Ancho (m)', o.ancho, v => { o.ancho = v; }, { type: 'number' }) +
     dfield('Entubada', !!o.entubada, v => { o.entubada = v; }, { type: 'checkbox' }) + dfield('Hormigonada', !!o.hormigon, v => { o.hormigon = v; }, { type: 'checkbox' }) +
-    dfield('Nº de tubos', o.nTubos, v => { o.nTubos = v; }, { type: 'number' }) + dfield('Tubo', o.tuboId, v => { o.tuboId = v; }, { options: tubosSub().map(t => [t.id, 'Ø' + t.dExt + ' mm']) }) +
+    tubosZ(o).map((g, gi) => dfield(`Tubos ${gi + 1}: número`, g.n, v => { g.n = Math.max(0, Math.round(Number(v) || 0)); tubosZ(o); }, { type: 'number' }) + dfield(`Tubos ${gi + 1}: medida`, g.tuboId, v => { g.tuboId = v; tubosZ(o); }, { options: tubosSub().map(t => [t.id, 'Ø' + t.dExt + ' mm']) })).join('') +
+    `<div class="f" style="justify-content:flex-end"><span class="row"><button class="btn small" data-act="tuboAdd">+ medida de tubo</button>${o.tubos.length > 1 ? '<button class="btn small ghost" data-act="tuboDel">− última medida</button>' : ''}</span></div>` +
     dfield('Separación entre circuitos', o.sep, v => { o.sep = v; }, { options: SUB_SEP }) +
     dfield('Longitud manual (m)', o.lManual ?? '', v => { o.lManual = v; }, { type: 'number', ph: r ? fmt(r.Lc, 1) : '', hint: 'Vacío: la medida' }));
   if (r) h += dinfo([['Estado', `<span class="chip ${r.est}">${r.est === 'ok' ? 'cumple' : r.est === 'warn' ? 'revisar' : 'no cumple'}</span>`], ['Longitud', fmt(r.L, 1) + ' m'], ['Circuitos', r.lin.length], o.entubada && ['Arquetas', r.arq.length]]) + `<ul class="checks">${r.checks.map(c => `<li class="${c.ok}">${esc(c.txt)}</li>`).join('')}</ul>`;

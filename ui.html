@@ -99,7 +99,7 @@ td.n,th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabula
 td input,td select{padding:3px 5px;font-size:.8rem}
 td input.num{width:72px}
 tr.sel td{background:var(--accent-soft)}
-.subt td,.subt th{white-space:nowrap} .subt select{max-width:22ch}
+.subt{width:max-content;min-width:100%} .subt select{min-width:10ch} .subt input[type=text]{min-width:7ch} .subt td,.subt th{white-space:nowrap} .tgrp{display:flex;flex-direction:column;gap:4px;align-items:flex-start} .nowrap{flex-wrap:nowrap} .subt select{max-width:22ch}
 h3.sub{font:600 .95rem var(--f-display);margin:14px 0 6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 ul.checks{margin:4px 0 8px;padding-left:20px;font-size:.85rem} ul.checks li.ok::marker{color:var(--ok)} ul.checks li.warn{color:var(--warn)} ul.checks li.bad{color:var(--bad)}
 #subResults details{border-top:1px solid var(--line);padding:4px 0} #subResults summary{cursor:pointer;font-size:.9rem}
@@ -182,7 +182,7 @@ a.btn{text-decoration:none;display:inline-block}
       <label class="btn small" for="impProjFile">Abrir archivo</label><input id="impProjFile" type="file" accept=".json" hidden>
       <button class="btn small" id="expBases" type="button" hidden>Exportar bases</button>
       <button class="btn small" id="foldAll" type="button">Minimizar / desplegar todo</button>
-      <div class="ver" id="ver">v1.28.0</div>
+      <div class="ver" id="ver">v1.29.0</div>
     </div>
   </header>
   <nav class="tabs" role="tablist">
