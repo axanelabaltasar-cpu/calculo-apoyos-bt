@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.31.0';
+const VERSION = '1.32.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -1186,7 +1186,7 @@ async function importFile(file, destino) {
     if (destino === 'exDC') return applyExDC(points, file.name);
     // Trazado nuevo: ruta + marcadores de apoyos en el mismo archivo
     if (!lines.length && points.length < 2) throw new Error('No se ha encontrado la ruta ni los marcadores de los apoyos');
-    const go = l => applyTrace(l || { nombre: 'Apoyos', pts: points, sinDividir: true, conCota: hasAlt(points) }, file.name, l && points.length ? points : null);
+    const go = l => { applyTrace(l || { nombre: 'Apoyos', pts: points, sinDividir: true, conCota: hasAlt(points) }, file.name, l && points.length ? points : null); if (l && S.proj.geo) { const z = S.proj.zone; S.proj.geo.tramos = [{ id: tramoId(l), nombre: l.nombre, attrs: l.attrs || {}, pts: l.pts.map(p => ({ lat: p.lat, lon: p.lon, ...E.utmFromLatLon(p.lat, p.lon, z) })) }]; refreshAll(); } };
     if (lines.length <= 1) return go(lines[0]);
     const box = $('#kmlPick'); box.hidden = false;
     box.innerHTML = `<div class="banner info">El archivo tiene varias líneas. Elige la ruta del trazado nuevo${points.length ? ` (se usarán sus ${points.length} marcadores como apoyos)` : ''}:</div><div class="row" style="margin-top:6px">${lines.map((l, k) => `<button class="btn small" data-k="${k}">${esc(l.nombre)} · ${l.pts.length} puntos</button>`).join('')}</div>`;
@@ -1963,22 +1963,41 @@ function modeloConstructivo(cab) {
   const m = String(cab?.designacion || '').match(/(\d)\s*x\s*(\d+(?:,\d+)?)\s*Al\s*\/\s*(\d+(?:,\d+)?)\s*Alm/i);
   return m ? `RZ ${m[1]}x${m[2]} + ${m[3]} AL` : shortCable(cab?.designacion || '');
 }
+/* Identificador único de un tramo importado (dato del GIS; si no lo hay, su nombre) */
+function tramoId(l) {
+  const v = attrFind(l.attrs || {}, k => /^(identificador|identificacion|id|codigo|cod|matricula|referencia|ref|tramo|id_?tramo|cod_?tramo)$/.test(k) || /identificador|id[ _]?tramo|cod(igo)?[ _]?tramo/.test(k));
+  return String(v || l.nombre || '').trim();
+}
+const ctMatricula = () => (S.proj.ct?.matricula || anexo().ct || '').trim();
 function anexoFilas() {
-  const c = S.calc, g = c && getGeo(c.nodes); if (!c || !g) return [];
-  const A = anexo(), cab = c.cable;
-  return c.spans.map((s, i) => {
-    const a = g.pts[s.i], b = g.pts[s.i + 1];
-    const u0 = E.utmFromLatLon(a.lat, a.lon, 30), u1 = E.utmFromLatLon(b.lat, b.lon, 30);
-    const t = A.tramos[i] || {};
-    return { provincia: A.provincia, concello: A.concello, tipo: t.tipo || 'AEREO', id: t.id ?? (A.idBase ? `${A.idBase}_${i + 1}` : ''), ct: A.ct,
-      modelo: A.modelo || modeloConstructivo(cab), km: Math.round((s.aReal || s.a) / 1000 * 1000) / 1000, seccion: Number(cab?.secFase) || '',
-      x0: Math.round(u0.x * 1000) / 1000, y0: Math.round(u0.y * 1000) / 1000, x1: Math.round(u1.x * 1000) / 1000, y1: Math.round(u1.y * 1000) / 1000, tramo: `A${s.i + 1}–A${s.i + 2}` };
-  });
+  const A = anexo(), out = [], ct = ctMatricula();
+  const u30 = p => { const q = p.lat != null ? p : E.latLonFromUtm(p.x, p.y, S.proj.zone); const u = E.utmFromLatLon(q.lat, q.lon, 30); return { x: Math.round(u.x * 1000) / 1000, y: Math.round(u.y * 1000) / 1000 }; };
+  const row = (key, base) => { const t = A.tramos[key] || {}; const r = { ...base, provincia: A.provincia, concello: A.concello, ct, tipo: t.tipo || base.tipo, id: t.id ?? base.id, key }; return r; };
+  // Línea aérea: un tramo por cada tramo importado (con su identificador); si no hay tramos importados, un tramo por vano
+  const c = S.calc, g = c && getGeo(c.nodes), cab = c?.cable, tipoA = aerLinea?.().instal === 'posado' ? 'FACHADA' : 'AEREO';
+  const modeloA = A.modelo || modeloConstructivo(cab);
+  let tr = S.proj.geo?.tramos || []; const ru = S.proj.geo?.ruta;
+  if (ru?.length > 1 && tr.length) { // en el orden y sentido de la ruta, desde el entronque
+    const ch = p => projectOnRuta(ru, p).ch;
+    tr = tr.map(t => { const a0 = ch(t.pts[0]), a1 = ch(t.pts[t.pts.length - 1]); return { ...t, pts: a0 <= a1 ? t.pts : [...t.pts].reverse(), k: Math.min(a0, a1) }; }).sort((p, q) => p.k - q.k);
+  }
+  if (c && g && tr.length) {
+    tr.forEach((t, i) => { if (t.pts.length < 2) return; const L = polyLen(t.pts), u0 = u30(t.pts[0]), u1 = u30(t.pts[t.pts.length - 1]);
+      out.push(row('a' + i, { tipo: tipoA, id: t.id || (A.idBase ? `${A.idBase}_${i + 1}` : ''), idGis: !!t.id, modelo: modeloA, km: Math.round(L) / 1000, seccion: Number(cab?.secFase) || '', x0: u0.x, y0: u0.y, x1: u1.x, y1: u1.y, tramo: t.nombre || `Tramo aéreo ${i + 1}` })); });
+  } else if (c && g) {
+    c.spans.forEach((s, i) => { const u0 = u30(g.pts[s.i]), u1 = u30(g.pts[s.i + 1]);
+      out.push(row(i, { tipo: tipoA, id: A.idBase ? `${A.idBase}_${i + 1}` : '', modelo: modeloA, km: Math.round((s.aReal || s.a) / 1000 * 1000) / 1000, seccion: Number(cab?.secFase) || '', x0: u0.x, y0: u0.y, x1: u1.x, y1: u1.y, tramo: `${apName(s.i)}–${apName(s.i + 1)}` })); });
+  }
+  // Líneas subterráneas nuevas, cada una con su identificador
+  const R = S.subCalc;
+  (R?.lineas || []).filter(r => r.l.estado === 'nuevo' && r.l.pts.length > 1).forEach((r, i) => { const l = r.l, u0 = u30(l.pts[0]), u1 = u30(l.pts[l.pts.length - 1]);
+    out.push(row('s' + l.id, { tipo: 'SUBTERRANEO', id: l.idTramo || (A.idBase ? `${A.idBase}_S${i + 1}` : ''), idGis: !!l.idTramo, modelo: r.c ? r.c.designacion.replace(/^XZ1 \(S\) 0,6\/1 kV Al /, 'XZ1 ').replace(/$/, ' AL') : '', km: Math.round(r.L) / 1000, seccion: Number(r.c?.secFase) || '', x0: u0.x, y0: u0.y, x1: u1.x, y1: u1.y, tramo: l.nombre })); });
+  return out;
 }
 function anexoFaltan() {
   const A = anexo(), f = [];
   if (!getGeo()) f.push('trazado con coordenadas');
-  if (!A.provincia) f.push('provincia'); if (!A.concello) f.push('concello'); if (!A.ct) f.push('matrícula del CT');
+  if (!A.provincia) f.push('provincia'); if (!A.concello) f.push('concello'); if (!ctMatricula()) f.push('matrícula del CT (en «Datos de la línea»)');
   if (anexoFilas().some(r => !r.id)) f.push('identificación de todos los tramos');
   return f;
 }
@@ -1990,13 +2009,13 @@ function renderAnexo() {
     ${act ? `<div class="fields" style="margin-top:10px">
       <label class="f">Provincia<select id="ax_provincia">${PROV_GAL.map(([n]) => `<option ${A.provincia === n ? 'selected' : ''}>${n}</option>`).join('')}</select>${A.provSugerida ? '<span class="hint">Propuesta por la situación: revísala</span>' : ''}</label>
       <label class="f">Concello<input id="ax_concello" type="text" value="${esc(A.concello)}" placeholder="p. ej. PADERNE DE ALLARIZ"></label>
-      <label class="f">Matrícula CT<input id="ax_ct" type="text" value="${esc(A.ct)}" placeholder="p. ej. CTC002"></label>
+      <div class="f">Matrícula CT<div style="padding:6px 0"><b>${esc(ctMatricula() || '—')}</b> <span class="note">(de «Datos de la línea»)</span></div></div>
       <label class="f">Modelo constructivo<input id="ax_modelo" type="text" value="${esc(A.modelo)}" placeholder="${esc(modeloConstructivo(S.calc?.cable))}"></label>
-      <label class="f full">Identificación base de los tramos<input id="ax_idBase" type="text" value="${esc(A.idBase)}" placeholder="p. ej. 220.BTV.SG000821851"><span class="hint">Se numeran como base_1, base_2…; puedes cambiar cada una en la tabla.</span></label>
+      <label class="f full">Identificación base de los tramos<input id="ax_idBase" type="text" value="${esc(A.idBase)}" placeholder="p. ej. 220.BTV.SG000821851"><span class="hint">Solo para los tramos sin identificador en el GIS (base_1, base_2…). Los tramos importados usan su identificador único.</span></label>
     </div>
     <div class="tablewrap" style="margin-top:8px"><table class="vt"><thead><tr><th>Tramo</th><th>Tipo</th><th>Identificación</th><th class="n">Long. (km)</th><th class="n">X inicio</th><th class="n">Y inicio</th><th class="n">X fin</th><th class="n">Y fin</th></tr></thead><tbody>
-    ${filas.map((r, i) => `<tr><td>${r.tramo}</td><td><select data-axt="tipo" data-i="${i}">${['AEREO', 'FACHADA', 'SUBTERRANEO'].map(t => `<option ${r.tipo === t ? 'selected' : ''}>${t}</option>`).join('')}</select></td>
-      <td><input type="text" data-axt="id" data-i="${i}" value="${esc(r.id)}" style="min-width:170px"></td><td class="n">${r.km.toFixed(3)}</td><td class="n">${fmt(r.x0, 3)}</td><td class="n">${fmt(r.y0, 3)}</td><td class="n">${fmt(r.x1, 3)}</td><td class="n">${fmt(r.y1, 3)}</td></tr>`).join('') || '<tr><td colspan="8" class="empty">Sin tramos calculados con coordenadas.</td></tr>'}
+    ${filas.map((r, i) => `<tr><td>${r.tramo}</td><td><select data-axt="tipo" data-i="${esc(r.key)}">${['AEREO', 'FACHADA', 'SUBTERRANEO'].map(t => `<option ${r.tipo === t ? 'selected' : ''}>${t}</option>`).join('')}</select></td>
+      <td><input type="text" data-axt="id" data-i="${esc(r.key)}" value="${esc(r.id)}" style="min-width:170px" title="${r.idGis ? 'Identificador del tramo importado' : ''}">${r.idGis ? ' <span class="chip ok">GIS</span>' : ''}</td><td class="n">${r.km.toFixed(3)}</td><td class="n">${fmt(r.x0, 3)}</td><td class="n">${fmt(r.y0, 3)}</td><td class="n">${fmt(r.x1, 3)}</td><td class="n">${fmt(r.y1, 3)}</td></tr>`).join('') || '<tr><td colspan="8" class="empty">Sin tramos calculados con coordenadas.</td></tr>'}
     </tbody></table></div>
     <p class="note">Coordenadas ETRS89 huso 30N, como pide el formato, aunque el proyecto esté en el huso 29. Longitud real del tramo en km, con el desnivel si hay perfil.</p>
     ${faltan.length ? `<div class="banner warn">Para generar el ANEXO I falta: ${faltan.join(', ')}.</div>` : ''}
@@ -2008,7 +2027,7 @@ function bindAnexo() {
     const t = ev.target, A = anexo();
     if (t.id === 'ax_gal') A.galicia = t.checked;
     else if (t.id && t.id.startsWith('ax_')) { const k = t.id.slice(3); A[k] = k === 'concello' ? t.value.trim().toUpperCase() : t.value.trim(); if (k === 'provincia') A.provSugerida = false; }
-    if (t.dataset.axt) { const i = Number(t.dataset.i); A.tramos[i] = { ...(A.tramos[i] || {}), [t.dataset.axt]: t.value.trim() }; }
+    if (t.dataset.axt) { const i = t.dataset.i; A.tramos[i] = { ...(A.tramos[i] || {}), [t.dataset.axt]: t.value.trim() }; }
     renderAnexo();
   });
   box.addEventListener('click', ev => { if (ev.target.id === 'ax_dl') descargarAnexo(); });

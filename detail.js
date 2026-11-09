@@ -350,7 +350,7 @@ async function importTrApoyos(file) {
     const { points } = await parseGeoFile(file); if (points.length < 1) throw new Error('el archivo no tiene puntos (marcadores) de apoyos');
     S.trImpApoyos = { pts: points, nombre: file.name };
     const zone = setZoneFrom(points[0]), ruta = S.proj.geo?.ruta;
-    if (ruta?.length > 1) { applyTrace({ nombre: 'Ruta', pts: ruta.map(p => ({ lat: p.lat, lon: p.lon, alt: p.alt })), conCota: hasAlt(ruta) }, file.name, points); return; }
+    if (ruta?.length > 1) { const tr = S.proj.geo?.tramos; applyTrace({ nombre: 'Ruta', pts: ruta.map(p => ({ lat: p.lat, lon: p.lon, alt: p.alt })), conCota: hasAlt(ruta) }, file.name, points); if (tr) { S.proj.geo.tramos = tr; refreshAll(); } return; }
     if (points.length < 2) throw new Error('hacen falta al menos dos apoyos o importar antes los tramos');
     const ord = ordenarApoyos(points.map(p => ({ ...p, ...E.utmFromLatLon(p.lat, p.lon, zone) })));
     applyTrace({ nombre: 'Apoyos', pts: ord.map(p => ({ lat: p.lat, lon: p.lon, alt: p.alt, nombre: p.nombre })), sinDividir: true, conCota: hasAlt(points) }, file.name, null);
@@ -362,9 +362,10 @@ async function importTrTramos(file) {
     const { lines } = await parseGeoFile(file); if (!lines.length) throw new Error('el archivo no tiene líneas (tramos)');
     const zone = setZoneFrom(lines[0].pts[0]), ruta = encadenarTramos(lines, zone); if (ruta.length < 2) throw new Error('los tramos no tienen al menos dos puntos');
     const opt = { nombre: 'Tramos', pts: ruta.map(p => ({ lat: p.lat, lon: p.lon, alt: p.alt })), conCota: hasAlt(ruta) };
-    if (S.trImpApoyos?.pts?.length >= 2) { applyTrace(opt, file.name, S.trImpApoyos.pts); return; }
+    const tramos = lines.filter(l => l.pts.length > 1).map((l, i) => ({ id: tramoId(l), nombre: l.nombre || `Tramo ${i + 1}`, attrs: l.attrs || {}, pts: l.pts.map(p => ({ lat: p.lat, lon: p.lon, ...E.utmFromLatLon(p.lat, p.lon, zone) })) }));
+    if (S.trImpApoyos?.pts?.length >= 2) { applyTrace(opt, file.name, S.trImpApoyos.pts); S.proj.geo.tramos = tramos; refreshAll(); return; }
     snapshot();
-    S.proj.geo = { zone, pts: [], ruta: ruta.map(({ x, y, lat, lon, alt }) => ({ x, y, lat, lon, alt })), fuente: file.name }; S.proj.modo = 'kml'; S.proj.rows = [];
+    S.proj.geo = { zone, pts: [], ruta: ruta.map(({ x, y, lat, lon, alt }) => ({ x, y, lat, lon, alt })), fuente: file.name, tramos }; S.proj.modo = 'kml'; S.proj.rows = [];
     if (opt.conCota) S.proj.perfil = { fuente: file.name, pts: ruta.map(p => ({ x: p.x, y: p.y, z: p.alt })) };
     V.fitted = false; refreshAll();
     toast(`${lines.length} tramo(s) importado(s): ruta de ${fmt(polyLen(ruta), 1)} m. Importa ahora los apoyos o pulsa «Calcular y optimizar» para colocarlos automáticamente.`);

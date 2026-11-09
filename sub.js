@@ -444,7 +444,7 @@ async function importSub(file, kind, estado) {
     lines.forEach(l => {
       const pts = l.pts.map(p => ({ lat: p.lat, lon: p.lon, ...E.utmFromLatLon(p.lat, p.lon, zone) }));
       const o = kind === 'lineas' ? newSubLinea(estado, pts) : newZanja(estado, pts);
-      o.fuente = file.name; o.attrs = l.attrs || {}; if (l.nombre) o.nombre = l.nombre;
+      o.fuente = file.name; o.attrs = l.attrs || {}; if (l.nombre) o.nombre = l.nombre; const idt = tramoId(l); if (idt) o.idTramo = idt;
       if (kind === 'lineas') { const cond = attrFind(o.attrs, k => /conductor|cable|seccion/.test(k)); const c = cond && cablesSub().find(c => new RegExp('\\b' + c.secFase + '\\b').test(cond)); if (c) o.cableId = c.id; }
       else { const nt = parseInt(attrFind(o.attrs, k => /tubos|n.? ?tub/.test(k)), 10); if (nt > 0) { o.nTubos = nt; o.tubos = [{ tuboId: o.tuboId, n: nt }]; } const pf = parseFloat(String(attrFind(o.attrs, k => /profund/.test(k))).replace(',', '.')); if (pf > 0) o.prof = pf > 5 ? pf / 100 : pf; }
       s[kind].push(o);
