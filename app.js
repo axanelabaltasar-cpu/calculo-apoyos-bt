@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.20.0';
+const VERSION = '1.21.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -103,9 +103,10 @@ function renderRows() {
   const tb = $('#rowsTable tbody'); const geo = S.proj.modo === 'kml';
   const heights = [...new Set(S.poles.map(p => p.altura))].sort((a, b) => a - b);
   const nodes = currentNodes(); const spans = nodes.length > 1 ? E.buildGeometry(nodes) : [];
-  if (!S.proj.rows.length) { tb.innerHTML = '<tr><td colspan="10" class="empty">Sin apoyos. Importa el trazado, créalo con coordenadas de inicio y fin o pulsa «Añadir apoyo».</td></tr>'; return; }
+  if (!S.proj.rows.length) { tb.innerHTML = '<tr><td colspan="11" class="empty">Sin apoyos. Importa el trazado, créalo con coordenadas de inicio y fin o pulsa «Añadir apoyo».</td></tr>'; return; }
   tb.innerHTML = S.proj.rows.map((r, i) => {
-    const vano = i === 0 ? '—' : geo ? fmt(spans[i - 1]?.a, 1) : `<input class="num" type="number" step="0.5" data-k="vano" data-i="${i}" value="${r.vano}" aria-label="Vano anterior apoyo ${i + 1}">`;
+    const vman = i === 0 || !geo ? '—' : `<input class="num" type="number" step="0.1" min="0" data-k="vanoManual" data-i="${i}" value="${r.vanoManual ?? ''}" placeholder="auto" style="width:8ch" aria-label="Vano manual ${apName(i)}" title="Déjalo vacío para usar la distancia calculada">`;
+    const vano = i === 0 ? '—' : geo ? fmt(spans[i - 1]?.aCalc, 1) : `<input class="num" type="number" step="0.5" data-k="vano" data-i="${i}" value="${r.vano}" aria-label="Vano anterior apoyo ${i + 1}">`;
     const ang = (i === 0 || i === S.proj.rows.length - 1) ? '—' : geo ? fmt(nodes[i].desvio, 1) : `<input class="num" type="number" step="1" data-k="angulo" data-i="${i}" value="${r.angulo}" aria-label="Desvío apoyo ${i + 1}">`;
     const zc = S.calc?.conPerfil && S.calc.nodes[i]?.z != null && !(S.proj.modo === 'manual' && !S.proj.perfil) ? fmt(S.calc.nodes[i].z, 1)
       : S.proj.modo === 'manual' && !S.proj.perfil ? `<input class="num" type="number" step="0.1" data-k="cota" data-i="${i}" value="${r.cota ?? ''}" aria-label="Cota del terreno apoyo ${i + 1}">` : '—';
@@ -115,8 +116,8 @@ function renderRows() {
     const msel = `<select data-k="modeloFijo" data-i="${i}"><option value="">Auto</option>${S.poles.map(p => `<option value="${esc(p.id)}" ${r.modeloFijo === p.id ? 'selected' : ''}>${poleLabel(p)}</option>`).join('')}</select>`;
     const ex = `<button class="btn small" data-act="ex" data-i="${i}">${r.existente.activo ? 'Editar' : 'No'}</button>`;
     const del = `<button class="btn small ghost" data-act="del" data-i="${i}" aria-label="Eliminar apoyo ${i + 1}">✕</button>`;
-    let html = `<tr class="${S.sel === i ? 'sel' : ''}"><td><b>${apName(i)}</b>${S.proj.geo?.pts?.[i]?.nombre ? `<br><span class="note">${esc(S.proj.geo.pts[i].nombre)}</span>` : ''}</td><td class="n">${vano}</td><td class="n">${ang}</td><td class="n">${zc}</td><td>${cruce}</td><td>${fsel}</td><td>${hsel}</td><td>${msel}</td><td>${ex}</td><td>${del}</td></tr>`;
-    if (S.openEx === i) html += `<tr><td colspan="10">${existEditor(r, i)}</td></tr>`;
+    let html = `<tr class="${S.sel === i ? 'sel' : ''}"><td><b>${apName(i)}</b>${S.proj.geo?.pts?.[i]?.nombre ? `<br><span class="note">${esc(S.proj.geo.pts[i].nombre)}</span>` : ''}</td><td class="n">${vano}</td><td class="n">${vman}</td><td class="n">${ang}</td><td class="n">${zc}</td><td>${cruce}</td><td>${fsel}</td><td>${hsel}</td><td>${msel}</td><td>${ex}</td><td>${del}</td></tr>`;
+    if (S.openEx === i) html += `<tr><td colspan="11">${existEditor(r, i)}</td></tr>`;
     return html;
   }).join('');
 }
@@ -256,6 +257,7 @@ function renderResults() {
   const ve = verifEstado();
   if (ve.faltan.length) w.push(`<div class="banner bad">Verificación de la red existente incompleta: falta ${ve.faltan.map(esc).join(', ')}. La exportación está bloqueada hasta completarla.</div>`);
   if (ve.it) ve.it.apoyos.filter(a => a.k !== S.proj.entronque.k).forEach(a => { const cc = apoyoVerif(a.k).modeloId ? calcApoyoExistente(a.k) : null; if (cc?.r && cc.r.u > 1) w.push(`<div class="banner bad">El apoyo existente contiguo E${a.k + 1} no cumple con sus conductores (${fmt(cc.r.u * 100)} %). Revísalo.</div>`); });
+  { const man = c.spans.filter(s => s.manual); if (man.length) w.push(`<div class="banner info">Vanos con distancia manual: ${man.map(s => `${apName(s.i)}–${apName(s.i + 1)} ${fmt(s.a, 1)} m (medido en plano ${fmt(s.aCalc, 1)} m)`).join(', ')}. El cálculo y el presupuesto usan la distancia manual.</div>`); }
   const sinLibre = c.spans.filter(s => s.libre != null && s.libre < s.dmin - 0.01);
   if (sinLibre.length) w.push(`<div class="banner bad">Distancia al suelo insuficiente en ${sinLibre.map(s => `A${s.i + 1}–A${s.i + 2} (${fmt(s.libre, 2)} m de ${fmt(s.dmin)} m)`).join(', ')}. Intercala un apoyo o permite apoyos más altos.</div>`);
   const tiro = c.results.filter(r => r.tiroArriba);
@@ -316,7 +318,7 @@ function informe(c) {
 <h2>3. Cantones y tensiones</h2><table><thead><tr><th>Cantón</th><th>Vanos</th><th>a regulación (m)</th>${H.all.map(h => `<th>T ${h.id} (daN)</th>`).join('')}<th>EDS %</th></tr></thead><tbody>
 ${c.cantones.map((cn, k) => `<tr>${td('C' + (k + 1))}${td(cn.spans.map(s => `A${s.i + 1}–A${s.i + 2}`).join(', '))}${tn(fmt(cn.ar, 1))}${H.all.map(h => tn(fmt(cn.T[h.id]))).join('')}${tn(fmt(cn.edsPct, 1))}</tr>`).join('')}</tbody></table>
 <h2>4. Vanos y flechas</h2><table><thead><tr><th>Vano</th><th>Longitud (m)</th>${[H.H1, H.H2, H.H3].map(h => `<th>Flecha ${h.id} (m)</th>`).join('')}<th>Desnivel (m)</th><th>Dist. libre (m)</th><th>Dist. mínima (m)</th></tr></thead><tbody>
-${c.spans.map(s => `<tr>${td(`A${s.i + 1}–A${s.i + 2}${s.cruce ? ' (cruce)' : ''}`)}${tn(fmt(s.a, 2))}${[H.H1, H.H2, H.H3].map(h => tn(fmt(s.flechas[h.id], 2))).join('')}${tn(c.conPerfil ? fmt(s.dz, 2) : '—')}${tn(s.libre != null ? fmt(s.libre, 2) : '—')}${tn(fmt(s.dmin, 1))}</tr>`).join('')}</tbody></table>
+${c.spans.map(s => `<tr>${td(`A${s.i + 1}–A${s.i + 2}${s.cruce ? ' (cruce)' : ''}`)}${tn(fmt(s.a, 2) + (s.manual ? ` (manual; medido ${fmt(s.aCalc, 2)})` : ''))}${[H.H1, H.H2, H.H3].map(h => tn(fmt(s.flechas[h.id], 2))).join('')}${tn(c.conPerfil ? fmt(s.dz, 2) : '—')}${tn(s.libre != null ? fmt(s.libre, 2) : '—')}${tn(fmt(s.dmin, 1))}</tr>`).join('')}</tbody></table>
 ${c.conPerfil ? `<p class="s">Perfil del terreno: ${esc(S.proj.perfil?.fuente || 'cotas introducidas a mano')}. Distancia libre mínima al terreno con el conductor a flecha máxima.</p>` : '<p class="s">Sin perfil de elevación: terreno supuesto llano.</p>'}
 <h2>5. Apoyos</h2><table><thead><tr><th>Apoyo</th><th>Función</th><th>Modelo</th><th>Hipótesis pésima</th><th>F princ./En (daN)</th><th>F sec./Es (daN)</th><th>Util. %</th><th>Eje principal</th><th>Cota (m)</th><th>Gravivano (m)</th><th>Estado</th></tr></thead><tbody>
 ${c.results.map((r, i) => { const sel = r.existenteCheck?.ok ? r.existenteCheck : r.elegido, p = sel?.pole, rr = sel?.r; return `<tr>${td(apName(i))}${td(FUNCS[r.func])}${td(p ? poleLabel(p) : '—')}${td(rr ? H.all.find(h => h.id === rr.hyp).nombre : '—')}${tn(rr ? fmt(rr.Fp) + ' / ' + fmt(p.En) : '—')}${tn(rr ? fmt(rr.Fs) + ' / ' + fmt(p.Es) : '—')}${tn(rr ? fmt(rr.u * 100, 1) : '—')}${tn(rr ? fmt(rr.phi) + '°' : '—')}${tn(r.z != null ? fmt(r.z, 1) : '—')}${tn(fmt(r.gravivano, 1))}${td(statusOf(r, i).txt + (r.tiroArriba ? ' · tiro hacia arriba' : ''))}</tr>`; }).join('')}</tbody></table>
@@ -608,7 +610,7 @@ function currentNodes() {
   nodes.forEach((n, i) => {
     const r = rows[i]; let existente = r.existente;
     if (i === 0 && S.proj.entronque && exNodes()[S.proj.entronque.k]) existente = { ...r.existente, activo: true, conductores: [...entronqueConductores(), ...(r.existente.conductores || [])] };
-    Object.assign(n, { funcion: r.funcion, alturaFija: r.alturaFija, modeloFijo: r.modeloFijo, cruce: r.cruce, existente });
+    Object.assign(n, { funcion: r.funcion, alturaFija: r.alturaFija, modeloFijo: r.modeloFijo, cruce: r.cruce, existente, aManual: S.proj.modo === 'kml' && S.proj.geo && Number(r.vanoManual) > 0 ? Number(r.vanoManual) : null });
   });
   return nodes;
 }
@@ -773,7 +775,7 @@ function drawMap(T) {
   if (nodes.length > 1) {
     if (vis('linea')) { g.strokeStyle = col('--accent'); g.lineWidth = 2.5; g.beginPath(); nodes.forEach((n, i) => { const [x, y] = P(n); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); }
     g.font = '11px ' + col('--f-mono'); g.textAlign = 'center';
-    if (vis('vanos')) for (let i = 0; i < nodes.length - 1; i++) { const a = Math.hypot(nodes[i + 1].x - nodes[i].x, nodes[i + 1].y - nodes[i].y); alongText(fmt(a, 1) + ' m', nodes[i], nodes[i + 1], -1, '11px ' + col('--f-mono'), col('--ink')); }
+    if (vis('vanos')) for (let i = 0; i < nodes.length - 1; i++) { const sp = !S.drag && S.calc?.spans?.[i]; const a = sp ? sp.a : Math.hypot(nodes[i + 1].x - nodes[i].x, nodes[i + 1].y - nodes[i].y); alongText(fmt(a, 1) + ' m' + (sp?.manual ? ' (manual)' : ''), nodes[i], nodes[i + 1], -1, '11px ' + col('--f-mono'), col('--ink')); }
     // Cable del proyecto sobre el vano más largo de la línea nueva
     const cable = S.cables.find(c => c.id === S.proj.cableId);
     if (cable && vis('cable')) { const ls = longestSeg(nodes); if (ls.i >= 0) alongText(shortCable(cable.designacion), nodes[ls.i], nodes[ls.i + 1], 1, '600 11px ' + col('--f-body'), col('--accent')); }
@@ -1451,7 +1453,7 @@ function dxf(c, geo) {
   for (let i = 0; i < N.length - 1; i++) {
     p(0, 'LINE', 8, 'BT_TRAZADO', 10, f3(N[i].x), 20, f3(N[i].y), 30, 0, 11, f3(N[i + 1].x), 21, f3(N[i + 1].y), 31, 0);
     const mx = (N[i].x + N[i + 1].x) / 2, my = (N[i].y + N[i + 1].y) / 2; let ang = Math.atan2(N[i + 1].y - N[i].y, N[i + 1].x - N[i].x) * 180 / Math.PI; if (ang > 90) ang -= 180; if (ang < -90) ang += 180;
-    p(0, 'TEXT', 8, 'BT_TEXTO_VANOS', 10, f3(mx), 20, f3(my + 0.6), 30, 0, 40, 0.8, 1, ascii(`${c.spans[i].a.toFixed(1)} m`), 50, ang.toFixed(2), 72, 1, 11, f3(mx), 21, f3(my + 0.6), 31, 0);
+    p(0, 'TEXT', 8, 'BT_TEXTO_VANOS', 10, f3(mx), 20, f3(my + 0.6), 30, 0, 40, 0.8, 1, ascii(`${c.spans[i].a.toFixed(1)} m${c.spans[i].manual ? ' (MANUAL)' : ''}`), 50, ang.toFixed(2), 72, 1, 11, f3(mx), 21, f3(my + 0.6), 31, 0);
   }
   { const cab = c.cable; let bi = 0, bl = 0; for (let i = 0; i < N.length - 1; i++) { const d = Math.hypot(N[i + 1].x - N[i].x, N[i + 1].y - N[i].y); if (d > bl) { bl = d; bi = i; } }
     if (cab && N.length > 1) { const A = N[bi], B = N[bi + 1]; let an = Math.atan2(B.y - A.y, B.x - A.x) * 180 / Math.PI; if (an > 90) an -= 180; if (an < -90) an += 180; p(0, 'TEXT', 8, 'BT_TEXTO_VANOS', 10, f3((A.x + B.x) / 2), 20, f3((A.y + B.y) / 2 - 1.6), 30, 0, 40, 0.9, 1, ascii(shortCable(cab.designacion)), 50, an.toFixed(2), 72, 1, 11, f3((A.x + B.x) / 2), 21, f3((A.y + B.y) / 2 - 1.6), 31, 0); } }

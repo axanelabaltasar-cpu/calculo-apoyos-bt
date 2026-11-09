@@ -81,6 +81,7 @@ function newZanja(estado, pts) {
 
 /* ---------- Geometría ---------- */
 const interp = (tab, x) => { if (x <= tab[0][0]) return tab[0][1]; for (let i = 1; i < tab.length; i++) if (x <= tab[i][0]) { const [x0, y0] = tab[i - 1], [x1, y1] = tab[i]; return y0 + (y1 - y0) * (x - x0) / (x1 - x0); } return tab[tab.length - 1][1]; };
+const lenUsada = (o, Lc) => Number(o.lManual) > 0 ? Number(o.lManual) : Lc;
 const polyLen = pts => { let L = 0; for (let i = 1; i < pts.length; i++) L += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y); return L; };
 function distToPoly(P, pts) { let d = Infinity; for (let i = 0; i < pts.length - 1; i++) d = Math.min(d, segDist(P, pts[i], pts[i + 1]).d); return d; }
 /* Fracción de la línea que discurre dentro de la zanja (a menos de tol metros de su eje) */
@@ -94,13 +95,13 @@ function overlapFrac(lpts, zpts, tol) {
   return tot ? inn / tot : 0;
 }
 /* Arquetas: en los cambios de dirección y, en tramos rectos, como máximo cada 40 m (ITC-BT-07 2.1.2) */
-function arquetasZanja(z) {
-  const p = z.pts, out = []; if (p.length < 2) return out;
+function arquetasZanja(z, k = 1, Lman = 0) {
+  const p = z.pts, out = []; if (p.length < 2) { const n = Math.max(0, Math.ceil(Lman / 40) - 1); for (let i = 0; i < n; i++) out.push({ motivo: 'tramo recto' }); return out; }
   const az = (a, b) => Math.atan2(b.x - a.x, b.y - a.y) * 180 / Math.PI;
   const corner = i => { const d = Math.abs(((az(p[i - 1], p[i]) - az(p[i], p[i + 1]) + 540) % 360) - 180); return d > 10; };
   let runStart = 0;
   const addRun = (i0, i1) => { // tramo recto de p[i0] a p[i1] (puede tener vértices sin giro)
-    const sub = p.slice(i0, i1 + 1), L = polyLen(sub), n = Math.ceil(L / 40) - 1;
+    const sub = p.slice(i0, i1 + 1), L = polyLen(sub), n = Math.ceil(L * k / 40) - 1;
     for (let k = 1; k <= n; k++) { let d = L * k / (n + 1); for (let j = 0; j < sub.length - 1; j++) { const s = Math.hypot(sub[j + 1].x - sub[j].x, sub[j + 1].y - sub[j].y); if (d <= s) { const t = d / s; out.push({ x: sub[j].x + (sub[j + 1].x - sub[j].x) * t, y: sub[j].y + (sub[j + 1].y - sub[j].y) * t, motivo: 'tramo recto' }); break; } d -= s; } }
   };
   for (let i = 1; i < p.length - 1; i++) if (corner(i)) { addRun(runStart, i); out.push({ x: p[i].x, y: p[i].y, motivo: 'cambio de dirección' }); runStart = i; }
@@ -118,11 +119,11 @@ const instalTxt = t => t ? 'bajo tubo' : 'directamente enterrado';
 function neutroMin(s) { const r = SUB_NEUTRO.find(([f]) => f >= s); return r ? r[1] : 185; }
 function calcSub() {
   const s = SUB(), par = s.par, out = { lineas: [], zanjas: [], pasos: [] };
-  const zan = s.zanjas.filter(z => z.pts.length > 1);
+  const zan = s.zanjas.filter(z => z.pts.length > 1 || Number(z.lManual) > 0);
   // Asignación línea → zanja (manual o por solape geométrico)
   const asig = new Map();
   s.lineas.forEach(l => {
-    if (l.pts.length < 2) return;
+    if (l.pts.length < 2 && !(Number(l.lManual) > 0)) return;
     let z = l.zanjaId ? zan.find(x => x.id === l.zanjaId) : null, frac = z ? overlapFrac(l.pts, z.pts, Math.max(1, (z.ancho || 0.4) + 0.6)) : 0, auto = false;
     if (!z) { let best = null; zan.forEach(x => { const f = overlapFrac(l.pts, x.pts, Math.max(1, (x.ancho || 0.4) + 0.6)); if (f > 0.3 && (!best || f > best.f)) best = { z: x, f }; }); if (best) { z = best.z; frac = best.f; auto = true; } }
     asig.set(l.id, { z, frac, auto });
@@ -130,7 +131,7 @@ function calcSub() {
   const circ = z => s.lineas.filter(l => asig.get(l.id)?.z === z);
   // Zanjas
   zan.forEach(z => {
-    const L = polyLen(z.pts), lin = circ(z), linT = lin.filter(l => effTubo(l, z)), linD = lin.filter(l => !effTubo(l, z)), t = subTubo(z.tuboId), T = ZANJA_TIPOS[z.tipo] || ZANJA_TIPOS.acera, ch = [];
+    const Lc = polyLen(z.pts), L = lenUsada(z, Lc), lin = circ(z), linT = lin.filter(l => effTubo(l, z)), linD = lin.filter(l => !effTubo(l, z)), t = subTubo(z.tuboId), T = ZANJA_TIPOS[z.tipo] || ZANJA_TIPOS.acera, ch = [];
     const add = (ok, txt) => ch.push({ ok, txt });
     if (Number(z.prof) + 1e-9 < T.min) add('bad', `Profundidad ${fmt(z.prof, 2)} m < ${fmt(T.min, 2)} m mínima en ${T.n.toLowerCase()} (ITC-BT-07 2.1.1${T.horm ? ' y 2.2.1' : ''}).`);
     else add('ok', `Profundidad ${fmt(z.prof, 2)} m ≥ ${fmt(T.min, 2)} m (${T.n.toLowerCase()}).`);
@@ -147,16 +148,16 @@ function calcSub() {
         if (haz) { ratio = t.dInt / haz;
           add(ratio >= 2 ? 'ok' : ratio >= 1.5 ? 'warn' : 'bad', `Ø interior del tubo ${fmt(t.dInt)} mm / Ø aparente del circuito ${fmt(haz, 1)} mm = ${fmt(ratio, 2)} ${ratio >= 2 ? '> 2' : ratio >= 1.5 ? '(admisible solo excepcionalmente, ≥ 1,5)' : '< 1,5: tubo insuficiente'} (ITC-BT-07 3.1.3).`); }
       }
-      arq = arquetasZanja(z);
+      arq = arquetasZanja(z, Lc > 0 ? L / Lc : 1, L);
       if (z.estado === 'nuevo') add('ok', `${arq.length} arqueta(s) intermedia(s) necesaria(s): cambios de dirección y como máximo cada 40 m en recta (ITC-BT-07 2.1.2).`);
     }
     if (linD.length || (!z.entubada && !lin.length)) add('ok', `${linD.length ? linD.map(l => l.nombre).join(', ') + ' directamente enterrado(s)' : 'Cables directamente enterrados'}: lecho de arena de 0,05 m, capa de 0,10 m, protección mecánica y cinta de señalización (ITC-BT-07 2.1.1).`);
     const est = ch.some(c => c.ok === 'bad') ? 'bad' : ch.some(c => c.ok === 'warn') ? 'warn' : 'ok';
-    out.zanjas.push({ z, L, lin, linT, linD, t, ratio, haz, arq, checks: ch, est, sep: sepZanja(z) });
+    out.zanjas.push({ z, L, Lc, manual: L !== Lc, lin, linT, linD, t, ratio, haz, arq, checks: ch, est, sep: sepZanja(z) });
   });
   // Líneas
-  s.lineas.filter(l => l.pts.length > 1).forEach(l => {
-    const L = polyLen(l.pts), c = subCable(l.cableId), a = asig.get(l.id) || {}, z = a.z, ch = [];
+  s.lineas.filter(l => l.pts.length > 1 || Number(l.lManual) > 0).forEach(l => {
+    const Lc = polyLen(l.pts), L = lenUsada(l, Lc), c = subCable(l.cableId), a = asig.get(l.id) || {}, z = a.z, ch = [];
     const add = (ok, txt) => ch.push({ ok, txt });
     const zr = z ? out.zanjas.find(q => q.z === z) : null;
     const prof = z ? Number(z.prof) || 0.7 : 0.7, entub = effTubo(l, z), nC = zr ? zr.lin.length : 1, sep = zr ? zr.sep : '0';
@@ -185,7 +186,7 @@ function calcSub() {
     }
     if (!z) add(l.estado === 'nuevo' ? 'warn' : 'ok', `Sin zanja asignada: se ha supuesto ${instalTxt(entub)} a 0,70 m y sin agrupación.`);
     const est = ch.some(c => c.ok === 'bad') ? 'bad' : ch.some(c => c.ok === 'warn') ? 'warn' : 'ok';
-    out.lineas.push({ l, L, c, z, entub, auto: a.auto, frac: a.frac, Itab, f, Iadm, I, dU, dUp, dUtot, checks: ch, est });
+    out.lineas.push({ l, L, Lc, manual: L !== Lc, c, z, entub, auto: a.auto, frac: a.frac, Itab, f, Iadm, I, dU, dUp, dUtot, checks: ch, est });
   });
   // Pasos aéreo-subterráneos: extremo de una línea subterránea sobre un apoyo
   const nodes = S.calc?.nodes || (S.proj.rows.length > 1 ? currentNodes() : []), ex = exNodes();
@@ -277,9 +278,9 @@ function drawSub(D) {
       g.lineWidth = Math.max(7, (Number(z.ancho) || 0.4) * sc); g.stroke(); g.globalAlpha = 1;
       path(z.pts); g.strokeStyle = col(zr?.est === 'bad' ? '--bad' : z.estado === 'nuevo' ? '--zanja' : '--exist'); g.lineWidth = 1; g.setLineDash([3, 3]); g.stroke(); g.setLineDash([]); g.lineCap = 'butt';
       if (vis('zanjaTxt')) { const ls = longestSeg(z.pts); const t = subTubo(z.tuboId);
-        const txt = `${z.nombre} · ${z.entubada ? `${z.nTubos}T${t ? t.dExt : ''}` : 'sin tubo'} · ${(ZANJA_TIPOS[z.tipo]?.n || '').toLowerCase()} ${fmt(z.prof, 2)} m`;
+        const txt = `${z.nombre} · ${z.entubada ? `${z.nTubos}T${t ? t.dExt : ''}` : 'sin tubo'} · ${(ZANJA_TIPOS[z.tipo]?.n || '').toLowerCase()} ${fmt(z.prof, 2)} m${zr ? ` · ${fmt(zr.L, 1)} m${zr.manual ? ' (manual)' : ''}` : ''}`;
         if (ls.i >= 0) alongText(txt, z.pts[ls.i], z.pts[ls.i + 1], 1, '600 10px ' + col('--f-body'), col(z.estado === 'nuevo' ? '--zanja' : '--exist')); }
-      if (vis('arquetas') && zr && z.estado === 'nuevo') zr.arq.forEach(a => { const [x, y] = P(a); g.fillStyle = col('--panel'); g.strokeStyle = col('--zanja'); g.lineWidth = 1.5; g.fillRect(x - 4, y - 4, 8, 8); g.strokeRect(x - 4, y - 4, 8, 8); });
+      if (vis('arquetas') && zr && z.estado === 'nuevo') zr.arq.filter(a => a.x != null).forEach(a => { const [x, y] = P(a); g.fillStyle = col('--panel'); g.strokeStyle = col('--zanja'); g.lineWidth = 1.5; g.fillRect(x - 4, y - 4, 8, 8); g.strokeRect(x - 4, y - 4, 8, 8); });
     }
     if (screen && tool !== 'pan' && L === lay) z.pts.forEach((n, i) => { const [x, y] = P(n); vtx(x, y, S.selPt?.layer === lay && S.selPt.li === subObjs(lay).indexOf(z) && S.selPt.i === i); });
   });
@@ -290,7 +291,7 @@ function drawSub(D) {
     if (l.pts.length > 1) {
       path(l.pts); g.strokeStyle = col(lr?.est === 'bad' ? '--bad' : l.estado === 'nuevo' ? '--sub' : '--exist'); g.lineWidth = l.estado === 'nuevo' ? 2.5 : 2; g.setLineDash([12, 4, 2, 4]); g.stroke(); g.setLineDash([]);
       if (vis('subTxt')) { const ls = longestSeg(l.pts); const c = subCable(l.cableId);
-        const txt = l.nombre + (c ? ' · ' + c.designacion.replace(/^XZ1 \(S\) 0,6\/1 kV /, '') : '') + (lr ? ' · ' + instalTxt(lr.entub) : '');
+        const txt = l.nombre + (c ? ' · ' + c.designacion.replace(/^XZ1 \(S\) 0,6\/1 kV /, '') : '') + (lr ? ' · ' + instalTxt(lr.entub) + ` · ${fmt(lr.L, 1)} m${lr.manual ? ' (manual)' : ''}` : '');
         if (ls.i >= 0) alongText(txt, l.pts[ls.i], l.pts[ls.i + 1], -1, 'italic 600 11px ' + col('--f-body'), col(l.estado === 'nuevo' ? '--sub' : '--exist')); }
     } else { const [x, y] = P(l.pts[0]); g.fillStyle = col('--sub'); g.beginPath(); g.arc(x, y, 3, 0, 2 * Math.PI); g.fill(); }
     if (screen && tool !== 'pan' && L === lay) l.pts.forEach((n, i) => { const [x, y] = P(n); vtx(x, y, S.selPt?.layer === lay && S.selPt.li === subObjs(lay).indexOf(l) && S.selPt.i === i); });
@@ -318,7 +319,7 @@ function renderSub() {
       <td class="n"><input class="num" type="number" step="1" min="0" data-z="nTubos" value="${z.nTubos}" style="width:6ch" ${z.entubada ? '' : 'disabled'}></td>
       <td><select data-z="tuboId" ${z.entubada ? '' : 'disabled'}>${opt(tubosSub(), z.tuboId, t => 'Ø' + t.dExt + ' mm')}</select></td>
       <td><select data-z="sep">${SUB_SEP.map(([v, t]) => `<option value="${v}" ${String(z.sep) === v ? 'selected' : ''}>${t}</option>`).join('')}</select></td>
-      <td class="n">${r ? fmt(r.L, 1) : '—'}</td><td class="n">${r ? (r.linD.length ? r.linT.length + '/' + r.linD.length : r.lin.length) : 0}</td><td class="n">${r && z.entubada ? r.arq.length : '—'}</td>
+      <td class="n">${r ? fmt(r.Lc, 1) : '—'}</td><td class="n"><input class="num" type="number" step="0.1" min="0" data-z="lManual" value="${z.lManual ?? ''}" placeholder="auto" style="width:8ch" title="Vacío: la longitud calculada"></td><td class="n">${r ? (r.linD.length ? r.linT.length + '/' + r.linD.length : r.lin.length) : 0}</td><td class="n">${r && z.entubada ? r.arq.length : '—'}</td>
       <td>${r ? chip(r.est) : '<span class="note">sin trazar</span>'}</td><td><button class="btn small ghost" data-zdel="${k}" aria-label="Borrar zanja">✕</button></td></tr>`; }).join('');
   const lrows = s.lineas.map((l, k) => { const r = R?.lineas.find(q => q.l === l);
     return `<tr data-lk="${k}"><td><input type="text" data-l="nombre" value="${esc(l.nombre)}" style="width:9ch"></td>
@@ -329,7 +330,7 @@ function renderSub() {
       <td class="n"><input class="num" type="number" step="0.01" min="0.5" max="1" data-l="cosphi" value="${l.cosphi}" style="width:8ch" ${l.estado === 'nuevo' ? '' : 'disabled'}></td>
       <td class="n"><input class="num" type="number" step="0.1" min="0" data-l="dUprev" value="${l.dUprev}" style="width:6ch" ${l.estado === 'nuevo' ? '' : 'disabled'}></td>
       <td><select data-l="zanjaId"><option value="">Automática${r?.z && r.auto ? ' (' + esc(r.z.nombre) + ')' : ''}</option>${s.zanjas.map(z => `<option value="${esc(z.id)}" ${l.zanjaId === z.id ? 'selected' : ''}>${esc(z.nombre)}</option>`).join('')}</select></td>
-      <td class="n">${r ? fmt(r.L, 1) : '—'}</td><td class="n">${r && r.I ? fmt(r.I, 1) : '—'}</td><td class="n">${r && r.Iadm ? fmt(r.Iadm, 1) : '—'}</td><td class="n">${r && r.I ? fmt(r.dUtot, 2) : '—'}</td>
+      <td class="n">${r ? fmt(r.Lc, 1) : '—'}</td><td class="n"><input class="num" type="number" step="0.1" min="0" data-l="lManual" value="${l.lManual ?? ''}" placeholder="auto" style="width:8ch" title="Vacío: la longitud calculada"></td><td class="n">${r && r.I ? fmt(r.I, 1) : '—'}</td><td class="n">${r && r.Iadm ? fmt(r.Iadm, 1) : '—'}</td><td class="n">${r && r.I ? fmt(r.dUtot, 2) : '—'}</td>
       <td>${r ? chip(r.est) : '<span class="note">sin trazar</span>'}</td><td><button class="btn small ghost" data-ldel="${k}" aria-label="Borrar línea">✕</button></td></tr>`; }).join('');
   box.innerHTML = `
     <div class="row" style="margin-bottom:8px">
@@ -349,11 +350,11 @@ function renderSub() {
       <label class="f">Tubos de reserva por zanja (criterio)<input class="num" type="number" step="1" min="0" data-p="reservaMin" value="${par.reservaMin}"></label>
     </div><p class="note">Condiciones de referencia del ITC-BT-07: 25 °C, 1 K·m/W y 0,70 m. Cables bajo tubo: factor 0,8. La caída de tensión máxima es un criterio del proyecto o de la distribuidora: el ITC-BT-07 no la fija.</p></details>
     <h3 class="sub">Zanjas <button class="btn small" id="subAddZ">Añadir zanja sin trazado</button></h3>
-    <div class="tablewrap"><table class="subt"><thead><tr><th>Zanja</th><th>Estado</th><th>Tipo</th><th class="n">Prof. (m)</th><th class="n">Ancho (m)</th><th>Entub.</th><th>Hormig.</th><th class="n">Nº tubos</th><th>Tubo</th><th>Separación</th><th class="n">Long. (m)</th><th class="n">Circ. (tubo/ent.)</th><th class="n">Arquetas</th><th>Estado</th><th></th></tr></thead>
-    <tbody>${zrows || '<tr><td colspan="15" class="empty">Sin zanjas. Impórtalas o dibújalas en el plano.</td></tr>'}</tbody></table></div>
-    <h3 class="sub">Líneas subterráneas</h3>
-    <div class="tablewrap"><table class="subt"><thead><tr><th>Línea</th><th>Estado</th><th>Cable</th><th>Instalación</th><th class="n">P (kW)</th><th class="n">cos φ</th><th class="n">ΔU previa (%)</th><th>Zanja</th><th class="n">Long. (m)</th><th class="n">I (A)</th><th class="n">I adm. (A)</th><th class="n">ΔU (%)</th><th>Estado</th><th></th></tr></thead>
-    <tbody>${lrows || '<tr><td colspan="14" class="empty">Sin líneas subterráneas. Impórtalas o dibújalas en el plano.</td></tr>'}</tbody></table></div>
+    <div class="tablewrap"><table class="subt"><thead><tr><th>Zanja</th><th>Estado</th><th>Tipo</th><th class="n">Prof. (m)</th><th class="n">Ancho (m)</th><th>Entub.</th><th>Hormig.</th><th class="n">Nº tubos</th><th>Tubo</th><th>Separación</th><th class="n">Long. calc. (m)</th><th class="n">Long. manual (m)</th><th class="n">Circ. (tubo/ent.)</th><th class="n">Arquetas</th><th>Estado</th><th></th></tr></thead>
+    <tbody>${zrows || '<tr><td colspan="16" class="empty">Sin zanjas. Impórtalas o dibújalas en el plano.</td></tr>'}</tbody></table></div>
+    <h3 class="sub">Líneas subterráneas <button class="btn small" id="subAddL">Añadir línea sin trazado</button></h3>
+    <div class="tablewrap"><table class="subt"><thead><tr><th>Línea</th><th>Estado</th><th>Cable</th><th>Instalación</th><th class="n">P (kW)</th><th class="n">cos φ</th><th class="n">ΔU previa (%)</th><th>Zanja</th><th class="n">Long. calc. (m)</th><th class="n">Long. manual (m)</th><th class="n">I (A)</th><th class="n">I adm. (A)</th><th class="n">ΔU (%)</th><th>Estado</th><th></th></tr></thead>
+    <tbody>${lrows || '<tr><td colspan="15" class="empty">Sin líneas subterráneas. Impórtalas o dibújalas en el plano.</td></tr>'}</tbody></table></div>
     <div id="subResults"></div>`;
   renderSubResults();
 }
@@ -379,7 +380,7 @@ function bindSub() {
       const map = { subExLinFile: ['lineas', 'existente'], subExZanFile: ['zanjas', 'existente'], subNuLinFile: ['lineas', 'nuevo'], subNuZanFile: ['zanjas', 'nuevo'] };
       return importSub(f, ...map[t.id]);
     }
-    const v = t.type === 'checkbox' ? t.checked : t.type === 'number' ? Number(t.value) : t.value;
+    const v = t.type === 'checkbox' ? t.checked : t.type === 'number' ? (t.value === '' ? '' : Number(t.value)) : t.value;
     if (t.dataset.p) { SUB().par[t.dataset.p] = Number(t.value) || 0; }
     else if (t.dataset.z) { const z = zOf(t); if (!z) return; snapshot(); z[t.dataset.z] = v; if (t.dataset.z === 'tipo' && ZANJA_TIPOS[v]?.horm) { z.entubada = true; z.hormigon = true; z.prof = Math.max(Number(z.prof) || 0, 0.8); } }
     else if (t.dataset.l) { const l = lOf(t); if (!l) return; snapshot(); l[t.dataset.l] = v; }
@@ -388,7 +389,8 @@ function bindSub() {
   });
   box.addEventListener('click', ev => {
     const b = ev.target.closest('button'); if (!b) return;
-    if (b.id === 'subAddZ') { snapshot(); SUB().zanjas.push(newZanja('nuevo', [])); renderSub(); toast('Zanja añadida: trázala en el plano con «Insertar» o impórtala.'); return; }
+    if (b.id === 'subAddL') { snapshot(); SUB().lineas.push(newSubLinea('nuevo', [])); renderSub(); toast('Línea añadida: escribe su longitud en «Long. manual» o trázala en el plano.'); return; }
+    if (b.id === 'subAddZ') { snapshot(); SUB().zanjas.push(newZanja('nuevo', [])); renderSub(); toast('Zanja añadida: escribe su longitud en «Long. manual» o trázala en el plano.'); return; }
     if (b.dataset.zdel != null) { snapshot(); const z = SUB().zanjas.splice(Number(b.dataset.zdel), 1)[0]; SUB().lineas.forEach(l => { if (l.zanjaId === z?.id) l.zanjaId = ''; }); refreshAll(); renderSub(); }
     if (b.dataset.ldel != null) { snapshot(); SUB().lineas.splice(Number(b.dataset.ldel), 1); refreshAll(); renderSub(); }
   });
@@ -464,7 +466,7 @@ function subDxf(p, f3) {
     p(0, 'TEXT', 8, layer, 10, f3(mx), 20, f3(my), 30, 0, 40, 0.8, 1, ascii(txt), 50, an.toFixed(2), 72, 1, 11, f3(mx), 21, f3(my), 31, 0); };
   s.zanjas.filter(z => z.pts.length > 1).forEach(z => { const lay = z.estado === 'nuevo' ? 'BT_ZANJA_NUEVA' : 'BT_ZANJA_EXISTENTE'; poly(lay, z.pts); const t = subTubo(z.tuboId);
     label('BT_TEXTO_ZANJAS', z.pts, `${z.nombre} ${z.entubada ? z.nTubos + 'T' + (t ? t.dExt : '') : 'sin tubo'} ${(ZANJA_TIPOS[z.tipo]?.n || '')} ${String(z.prof).replace('.', ',')} m`, -1.2); });
-  (R?.zanjas || []).filter(r => r.z.estado === 'nuevo').forEach(r => r.arq.forEach(a => { const h = 0.3; p(0, 'LWPOLYLINE', 8, 'BT_ARQUETAS', 90, 4, 70, 1, 10, f3(a.x - h), 20, f3(a.y - h), 10, f3(a.x + h), 20, f3(a.y - h), 10, f3(a.x + h), 20, f3(a.y + h), 10, f3(a.x - h), 20, f3(a.y + h)); }));
+  (R?.zanjas || []).filter(r => r.z.estado === 'nuevo').forEach(r => r.arq.filter(a => a.x != null).forEach(a => { const h = 0.3; p(0, 'LWPOLYLINE', 8, 'BT_ARQUETAS', 90, 4, 70, 1, 10, f3(a.x - h), 20, f3(a.y - h), 10, f3(a.x + h), 20, f3(a.y - h), 10, f3(a.x + h), 20, f3(a.y + h), 10, f3(a.x - h), 20, f3(a.y + h)); }));
   s.lineas.filter(l => l.pts.length > 1).forEach(l => { poly(l.estado === 'nuevo' ? 'BT_SUB_NUEVA' : 'BT_SUB_EXISTENTE', l.pts); const c = subCable(l.cableId); const lr = R?.lineas.find(q => q.l === l); label('BT_TEXTO_SUB', l.pts, l.nombre + (c ? ' ' + c.designacion : '') + (lr ? ' ' + instalTxt(lr.entub).toUpperCase() : ''), 0.6); });
 }
 /* DXF solo con la red subterránea (proyectos sin línea aérea) */
@@ -493,14 +495,14 @@ function subGeoFeats() {
 function subCsv() {
   const R = S.subCalc || calcSub(), sep = ';', n = v => String(v ?? '').replace('.', ',');
   const a = ['Tipo;Nombre;Estado;Datos;Longitud (m);I (A);I admisible (A);Caida de tension (%);Resultado'];
-  R.zanjas.forEach(r => a.push(['Zanja', r.z.nombre, r.z.estado, `${ZANJA_TIPOS[r.z.tipo]?.n || ''} ${n(r.z.prof)} m ${r.z.entubada ? r.z.nTubos + ' tubos D' + (r.t?.dExt || '') : 'sin tubo'}, ${r.lin.length} circuitos, ${r.arq.length} arquetas`, n(r.L.toFixed(1)), '', '', '', r.est].join(sep)));
-  R.lineas.forEach(r => a.push(['Linea subterranea', r.l.nombre, r.l.estado, (r.c?.designacion || '') + ', ' + instalTxt(r.entub), n(r.L.toFixed(1)), r.I ? n(r.I.toFixed(1)) : '', n(r.Iadm.toFixed(1)), r.I ? n(r.dUtot.toFixed(2)) : '', r.est].join(sep)));
+  R.zanjas.forEach(r => a.push(['Zanja', r.z.nombre, r.z.estado, `${ZANJA_TIPOS[r.z.tipo]?.n || ''} ${n(r.z.prof)} m ${r.z.entubada ? r.z.nTubos + ' tubos D' + (r.t?.dExt || '') : 'sin tubo'}, ${r.lin.length} circuitos, ${r.arq.length} arquetas`, n(r.L.toFixed(1)) + (r.manual ? ' (manual)' : ''), '', '', '', r.est].join(sep)));
+  R.lineas.forEach(r => a.push(['Linea subterranea', r.l.nombre, r.l.estado, (r.c?.designacion || '') + ', ' + instalTxt(r.entub), n(r.L.toFixed(1)) + (r.manual ? ' (manual)' : ''), r.I ? n(r.I.toFixed(1)) : '', n(r.Iadm.toFixed(1)), r.I ? n(r.dUtot.toFixed(2)) : '', r.est].join(sep)));
   return '﻿' + a.join('\r\n');
 }
 function informeSub() {
   if (!subHasData()) return ''; const R = S.subCalc || calcSub(), par = SUB().par, td = v => `<td>${v}</td>`;
-  const z = R.zanjas.map(r => `<tr>${td(esc(r.z.nombre))}${td(r.z.estado)}${td(ZANJA_TIPOS[r.z.tipo]?.n || '')}${td(fmt(r.z.prof, 2))}${td(r.z.entubada ? `${r.z.nTubos} × Ø${r.t?.dExt || '—'} mm${r.z.hormigon ? ', hormigonados' : ''}` : 'directamente enterrado')}${td(r.lin.length)}${td(fmt(r.L, 1))}${td(r.z.entubada ? r.arq.length : '—')}${td(r.est === 'ok' ? 'Cumple' : r.est === 'warn' ? 'Revisar' : 'No cumple')}</tr>`).join('');
-  const l = R.lineas.map(r => `<tr>${td(esc(r.l.nombre))}${td(r.l.estado)}${td(esc(r.c?.designacion || '—'))}${td(instalTxt(r.entub))}${td(r.z ? esc(r.z.nombre) : '—')}${td(fmt(r.L, 1))}${td(r.I ? fmt(r.I, 1) : '—')}${td(fmt(r.Iadm, 1))}${td(`${fmt(r.f.t, 2)} · ${fmt(r.f.r, 2)} · ${fmt(r.f.p, 2)} · ${fmt(r.f.a, 2)} · ${fmt(r.f.tubo, 2)}`)}${td(r.I ? fmt(r.dUtot, 2) : '—')}${td(r.est === 'ok' ? 'Cumple' : r.est === 'warn' ? 'Revisar' : 'No cumple')}</tr>`).join('');
+  const z = R.zanjas.map(r => `<tr>${td(esc(r.z.nombre))}${td(r.z.estado)}${td(ZANJA_TIPOS[r.z.tipo]?.n || '')}${td(fmt(r.z.prof, 2))}${td(r.z.entubada ? `${r.z.nTubos} × Ø${r.t?.dExt || '—'} mm${r.z.hormigon ? ', hormigonados' : ''}` : 'directamente enterrado')}${td(r.lin.length)}${td(fmt(r.L, 1) + (r.manual ? ` (manual; medida ${fmt(r.Lc, 1)})` : ''))}${td(r.z.entubada ? r.arq.length : '—')}${td(r.est === 'ok' ? 'Cumple' : r.est === 'warn' ? 'Revisar' : 'No cumple')}</tr>`).join('');
+  const l = R.lineas.map(r => `<tr>${td(esc(r.l.nombre))}${td(r.l.estado)}${td(esc(r.c?.designacion || '—'))}${td(instalTxt(r.entub))}${td(r.z ? esc(r.z.nombre) : '—')}${td(fmt(r.L, 1) + (r.manual ? ` (manual; medida ${fmt(r.Lc, 1)})` : ''))}${td(r.I ? fmt(r.I, 1) : '—')}${td(fmt(r.Iadm, 1))}${td(`${fmt(r.f.t, 2)} · ${fmt(r.f.r, 2)} · ${fmt(r.f.p, 2)} · ${fmt(r.f.a, 2)} · ${fmt(r.f.tubo, 2)}`)}${td(r.I ? fmt(r.dUtot, 2) : '—')}${td(r.est === 'ok' ? 'Cumple' : r.est === 'warn' ? 'Revisar' : 'No cumple')}</tr>`).join('');
   const obs = [...R.zanjas.map(r => ['Zanja ' + r.z.nombre, r]), ...R.lineas.map(r => ['Línea ' + r.l.nombre, r])].map(([t, r]) => `<li><b>${esc(t)}:</b> ${r.checks.map(c => esc(c.txt)).join(' ')}</li>`).join('');
   return `<h2>7. Red subterránea (ITC-BT-07)</h2>
 <p class="s">Cables de aluminio con aislamiento XLPE, tensión asignada 0,6/1 kV (UNE-HD 603). Intensidades de la tabla 4 del ITC-BT-07 (terna de unipolares enterrada a 0,70 m, 25 °C, 1 K·m/W) corregidas por temperatura del terreno (${fmt(par.tTerreno)} °C, tabla 6), resistividad térmica (${fmt(par.rho, 2)} K·m/W, tabla 7), profundidad (tabla 9), agrupación de circuitos en la zanja (tabla 8) y 0,8 cuando el cable va bajo tubo (3.1.3); sin ese factor si va directamente enterrado. Caída de tensión a ${fmt(par.U)} V con R a 90 °C; límite del proyecto ${fmt(par.dUmax, 1)} %. Profundidad mínima 0,60 m en acera y 0,80 m en calzada; cruces de calles y carreteras entubados y hormigonados a 0,80 m; un circuito por tubo; arquetas en los cambios de dirección y como máximo cada 40 m; Ø interior del tubo ≥ 2 veces el Ø aparente del circuito (1,5 excepcionalmente). Cinta de señalización a 0,10 m del suelo como mínimo y a 0,25 m por encima del cable.</p>

@@ -86,7 +86,7 @@ function sag(a, p, T) { return a * a * p / (8 * T); }
 /* nodes: [{x,y,...}] en metros (UTM o local). Devuelve vanos con longitud y acimut, y ángulo de desvío en cada vértice */
 function buildGeometry(nodes) {
   const spans = [];
-  for (let i = 0; i < nodes.length - 1; i++) spans.push({ i, a: dist(nodes[i], nodes[i + 1]), az: azimuth(nodes[i], nodes[i + 1]) });
+  for (let i = 0; i < nodes.length - 1; i++) { const d = dist(nodes[i], nodes[i + 1]), m = Number(nodes[i + 1].aManual); spans.push({ i, a: m > 0 ? m : d, aCalc: d, manual: m > 0, az: azimuth(nodes[i], nodes[i + 1]) }); }
   nodes.forEach((n, i) => {
     if (i === 0 || i === nodes.length - 1) { n.desvio = 0; return; }
     let d = spans[i].az - spans[i - 1].az; d = ((d + 540) % 360) - 180; n.desvio = d; // + giro a la derecha
