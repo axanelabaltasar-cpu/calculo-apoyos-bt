@@ -76,4 +76,4 @@ firebase deploy --only hosting,firestore:rules
 ## Datos
 - **Contraseña olvidada:** en la pantalla de acceso pulsa «He olvidado la contraseña» y llega un correo a tecnicos@elecanto.es.
 - **Copia de las bases:** botón **Exportar bases** (archivo `.json`). Para recuperarlas, usa **Abrir archivo** con ese `.json`.
-- **Proyectos:** «Guardar» crea el archivo `.apoyosbt.json` en la carpeta que elijas y lo añade a «Proyectos guardados» en la nube. Los proyectos de la versión de Claude o de la versión local se abren con **Abrir archivo**.
+- **Proyectos:** «Guardar» (o Ctrl+S) los guarda en la base de datos y se abren desde cualquier equipo en «Proyectos guardados», entrando con el usuario. Si quieres además una copia en una carpeta, usa «Exportar a archivo». Los proyectos de la versión de Claude o de la versión local se abren con **Abrir archivo** y, al pulsar «Guardar», pasan a la base de datos.

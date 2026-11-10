@@ -141,7 +141,7 @@ table.vt td{white-space:normal}
 .projbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:flex-end;min-width:0}
 .projname{font:600 .9rem var(--f-display);color:var(--accent);max-width:28ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .projdrop{position:relative}
-.projpanel{position:absolute;right:0;top:calc(100% + 6px);z-index:30;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px;width:min(460px,calc(100vw - 32px));max-height:60vh;overflow:auto;box-shadow:0 6px 18px rgba(0,0,0,.15)}
+.projpanel{position:absolute;left:0;top:calc(100% + 6px);z-index:30;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px;width:min(460px,calc(100vw - 32px));max-height:60vh;overflow:auto;box-shadow:0 6px 18px rgba(0,0,0,.15)}
 @media (max-width:640px){.projbar{position:relative;justify-content:flex-start;width:100%}.projdrop{position:static}.projpanel{left:0;right:0;width:auto}}
 .capas{position:absolute;top:8px;right:max(8px,env(safe-area-inset-right,0px));z-index:3;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 12px;max-height:calc(100% - 16px);overflow:auto;display:flex;flex-direction:column;gap:8px;box-shadow:0 4px 14px rgba(0,0,0,.12);max-width:calc(100% - 60px)}
 .capas .capgrp{display:flex;flex-direction:column;gap:3px}
@@ -182,7 +182,7 @@ a.btn{text-decoration:none;display:inline-block}
       <label class="btn small" for="impProjFile">Abrir archivo</label><input id="impProjFile" type="file" accept=".json" hidden>
       <button class="btn small" id="expBases" type="button" hidden>Exportar bases</button>
       <button class="btn small" id="foldAll" type="button">Minimizar / desplegar todo</button>
-      <div class="ver" id="ver">v1.34.0</div>
+      <div class="ver" id="ver">v1.35.0</div>
     </div>
   </header>
   <nav class="tabs" role="tablist">

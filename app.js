@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.34.0';
+const VERSION = '1.35.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -2084,7 +2084,44 @@ async function pickAndWrite(name, blob) {
   try { const w = await h.createWritable(); await w.write(blob); await w.close(); return { ok: true, archivo: h.name }; }
   catch (e) { toast('No se pudo escribir el archivo: ' + (e.message || e.name)); return { cancel: true }; }
 }
+/* Versión web: el proyecto se guarda en la base de datos (Firestore) y se abre desde cualquier equipo con el usuario */
+const PARTE = 700000;   // Firestore admite ~1 MB por documento: los proyectos grandes se guardan en partes
+function projCloudData() { return JSON.stringify({ ...S.proj, id: undefined, fondos: Object.fromEntries(Object.entries(S.proj.fondos || {}).map(([k, f]) => [k, { ...f, blobUrl: undefined }])) }); }
+async function saveProjectCloud() {
+  if (!S.db) { toast('Sin conexión con la base de datos. Usa «Exportar a archivo» para no perder el trabajo.'); return; }
+  if (S.proj.id === 'pendiente') { toast('El guardado anterior aún se está subiendo. Espera a que haya conexión.'); return; }
+  if (!(S.proj.nombre || '').trim()) { toast('Pon nombre al proyecto antes de guardarlo.'); const n = $('#p_nombre'); n?.scrollIntoView({ block: 'center' }); n?.focus(); return; }
+  const btn = $('#saveProj'); btn.disabled = true; const txt = btn.textContent; btn.textContent = 'Guardando…';
+  const datos = projCloudData();
+  const partes = datos.length > PARTE ? Math.ceil(datos.length / PARTE) : 0;
+  const data = { nombre: S.proj.nombre.trim(), fecha: new Date().toISOString(), version: VERSION, tamano: datos.length, partes, datos: partes ? '' : datos, archivo: '' };
+  const prevPartes = S.proj.id ? (S.projs.find(x => x.id === S.proj.id)?.partes || 0) : 0;
+  const nuevo = !S.proj.id;
+  const tarea = (async () => {
+    const id = S.proj.id || S.db.collection('proyectos').doc().id;
+    for (let k = 0; k < partes; k++) await S.db.doc(`proyectos/${id}/partes/${k}`).set({ k, txt: datos.slice(k * PARTE, (k + 1) * PARTE) });
+    for (let k = partes; k < prevPartes; k++) await S.db.doc(`proyectos/${id}/partes/${k}`).delete();
+    await S.db.doc('proyectos/' + id).set(data);
+    return id;
+  })();
+  if (!S.proj.id) S.proj.id = 'pendiente';
+  const espera = new Promise(r => setTimeout(() => r('lento'), 10000));
+  try {
+    const r = await Promise.race([tarea, espera]);
+    if (r === 'lento') { toast('Sin conexión: el proyecto queda guardado en este equipo y se subirá solo a la base de datos cuando vuelva internet.'); tarea.then(id => { S.proj.id = id; renderProjName(); }).catch(e => toast('No se pudo subir el proyecto: ' + (e.message || e.code))); }
+    else { S.proj.id = r; toast(nuevo ? `Proyecto «${data.nombre}» guardado en la base de datos. Ábrelo desde cualquier equipo en «Proyectos guardados».` : `Proyecto «${data.nombre}» actualizado en la base de datos.`); }
+  } catch (e) { if (S.proj.id === 'pendiente') S.proj.id = null; toast('No se pudo guardar en la base de datos: ' + (e.message || e.code) + '. Usa «Exportar a archivo».'); }
+  finally { btn.disabled = false; btn.textContent = txt; renderProjName(); }
+}
+async function projDatos(p) {
+  if (!p.partes) return p.datos;
+  const qs = await S.db.collection(`proyectos/${p.id}/partes`).get();
+  const ps = qs.docs.map(d => d.data()).sort((a, b) => a.k - b.k);
+  if (ps.length < p.partes) throw new Error('faltan partes');
+  return ps.map(x => x.txt).join('');
+}
 async function saveProject() {
+  if (WEB) return saveProjectCloud();
   const blob = new Blob([JSON.stringify(projFileData())], { type: 'application/json' });
   const r = await pickAndWrite(projFileName(), blob);       // el selector de carpeta se abre directamente con el clic
   if (r.cancel) { toast('Guardado cancelado: no se ha elegido carpeta.'); return; }
@@ -2108,8 +2145,9 @@ async function saveProject() {
 function renderProjList() {
   const box = $('#projList');
   const b = $('#projBtn'); if (b) b.textContent = `Proyectos guardados${S.projs.length ? ' (' + S.projs.length + ')' : ''} ▾`;
-  if (!S.projs.length) { box.innerHTML = '<p class="note">Aún no hay proyectos guardados. Pulsa «Guardar» para conservar el trazado y los datos de cálculo.</p>'; return; }
-  box.innerHTML = `<div class="tablewrap"><table><tbody>${S.projs.map(p => `<tr><td>${esc(p.nombre)}${p.archivo ? `<div class="note">${esc(p.archivo)}</div>` : ''}</td><td class="note">${p.fecha ? new Date(p.fecha).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : ''}</td>
+  const nota = WEB ? '<p class="note" style="margin:0 0 6px">Guardados en la base de datos: se abren desde cualquier equipo entrando con el usuario.</p>' : '';
+  if (!S.projs.length) { box.innerHTML = nota + '<p class="note">Aún no hay proyectos guardados. Pulsa «Guardar» para conservar el trazado y los datos de cálculo.</p>'; return; }
+  box.innerHTML = nota + `<div class="tablewrap"><table><tbody>${S.projs.map(p => `<tr${p.id === S.proj.id ? ' class="sel"' : ''}><td>${esc(p.nombre)}${p.archivo ? `<div class="note">${esc(p.archivo)}</div>` : ''}${p.id === S.proj.id ? '<div class="note">abierto ahora</div>' : ''}</td><td class="note">${p.fecha ? new Date(p.fecha).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : ''}</td>
     <td><button class="btn small" data-load="${esc(p.id)}">Abrir</button></td><td>${S.delConfirm === p.id ? `<button class="btn small" data-del="${esc(p.id)}" style="color:var(--bad)">Confirmar borrado</button>` : `<button class="btn small ghost" data-askdel="${esc(p.id)}" aria-label="Borrar proyecto">✕</button>`}</td></tr>`).join('')}</tbody></table></div>`;
 }
 /* Proyecto vacío: borra del área de trabajo trazado, red existente, entronque, perfil, fondos y edición. No toca las bases ni los proyectos guardados. */
@@ -2137,16 +2175,17 @@ async function importProject(file) {
     S.img = {}; S.sel = null; S.openEx = null; V.fitted = false; loadForm(); refreshAll(); toast('Proyecto abierto desde archivo.');
   } catch (e) { toast('El archivo no es un proyecto válido.'); }
 }
-function renderProjName() { const el = $('#projName'); if (el) { el.textContent = S.proj.nombre ? S.proj.nombre + (S.proj.id ? '' : ' · sin guardar') : 'Proyecto sin nombre'; } }
+function renderProjName() { const el = $('#projName'); if (el) { el.textContent = S.proj.nombre ? S.proj.nombre + (S.proj.id === 'pendiente' ? ' · subiendo…' : S.proj.id ? '' : ' · sin guardar') : 'Proyecto sin nombre'; } }
 function bindProjects() {
   const btn = $('#projBtn'), panel = $('#projPanel');
   btn.onclick = ev => { ev.stopPropagation(); panel.hidden = !panel.hidden; btn.setAttribute('aria-expanded', String(!panel.hidden)); if (!panel.hidden) renderProjList(); };
-  document.addEventListener('click', ev => { if (!panel.hidden && !ev.target.closest('.projdrop')) { panel.hidden = true; btn.setAttribute('aria-expanded', 'false'); } });
+  document.addEventListener('click', ev => { if (!panel.hidden && !ev.composedPath().some(n => n.classList?.contains('projdrop'))) { panel.hidden = true; btn.setAttribute('aria-expanded', 'false'); } });
   document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && !panel.hidden) { panel.hidden = true; btn.setAttribute('aria-expanded', 'false'); btn.focus(); } });
   $('#expProj').onclick = exportProject;
   $('#impProjFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importProject(f); e.target.value = ''; });
   const eb = $('#expBases'); if (eb) { eb.hidden = !LOCAL; eb.onclick = async () => { if (await saveFile('bases_apoyos_cables.json', new Blob([await S.db.exportAll()], { type: 'application/json' }))) toast('Bases exportadas.'); }; }
   $('#saveProj').onclick = saveProject;
+  if (WEB) { $('#saveProj').title = 'Guarda el proyecto en la base de datos (Ctrl+S)'; document.addEventListener('keydown', ev => { if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 's') { ev.preventDefault(); saveProject(); } }); }
   $('#newProj').onclick = () => {
     const b = $('#newProj');
     if (!b.dataset.confirm) { b.dataset.confirm = '1'; b.textContent = 'Pulsa otra vez para vaciar'; b.classList.add('danger'); clearTimeout(b._t); b._t = setTimeout(() => { delete b.dataset.confirm; b.textContent = 'Nuevo proyecto'; b.classList.remove('danger'); }, 4000); return; }
@@ -2155,11 +2194,11 @@ function bindProjects() {
   };
   $('#projList').addEventListener('click', async ev => {
     const b = ev.target.closest('button'); if (!b) return;
-    if (b.dataset.load) { const p = S.projs.find(x => x.id === b.dataset.load); try { const d = JSON.parse(p.datos); S.proj = { ...exampleProject(), ...d, ctx: { ...DEF_CTX, ...d.ctx }, id: p.id }; } catch (e) { toast('El proyecto guardado está dañado.'); return; }
+    if (b.dataset.load) { const p = S.projs.find(x => x.id === b.dataset.load); try { const d = JSON.parse(await projDatos(p)); S.proj = { ...exampleProject(), ...d, ctx: { ...DEF_CTX, ...d.ctx }, id: p.id }; } catch (e) { toast('El proyecto guardado está dañado.'); return; }
       if (!S.proj.zone) S.proj.zone = S.proj.geo?.zone || null; S.proj.fondos = S.proj.fondos || {};
       S.img = {}; S.sel = null; S.openEx = null; S.pickEntronque = false; V.fitted = false; loadForm(); refreshAll(); $('#projPanel').hidden = true; toast('Proyecto abierto.'); }
     if (b.dataset.askdel) { S.delConfirm = b.dataset.askdel; renderProjList(); }
-    if (b.dataset.del) { try { await S.db.doc('proyectos/' + b.dataset.del).delete(); S.delConfirm = null; toast('Proyecto borrado.'); } catch (e) { toast('No se pudo borrar: ' + (e.message || e.code)); } }
+    if (b.dataset.del) { try { const pd = S.projs.find(x => x.id === b.dataset.del); for (let k = 0; k < (pd?.partes || 0); k++) await S.db.doc(`proyectos/${b.dataset.del}/partes/${k}`).delete(); await S.db.doc('proyectos/' + b.dataset.del).delete(); if (S.proj.id === b.dataset.del) { S.proj.id = null; renderProjName(); } S.delConfirm = null; toast('Proyecto borrado.'); } catch (e) { toast('No se pudo borrar: ' + (e.message || e.code)); } }
   });
 }
 
