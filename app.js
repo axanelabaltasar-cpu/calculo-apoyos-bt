@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.35.0';
+const VERSION = '1.36.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -265,7 +265,7 @@ function renderResults() {
   if (sinLibre.length) w.push(`<div class="banner bad">Distancia al suelo insuficiente en ${sinLibre.map(s => `A${s.i + 1}–A${s.i + 2} (${fmt(s.libre, 2)} m de ${fmt(s.dmin)} m)`).join(', ')}. Intercala un apoyo o permite apoyos más altos.</div>`);
   const tiro = c.results.filter(r => r.tiroArriba);
   if (tiro.length) w.push(`<div class="banner warn">Tiro hacia arriba (componente vertical ascendente) en ${tiro.map(r => apName(r.i)).join(', ')}: usa amarre en lugar de suspensión y asegura la sujeción (ITC-BT-06 3.9.1.1).</div>`);
-  if (!c.conPerfil && (S.proj.modo === 'kml' || S.proj.entronque?.k != null)) w.push('<div class="banner warn">Cálculo sin perfil de elevación: se ha supuesto terreno llano. Carga el perfil de GPS Visualizer en «Trazado».</div>');
+  if (!c.conPerfil && (S.proj.modo === 'kml' || S.proj.entronque?.k != null)) w.push('<div class="banner warn">Cálculo sin perfil de elevación: se ha supuesto terreno llano. Carga el perfil de GPS Visualizer en «Red aérea · ITC-BT-06 › Trazado».</div>');
   { const mo = S.proj.ctx.tenseModo; const pedido = mo === 'normal' ? S.proj.ctx.tenseNormal : mo === 'reducido' ? S.proj.ctx.tenseReducido : null;
     w.push(`<div class="banner info">Tense de cálculo ${mo === 'max' ? 'máximo reglamentario' : mo}: ${fmt(c.Tmax)} daN (máximo reglamentario ${fmt(c.TmaxReg)} daN).${pedido != null && Number(pedido) > c.TmaxReg ? ' El valor indicado supera el máximo y se ha limitado.' : ''}</div>`); }
   { const er = elecAereoRes(); [...sumBanners(), ...(er ? er.checks : [])].filter(x => x.ok === 'bad').forEach(x => w.push(`<div class="banner bad">${esc(x.txt)}</div>`)); }

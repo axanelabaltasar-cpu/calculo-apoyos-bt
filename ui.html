@@ -182,7 +182,7 @@ a.btn{text-decoration:none;display:inline-block}
       <label class="btn small" for="impProjFile">Abrir archivo</label><input id="impProjFile" type="file" accept=".json" hidden>
       <button class="btn small" id="expBases" type="button" hidden>Exportar bases</button>
       <button class="btn small" id="foldAll" type="button">Minimizar / desplegar todo</button>
-      <div class="ver" id="ver">v1.35.0</div>
+      <div class="ver" id="ver">v1.36.0</div>
     </div>
   </header>
   <nav class="tabs" role="tablist">
@@ -231,8 +231,9 @@ a.btn{text-decoration:none;display:inline-block}
           <div id="exBody"></div>
         </section>
 
-        <section class="card">
-          <h2>Trazado <span class="row">
+        <section class="card" id="aerCard">
+          <h2>Red aérea · ITC-BT-06</h2>
+          <h3 class="sub" id="trazadoSub">Trazado <span class="row">
             <label class="btn small" for="trApoFile" title="Puntos (marcadores) de los apoyos nuevos, en KML o KMZ">1 · Importar apoyos</label>
             <input id="trApoFile" type="file" accept=".kml,.kmz,.gpx" hidden>
             <label class="btn small" for="trLinFile" title="Líneas (tramos) del trazado nuevo, en KML o KMZ">2 · Importar tramos</label>
@@ -240,9 +241,10 @@ a.btn{text-decoration:none;display:inline-block}
             <label class="btn small ghost" for="kmlFile" title="Un solo archivo con la ruta y los marcadores de los apoyos">Importar todo junto</label>
             <input id="kmlFile" type="file" accept=".kml,.kmz,.gpx,.txt" hidden>
             <button class="btn small" id="addRow">Añadir apoyo</button>
-          </span></h2>
+          </span></h3>
+          <div id="aerAuto" class="dsec" style="margin-bottom:12px"></div>
           <div class="fields" style="margin-bottom:10px">
-            <label class="f">Vano máximo (m)<input id="p_vanoMax" class="num" type="number" step="1"></label>
+            <label class="f">Vano máximo al importar o dibujar (m)<input id="p_vanoMax" class="num" type="number" step="1"></label>
             <label class="f">Rumbo inicial (°)<input id="p_rumbo0" class="num" type="number" step="1"><span class="hint">Solo entrada manual</span></label>
             <label class="chk full"><input id="p_dividir" type="checkbox"> Al importar, intercalar apoyos en tramos más largos que el vano máximo</label>
           </div>
@@ -273,10 +275,7 @@ a.btn{text-decoration:none;display:inline-block}
             </tr></thead><tbody></tbody></table>
           </div>
           <p class="note">Desvío positivo: giro a la derecha en el sentido de avance. Marca «Cruce» en el vano que llega al apoyo si cruza carretera o ferrocarril. «Vano calc.» es la distancia medida en el plano; escribe otra en «Vano manual» para usarla en el cálculo y el presupuesto (vacío: la calculada).</p>
-        </section>
-        <section class="card" id="aerCard">
-          <h2>Red aérea · ITC-BT-06</h2>
-          <h3 class="sub">Apoyos</h3>
+          <h3 class="sub">Apoyos calculados</h3>
           <div class="tablewrap"><table id="resTable"></table></div>
           <p class="note">Una fila por apoyo. Esfuerzos referidos al punto de aplicación del esfuerzo nominal (0,25 m bajo cogolla), comparados con el esfuerzo nominal y secundario del poste (coef. de seguridad 2,5 incluido). Pulsa una fila para ver el desglose.</p>
           <div id="aerLineas"></div>
