@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.36.1';
+const VERSION = '1.37.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -636,7 +636,7 @@ function allPts() {
   const n = sinGeo ? [] : (S.calc?.nodes || (S.proj.rows.length > 1 ? currentNodes() : []));
   const ruta = S.proj.geo?.ruta || [];
   const ex = [...exNodes(), ...exLineas().flatMap(l => l.pts), ...exDC()];
-  const base = [...n, ...ruta, ...subAllPts()];
+  const base = [...n, ...ruta, ...subAllPts(), ...tramosAer().flatMap(t => t.pts)];
   if (!base.length) return ex;
   const xs = base.map(p => p.x), ys = base.map(p => p.y), m = 300;
   const x0 = Math.min(...xs) - m, x1 = Math.max(...xs) + m, y0 = Math.min(...ys) - m, y1 = Math.max(...ys) + m;
@@ -652,10 +652,11 @@ function fitView() {
 }
 /* ===== Capas visibles del plano ===== */
 const CAPAS = [
-  ['grupo', 'Proyecto'], ['nuevo', 'Apoyos nuevos'], ['nuevoTxt', 'Textos de apoyos nuevos'], ['linea', 'Línea nueva'], ['vanos', 'Longitud de vanos'], ['cable', 'Cable del proyecto'], ['ruta', 'Ruta del trazado'],
-  ['grupo', 'Red existente'], ['exApoyos', 'Apoyos existentes'], ['exApoyosTxt', 'Textos de apoyos'], ['exLineas', 'Tramos baja'], ['exLineasTxt', 'Textos y conductor de tramos'], ['exDC', 'Puntos D-C'], ['exDCTxt', 'CUPS de puntos D-C'],
+  ['grupo', 'Tramos, zanjas y puntos D-C'], ['exLineas', 'Tramos aéreos existentes'], ['subEx', 'Tramos subterráneos existentes'], ['linea', 'Tramos aéreos nuevos'], ['subNueva', 'Tramos subterráneos nuevos'], ['exDC', 'Puntos D-C'], ['zanjaEx', 'Zanjas existentes'], ['zanjaNueva', 'Zanjas nuevas'],
+  ['grupo', 'Textos'], ['exLineasTxt', 'Conductor de tramos existentes'], ['exDCTxt', 'CUPS de puntos D-C'], ['nuevoTxt', 'Textos de apoyos nuevos'], ['vanos', 'Longitud de vanos'], ['cable', 'Cable del proyecto'], ['subTxt', 'Textos de tramos subterráneos'], ['zanjaTxt', 'Textos de zanjas'],
+  ['grupo', 'Apoyos y otros'], ['nuevo', 'Apoyos nuevos'], ['exApoyos', 'Apoyos existentes'], ['exApoyosTxt', 'Textos de apoyos existentes'], ['arquetas', 'Arquetas'], ['cgp', 'CGP del cliente'], ['ruta', 'Ruta del trazado'],
   ['grupo', 'Fondo'], ['orto', 'Ortofoto PNOA'], ['catastro', 'Catastro'], ['rejilla', 'Cuadrícula']];
-function vis(k) { if (k === 'orto' || k === 'catastro') return S.proj.fondos?.[k]?.visible !== false; return S.proj.capas?.[k] !== false; }
+function vis(k) { if (k === 'aerNuevo') k = 'linea'; if (k === 'orto' || k === 'catastro') return S.proj.fondos?.[k]?.visible !== false; return S.proj.capas?.[k] !== false; }
 function setVis(k, on) {
   if (k === 'orto' || k === 'catastro') { S.proj.fondos = S.proj.fondos || {}; const f = S.proj.fondos[k] || (S.proj.fondos[k] = {}); f.visible = on; f.userVis = true; renderFondos(); }
   else { S.proj.capas = S.proj.capas || {}; S.proj.capas[k] = on; }
@@ -782,12 +783,15 @@ function drawMap(T) {
   }
   drawSub({ g, P, screen, col, halo, alongText, longestSeg, vtx, sc, L, tool });
   // Líneas existentes con su texto (y su cable verificado)
-  if (vis('exLineas')) lines.forEach((l, li) => {
-    g.strokeStyle = col('--exist'); g.lineWidth = 3; g.setLineDash([8, 5]); g.beginPath(); l.pts.forEach((n, i) => { const [x, y] = P(n); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); g.setLineDash([]);
+  lines.forEach((l, li) => {
+    if (!exLVis(l)) return; const subt = exLSubt(l);
+    g.strokeStyle = col('--exist'); g.lineWidth = subt ? 2.5 : 3; g.setLineDash(subt ? [12, 4, 2, 4] : [8, 5]); g.beginPath(); l.pts.forEach((n, i) => { const [x, y] = P(n); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); g.setLineDash([]);
     const ls = longestSeg(l.pts); const txt = mapLineLabel(l);
     if (vis('exLineasTxt') && ls.i >= 0 && txt && ls.len > g.measureText(txt).width * 0.6) alongText(txt, l.pts[ls.i], l.pts[ls.i + 1], -1, 'italic 600 11px ' + col('--f-body'), col('--exist'));
     if (screen && tool !== 'pan' && L === 'exLineas') l.pts.forEach((n, i) => { const [x, y] = P(n); vtx(x, y, S.selPt?.layer === 'exLineas' && S.selPt.li === li && S.selPt.i === i); });
+    if (screen && S.selPt?.layer === 'exLineas' && S.selPt.li === li) { g.save(); g.strokeStyle = col('--ink'); g.globalAlpha = 0.35; g.lineWidth = 9; g.beginPath(); l.pts.forEach((n, i) => { const [x, y] = P(n); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); g.restore(); }
   });
+  drawTramosAer({ g, P, screen, col, alongText, longestSeg, vtx, L, tool });
   if (vis('exApoyos') || S.pickEntronque) ex.forEach((n, i) => {
     const [x, y] = P(n); if (!inView(x, y)) return;
     const isEn = S.proj.entronque?.k === i, isSel = screen && S.selPt?.layer === 'exApoyos' && S.selPt.i === i;
@@ -852,15 +856,15 @@ function zoomAt(f, mx, my) {
 }
 
 /* ===== Edición en el plano ===== */
-const LAYERS = { nuevo: 'Apoyos nuevos', exApoyos: 'Apoyos existentes', exLineas: 'Tramos baja existentes', exDC: 'Puntos D-C', ruta: 'Ruta del trazado' };
+const LAYERS = { nuevo: 'Apoyos nuevos', exApoyos: 'Apoyos existentes', exLineas: 'Tramos aéreos existentes', aerNuevo: 'Tramos aéreos nuevos', exDC: 'Puntos D-C', ruta: 'Ruta del trazado' };
 S.tool = 'pan'; S.editLayer = 'nuevo'; S.hist = [];
 function snapshot() {
-  S.hist.push(JSON.stringify({ geo: S.proj.geo, rows: S.proj.rows, redEx: S.proj.redEx, entronque: S.proj.entronque, verif: S.proj.verif, modo: S.proj.modo, zone: S.proj.zone, rumbo0: S.proj.ctx.rumbo0, sub: S.proj.sub || null }));
+  S.hist.push(JSON.stringify({ geo: S.proj.geo, rows: S.proj.rows, redEx: S.proj.redEx, entronque: S.proj.entronque, verif: S.proj.verif, modo: S.proj.modo, zone: S.proj.zone, rumbo0: S.proj.ctx.rumbo0, sub: S.proj.sub || null, tramosAer: S.proj.tramosAer || null }));
   if (S.hist.length > 60) S.hist.shift(); updUndo();
 }
 function undo() {
   const h = S.hist.pop(); if (!h) return; const d = JSON.parse(h);
-  Object.assign(S.proj, { geo: d.geo, rows: d.rows, redEx: d.redEx, entronque: d.entronque, verif: d.verif, modo: d.modo, zone: d.zone, sub: d.sub || null }); S.subDraw = null; S.proj.ctx.rumbo0 = d.rumbo0;
+  Object.assign(S.proj, { geo: d.geo, rows: d.rows, redEx: d.redEx, entronque: d.entronque, verif: d.verif, modo: d.modo, zone: d.zone, sub: d.sub || null, tramosAer: d.tramosAer || null }); S.subDraw = null; S.polyDraw = null; S.proj.ctx.rumbo0 = d.rumbo0;
   invalidateVert(); S.selPt = null; updUndo(); refreshAll(); toast('Cambio deshecho.');
 }
 function updUndo() { const b = $('#edUndo'); if (b) b.disabled = !S.hist.length; }
@@ -876,6 +880,7 @@ function layerPts(layer) {
   if (layer === 'nuevo') return S.proj.modo === 'kml' && S.proj.geo ? [S.proj.geo.pts] : [];
   if (layer === 'exApoyos') return redEx()?.apoyos?.length ? [redEx().apoyos] : [];
   if (layer === 'exLineas') return exLineas().map(l => l.pts);
+  if (layer === 'aerNuevo') return tramosAerVis().map(t => t.pts);
   if (layer === 'exDC') return exDC().length ? [exDC()] : [];
   if (layer === 'ruta') return S.proj.geo?.ruta ? [S.proj.geo.ruta] : [];
   if (isSubLayer(layer)) return subObjs(layer).map(o => o.pts);
@@ -910,10 +915,10 @@ function snapTargets(dp) {
     pts.forEach((p, i) => { if (own('nuevo', 0, i) || (i === 0 && linkedA1)) return; out.push({ x: p.x, y: p.y, label: 'Apoyo ' + apName(i) }); });
   }
   if (vis('exApoyos')) (redEx()?.apoyos || []).forEach((p, i) => { if (own('exApoyos', 0, i) || (i === enK && linkedA1)) return; out.push({ x: p.x, y: p.y, label: 'Apoyo existente ' + exLabel(i), exK: i }); });
-  if (vis('exLineas')) exLineas().forEach((l, li) => { const n = l.pts.length; [0, n - 1].forEach((i, k) => { if (n < 2 || (k && i === 0) || own('exLineas', li, i)) return; out.push({ x: l.pts[i].x, y: l.pts[i].y, label: (k ? 'Fin' : 'Inicio') + ' de tramo ' + (lineLabel(l) || 'L' + (li + 1)) }); }); });
+  exLineas().forEach((l, li) => { if (!exLVis(l)) return; const n = l.pts.length; [0, n - 1].forEach((i, k) => { if (n < 2 || (k && i === 0) || own('exLineas', li, i)) return; out.push({ x: l.pts[i].x, y: l.pts[i].y, label: (k ? 'Fin' : 'Inicio') + ' de tramo ' + (lineLabel(l) || 'L' + (li + 1)) }); }); });
   if (vis('ruta') && S.proj.geo?.ruta?.length > 1) { const r = S.proj.geo.ruta; [0, r.length - 1].forEach((i, k) => { if (!own('ruta', 0, i)) out.push({ x: r[i].x, y: r[i].y, label: (k ? 'Fin' : 'Inicio') + ' de ruta' }); }); }
   if (vis('exDC')) exDC().forEach((p, i) => { if (!own('exDC', 0, i)) out.push({ x: p.x, y: p.y, label: 'Punto D-C' + (dcLabel(p) ? ' ' + dcLabel(p) : '') }); });
-  out.push(...subSnapTargets(dp));
+  out.push(...subSnapTargets(dp), ...aerSnapTargets(dp));
   return out;
 }
 function findSnap(dp, mx, my) {
@@ -927,6 +932,7 @@ function editClick(mx, my) {
   const layer = S.editLayer, tool = S.tool, snI = tool === 'insert' ? findSnap({ layer: '__hover__' }, mx, my) : null, w = snI ? { x: snI.x, y: snI.y } : worldAt(mx, my);
   if ((tool === 'insert' || tool === 'delete') && !vis(layer)) return toast(`La capa «${LAYERS[layer]}» está oculta. Muéstrala en «Capas» para editarla.`);
   if (tool === 'insert' && isSubLayer(layer)) return subInsert(layer, mx, my);
+  if (tool === 'insert' && (layer === 'aerNuevo' || layer === 'exLineas')) return polyInsert(layer, mx, my);
   if (tool === 'insert') {
     if (layer === 'nuevo') {
       snapshot();
@@ -985,7 +991,7 @@ function editClick(mx, my) {
     } else if (isSubLayer(layer)) { subDelete(layer, h);
     } else {
       const arr = layerPts(layer)[h.li]; snapshot();
-      if (arr.length <= 2) { if (layer === 'exLineas') { exLineas().splice(h.li, 1); toast('Línea existente borrada (le quedaban dos vértices).'); } else { S.proj.geo.ruta = null; toast('Ruta borrada.'); } }
+      if (arr.length <= 2) { if (layer === 'exLineas') { exLineas().splice(h.li, 1); toast('Línea existente borrada (le quedaban dos vértices).'); } else if (layer === 'aerNuevo') { const t = tramosAerVis()[h.li], A = tramosAer(); A.splice(A.indexOf(t), 1); toast('Tramo aéreo nuevo borrado (le quedaban dos vértices).'); } else { S.proj.geo.ruta = null; toast('Ruta borrada.'); } }
       else arr.splice(h.i, 1);
       invalidateVert();
     }
@@ -1046,8 +1052,9 @@ function bindMap() {
     const kd = vis('exDC') ? near(exDC()) : -1; if (kd >= 0) { S.selPt = { layer: 'exDC', li: 0, i: kd }; renderPtEdit(); drawMap(); return; }
     const k = vis('exApoyos') ? near(S.mapT.ex) : -1; if (k >= 0 && redEx()?.apoyos?.length) { S.selPt = { layer: 'exApoyos', li: 0, i: k }; renderPtEdit(); drawMap(); return; }
     if (selectExtra(mx, my, 'pre')) return;
-    let hl = null; if (vis('exLineas')) exLineas().forEach((l, li) => { const h = hitSegment(l.pts, mx, my, 8); if (h && (!hl || h.d < hl.d)) hl = { ...h, li }; });
-    if (hl) { S.selPt = { layer: 'exLineas', li: hl.li, i: hl.t < 0.5 ? hl.i : hl.i + 1 }; renderPtEdit(); drawMap(); return; }
+    if (selectTramoAer(mx, my)) return;
+    let hl = null; exLineas().forEach((l, li) => { if (!exLVis(l)) return; const h = hitSegment(l.pts, mx, my, 8); if (h && (!hl || h.d < hl.d)) hl = { ...h, li }; });
+    if (hl) { S.selObj = null; S.selPt = { layer: 'exLineas', li: hl.li, i: hl.t < 0.5 ? hl.i : hl.i + 1 }; renderPtEdit(); drawMap(); return; }
     if (selectExtra(mx, my, 'post')) return;
     S.selPt = null; S.selObj = null; renderPtEdit(); drawMap();
   });
@@ -1062,10 +1069,10 @@ function bindMap() {
   // Barra de edición
   $('#edBar').addEventListener('click', ev => {
     const b = ev.target.closest('button'); if (!b) return;
-    if (b.dataset.tool) { if (S.subDraw) subEndDraw(); S.tool = b.dataset.tool; renderEdBar(); drawMap(); }
+    if (b.dataset.tool) { if (S.subDraw) subEndDraw(); if (S.polyDraw) polyEnd(); S.tool = b.dataset.tool; renderEdBar(); drawMap(); }
     if (b.id === 'edUndo') undo();
   });
-  $('#edLayer').addEventListener('change', e => { if (S.subDraw) subEndDraw(); S.editLayer = e.target.value; S.selPt = null; renderEdBar(); renderPtEdit(); drawMap(); });
+  $('#edLayer').addEventListener('change', e => { if (S.subDraw) subEndDraw(); if (S.polyDraw) polyEnd(); S.editLayer = e.target.value; S.selPt = null; renderEdBar(); renderPtEdit(); drawMap(); });
   document.addEventListener('keydown', ev => {
     if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'z' && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName)) { ev.preventDefault(); undo(); }
     if (ev.key === 'Escape' && S.tool !== 'pan') { S.tool = 'pan'; renderEdBar(); drawMap(); }
@@ -1089,7 +1096,7 @@ function renderEdBar() {
   document.querySelectorAll('#edBar [data-tool]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tool === S.tool)));
   $('#edLayer').value = S.editLayer; $('#map').style.cursor = S.tool === 'pan' ? 'grab' : S.tool === 'move' ? 'move' : S.tool === 'text' ? 'text' : 'crosshair';
   $('#edLayer').disabled = S.tool === 'text' || S.tool === 'pan';
-  const hint = { pan: 'Arrastra para mover el plano. Pulsa un apoyo para seleccionarlo y editar sus coordenadas.', move: `Arrastra un punto de «${LAYERS[S.editLayer]}» para moverlo.`, insert: S.editLayer === 'nuevo' ? 'Pulsa sobre un vano para intercalar un apoyo, o fuera del trazado para añadirlo al final.' : S.editLayer === 'exApoyos' ? 'Pulsa en el plano para añadir un apoyo existente.' : isSubLayer(S.editLayer) ? 'Pulsa sobre un tramo para intercalar un vértice, o en vacío para dibujar uno nuevo punto a punto. Termina pulsando otra vez el último punto o con Intro.' : 'Pulsa sobre un tramo para insertar un vértice.', delete: `Pulsa un punto de «${LAYERS[S.editLayer]}» para borrarlo.`, text: 'Pulsa un apoyo existente, un tramo baja, un punto D-C o un apoyo nuevo para cambiar el texto que se rotula en el plano.' }[S.tool];
+  const hint = { pan: 'Arrastra para mover el plano. Pulsa un apoyo para seleccionarlo y editar sus coordenadas.', move: `Arrastra un punto de «${LAYERS[S.editLayer]}» para moverlo.`, insert: S.editLayer === 'nuevo' ? 'Pulsa sobre un vano para intercalar un apoyo, o fuera del trazado para añadirlo al final.' : S.editLayer === 'exApoyos' ? 'Pulsa en el plano para añadir un apoyo existente.' : S.editLayer === 'exDC' ? 'Pulsa en el plano para añadir un punto D-C.' : S.editLayer === 'ruta' ? 'Pulsa los puntos de la ruta.' : 'Pulsa sobre un tramo para intercalar un vértice, o en vacío para dibujar uno nuevo punto a punto. Termina pulsando otra vez el último punto o con Intro.', delete: `Pulsa un punto de «${LAYERS[S.editLayer]}» para borrarlo.`, text: 'Pulsa un apoyo existente, un tramo baja, un punto D-C o un apoyo nuevo para cambiar el texto que se rotula en el plano.' }[S.tool];
   $('#edHint').textContent = hint; updUndo();
 }
 function p0dc(sp) { return exDC()[sp.i]?.nombre || ''; }
@@ -1098,7 +1105,7 @@ function renderPtEdit() {
   if (!sp) { box.hidden = true; return; }
   let p, label;
   if (sp.layer === 'nuevo') { const n = (S.proj.modo === 'kml' && S.proj.geo) ? S.proj.geo.pts[sp.i] : currentNodes()[sp.i]; p = n; label = `Apoyo nuevo A${sp.i + 1}`; }
-  else { p = layerPts(sp.layer)[sp.li]?.[sp.i]; label = sp.layer === 'exDC' ? `Punto D-C${p0dc(sp) ? ' · ' + esc(p0dc(sp)) : ''}` : sp.layer === 'exApoyos' ? `Apoyo existente E${sp.i + 1}` : sp.layer === 'ruta' ? `Vértice ${sp.i + 1} de la ruta` : isSubLayer(sp.layer) ? `${esc(subObjs(sp.layer)[sp.li]?.nombre || '')} · vértice ${sp.i + 1}` : `Línea existente «${exLineas()[sp.li]?.nombre || ''}» · vértice ${sp.i + 1}`; }
+  else { p = layerPts(sp.layer)[sp.li]?.[sp.i]; label = sp.layer === 'exDC' ? `Punto D-C${p0dc(sp) ? ' · ' + esc(p0dc(sp)) : ''}` : sp.layer === 'exApoyos' ? `Apoyo existente E${sp.i + 1}` : sp.layer === 'ruta' ? `Vértice ${sp.i + 1} de la ruta` : isSubLayer(sp.layer) ? `${esc(subObjs(sp.layer)[sp.li]?.nombre || '')} · vértice ${sp.i + 1}` : sp.layer === 'aerNuevo' ? `Tramo aéreo nuevo «${esc(tramoAerNombre(tramosAerVis()[sp.li], sp.li))}» · vértice ${sp.i + 1}` : `Tramo existente «${exLineas()[sp.li]?.nombre || ''}» · vértice ${sp.i + 1}`; }
   if (!p) { box.hidden = true; return; }
   box.hidden = false;
   box.innerHTML = `<b>${label}</b>${isEntronqueA1(sp.layer === 'nuevo' ? sp.i : -1) ? ' · es el apoyo de entronque: edítalo como apoyo existente' : ''}
@@ -1108,9 +1115,9 @@ function renderPtEdit() {
     ${sp.layer === 'exApoyos' ? `<label class="f full">Texto en el plano<input id="pe_lab" type="text" value="${esc(exLabel(sp.i))}" placeholder="E${sp.i + 1}"><span class="hint">Vacío: no se rotula. Por defecto: E${sp.i + 1}</span></label>` : ''}
     ${sp.layer === 'exDC' ? `<label class="f full">CUPS<input id="pe_cups" type="text" value="${esc(p.cups || '')}" placeholder="ES0000000000000000XX"></label>
       <label class="f full">Texto en el plano<input id="pe_dcl" type="text" value="${esc(dcLabel(p))}" placeholder="${esc(cupsCorto(p.cups))}"><span class="hint">Por defecto: caracteres 12 a 18 del CUPS (${esc(cupsCorto(p.cups) || '—')}).</span></label>` : ''}
-    ${sp.layer === 'exLineas' ? `<label class="f full">Texto de la línea en el plano<input id="pe_ll" type="text" value="${esc(exLineas()[sp.li]?.txt || '')}" placeholder="${esc(mapLineLabel({ ...(exLineas()[sp.li] || {}), txt: '' }) || 'conductor')}"><span class="hint">Vacío: el tipo de conductor.</span></label>` : ''}</div>
+    </div>
     ${p.lat != null ? `<p class="note mono" style="margin:6px 0 0">${p.lat.toFixed(7)}, ${p.lon.toFixed(7)}</p>` : ''}
-    ${(() => { const at = sp.layer === 'exLineas' ? exLineas()[sp.li]?.attrs : p.attrs; const ks = at ? Object.keys(at) : []; return ks.length ? `<details style="margin-top:6px"><summary class="note">Datos del GIS (${ks.length})</summary><div class="tablewrap" style="margin-top:4px;max-height:200px;overflow:auto"><table class="vt"><tbody>${ks.map(k => `<tr><td class="note">${esc(k)}</td><td>${esc(at[k])}</td></tr>`).join('')}</tbody></table></div></details>` : ''; })()}`;
+    `;
 }
 
 /* ===== Lectura de archivos: KML, KMZ, GPX y texto de GPS Visualizer ===== */
@@ -1984,8 +1991,8 @@ function anexoFilas() {
   // Con identificador del GIS manda el identificador: si no está en la red existente es nuevo, aunque vaya por el mismo trazado (refuerzo o sustitución)
   const subIds = new Set((S.proj.sub?.lineas || []).map(l => l.idTramo).filter(Boolean));
   const esSubt = t => subIds.has(t.id) || /subterr/i.test(t.attrs?.['Situación'] || t.attrs?.['Situacion'] || '');
-  const esExistente = t => t.id ? exIds.has(t.id) : (exLineas().some(l => overlapFrac(t.pts, l.pts, 2) > 0.6) || (nodes.length > 1 && overlapFrac(t.pts, nodes, 3) < 0.5));
-  let tr = (S.proj.geo?.tramos || []).filter(t => t.pts.length > 1 && !esSubt(t) && !esExistente(t)); const ru = S.proj.geo?.ruta;
+  const esExistente = t => t.nuevo ? false : t.id ? exIds.has(t.id) : (exLineas().some(l => overlapFrac(t.pts, l.pts, 2) > 0.6) || (nodes.length > 1 && overlapFrac(t.pts, nodes, 3) < 0.5));
+  let tr = tramosAer().filter(t => t.pts.length > 1 && !esSubt(t) && !esExistente(t)); const ru = S.proj.geo?.ruta;
   if (ru?.length > 1 && tr.length) { // en el orden y sentido de la ruta, desde el entronque
     const ch = p => projectOnRuta(ru, p).ch;
     tr = tr.map(t => { const a0 = ch(t.pts[0]), a1 = ch(t.pts[t.pts.length - 1]); return { ...t, pts: a0 <= a1 ? t.pts : [...t.pts].reverse(), k: Math.min(a0, a1) }; }).sort((p, q) => p.k - q.k);

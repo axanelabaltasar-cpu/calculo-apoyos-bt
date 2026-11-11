@@ -254,7 +254,7 @@ function subCalc() { try { S.subCalc = subHasData() ? calcSub() : null; } catch 
 
 /* ---------- Capas y edición en el plano ---------- */
 const SUB_LAYERS = { subNueva: ['lineas', 'nuevo'], subEx: ['lineas', 'existente'], zanjaNueva: ['zanjas', 'nuevo'], zanjaEx: ['zanjas', 'existente'] };
-Object.assign(LAYERS, { subNueva: 'Líneas subterráneas nuevas', subEx: 'Líneas subterráneas existentes', zanjaNueva: 'Zanjas nuevas', zanjaEx: 'Zanjas existentes' });
+Object.assign(LAYERS, { subNueva: 'Tramos subterráneos nuevos', subEx: 'Tramos subterráneos existentes', zanjaNueva: 'Zanjas nuevas', zanjaEx: 'Zanjas existentes' });
 function subObjs(layer) { const d = SUB_LAYERS[layer]; if (!d) return null; if (!S.proj.sub) return []; return SUB()[d[0]].filter(o => o.estado === d[1]); }
 function isSubLayer(layer) { return !!SUB_LAYERS[layer]; }
 /* Inserción: pulsar sobre un tramo intercala un vértice; en vacío, dibuja una polilínea nueva punto a punto */
@@ -494,7 +494,7 @@ function initSubDb(db) {
   db.collection('tubos').onSnapshot(qs => { S.tubos = qs.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden || 0) - (b.orden || 0)); got.t = true; S.subLoaded.t = true; trySeed(); renderSubBases(); renderSub(); drawMap(); }, () => { });
 }
 PRECIO_FIELDS.push(...SUB_PRECIOS);
-CAPAS.push(['grupo', 'Suministro'], ['cgp', 'CGP del cliente'], ['grupo', 'Red subterránea'], ['subNueva', 'Líneas subterráneas nuevas'], ['subEx', 'Líneas subterráneas existentes'], ['subTxt', 'Textos de líneas subterráneas'], ['zanjaNueva', 'Zanjas nuevas'], ['zanjaEx', 'Zanjas existentes'], ['zanjaTxt', 'Textos de zanjas'], ['arquetas', 'Arquetas']);
+/* Las capas subterráneas están en CAPAS (grupo «Tramos, zanjas y puntos D-C») */
 
 /* ---------- Exportación ---------- */
 function subDxfLayers() { return [['BT_CGP', 1], ['BT_SUB_NUEVA', 6], ['BT_SUB_EXISTENTE', 8], ['BT_ZANJA_NUEVA', 40], ['BT_ZANJA_EXISTENTE', 9], ['BT_ARQUETAS', 40], ['BT_TEXTO_SUB', 6], ['BT_TEXTO_ZANJAS', 40]]; }

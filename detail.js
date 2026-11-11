@@ -164,7 +164,7 @@ function textToolClick(mx, my) {
   else if (vis('exDC') && (i = near(exDC())) >= 0) { S.selPt = { layer: 'exDC', li: 0, i }; }
   else if (vis('exApoyos') && (i = near(exNodes())) >= 0) { S.selPt = { layer: 'exApoyos', li: 0, i }; }
   else if (!selectExtra(mx, my, 'pre')) {
-    let hl = null; if (vis('exLineas')) exLineas().forEach((l, li) => { const h = hitSegment(l.pts, mx, my, 8); if (h && (!hl || h.d < hl.d)) hl = { ...h, li }; });
+    let hl = null; exLineas().forEach((l, li) => { if (!exLVis(l)) return; const h = hitSegment(l.pts, mx, my, 8); if (h && (!hl || h.d < hl.d)) hl = { ...h, li }; });
     if (hl) S.selPt = { layer: 'exLineas', li: hl.li, i: hl.i };
     else if (!selectExtra(mx, my, 'post')) return toast('Pulsa sobre un apoyo, un vano, un tramo, un punto D-C, una línea subterránea, una zanja o la CGP para editar su texto.');
   }

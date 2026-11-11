@@ -100,6 +100,7 @@ td input,td select{padding:3px 5px;font-size:.8rem}
 td input.num{width:72px}
 tr.sel td{background:var(--accent-soft)}
 .subt{width:max-content;min-width:100%} .subt select{min-width:10ch} .subt input[type=text]{min-width:7ch} .subt td,.subt th{white-space:nowrap} .tgrp{display:flex;flex-direction:column;gap:4px;align-items:flex-start} .nowrap{flex-wrap:nowrap} .subt select{max-width:22ch}
+.vt.attrs{width:100%}.vt.attrs td{padding:2px 4px}.vt.attrs td:first-child{width:40%}.vt.attrs input{width:100%;min-width:0;font:inherit;font-size:.85em}
 h3.sub{font:600 .95rem var(--f-display);margin:14px 0 6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 ul.checks{margin:4px 0 8px;padding-left:20px;font-size:.85rem} ul.checks li.ok::marker{color:var(--ok)} ul.checks li.warn{color:var(--warn)} ul.checks li.bad{color:var(--bad)}
 #subResults details{border-top:1px solid var(--line);padding:4px 0} #subResults summary{cursor:pointer;font-size:.9rem}
@@ -182,7 +183,7 @@ a.btn{text-decoration:none;display:inline-block}
       <label class="btn small" for="impProjFile">Abrir archivo</label><input id="impProjFile" type="file" accept=".json" hidden>
       <button class="btn small" id="expBases" type="button" hidden>Exportar bases</button>
       <button class="btn small" id="foldAll" type="button">Minimizar / desplegar todo</button>
-      <div class="ver" id="ver">v1.36.1</div>
+      <div class="ver" id="ver">v1.37.0</div>
     </div>
   </header>
   <nav class="tabs" role="tablist">
@@ -326,7 +327,7 @@ a.btn{text-decoration:none;display:inline-block}
             <button class="btn small" data-tool="insert" aria-pressed="false">Insertar</button>
             <button class="btn small" data-tool="delete" aria-pressed="false">Borrar</button>
             <button class="btn small" data-tool="text" aria-pressed="false">Editar texto</button>
-            <label class="chk note">Capa <select id="edLayer"><option value="nuevo">Apoyos nuevos</option><option value="exApoyos">Apoyos existentes</option><option value="exLineas">Tramos baja existentes</option><option value="exDC">Puntos D-C</option><option value="ruta">Ruta del trazado</option><option value="subNueva">Líneas subterráneas nuevas</option><option value="subEx">Líneas subterráneas existentes</option><option value="zanjaNueva">Zanjas nuevas</option><option value="zanjaEx">Zanjas existentes</option></select></label>
+            <label class="chk note">Capa <select id="edLayer"><optgroup label="Tramos y zanjas"><option value="exLineas">Tramos aéreos existentes</option><option value="subEx">Tramos subterráneos existentes</option><option value="aerNuevo">Tramos aéreos nuevos</option><option value="subNueva">Tramos subterráneos nuevos</option><option value="zanjaEx">Zanjas existentes</option><option value="zanjaNueva">Zanjas nuevas</option></optgroup><optgroup label="Puntos"><option value="exDC">Puntos D-C</option><option value="nuevo">Apoyos nuevos (línea calculada)</option><option value="exApoyos">Apoyos existentes</option><option value="ruta">Ruta del trazado</option></optgroup></select></label>
             <button class="btn small" id="edUndo" disabled title="Ctrl+Z">Deshacer</button>
             <button class="btn small" id="capasBtn" aria-expanded="false" aria-controls="capasPanel">Capas</button>
           </div>

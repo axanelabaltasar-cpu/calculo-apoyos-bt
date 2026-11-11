@@ -102,6 +102,7 @@ td input,td select{padding:3px 5px;font-size:.8rem}
 td input.num{width:72px}
 tr.sel td{background:var(--accent-soft)}
 .subt{width:max-content;min-width:100%} .subt select{min-width:10ch} .subt input[type=text]{min-width:7ch} .subt td,.subt th{white-space:nowrap} .tgrp{display:flex;flex-direction:column;gap:4px;align-items:flex-start} .nowrap{flex-wrap:nowrap} .subt select{max-width:22ch}
+.vt.attrs{width:100%}.vt.attrs td{padding:2px 4px}.vt.attrs td:first-child{width:40%}.vt.attrs input{width:100%;min-width:0;font:inherit;font-size:.85em}
 h3.sub{font:600 .95rem var(--f-display);margin:14px 0 6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 ul.checks{margin:4px 0 8px;padding-left:20px;font-size:.85rem} ul.checks li.ok::marker{color:var(--ok)} ul.checks li.warn{color:var(--warn)} ul.checks li.bad{color:var(--bad)}
 #subResults details{border-top:1px solid var(--line);padding:4px 0} #subResults summary{cursor:pointer;font-size:.9rem}
@@ -184,7 +185,7 @@ a.btn{text-decoration:none;display:inline-block}
       <label class="btn small" for="impProjFile">Abrir archivo</label><input id="impProjFile" type="file" accept=".json" hidden>
       <button class="btn small" id="expBases" type="button" hidden>Exportar bases</button>
       <button class="btn small" id="foldAll" type="button">Minimizar / desplegar todo</button>
-      <div class="ver" id="ver">v1.36.1</div>
+      <div class="ver" id="ver">v1.37.0</div>
     </div>
   </header>
   <nav class="tabs" role="tablist">
@@ -328,7 +329,7 @@ a.btn{text-decoration:none;display:inline-block}
             <button class="btn small" data-tool="insert" aria-pressed="false">Insertar</button>
             <button class="btn small" data-tool="delete" aria-pressed="false">Borrar</button>
             <button class="btn small" data-tool="text" aria-pressed="false">Editar texto</button>
-            <label class="chk note">Capa <select id="edLayer"><option value="nuevo">Apoyos nuevos</option><option value="exApoyos">Apoyos existentes</option><option value="exLineas">Tramos baja existentes</option><option value="exDC">Puntos D-C</option><option value="ruta">Ruta del trazado</option><option value="subNueva">Líneas subterráneas nuevas</option><option value="subEx">Líneas subterráneas existentes</option><option value="zanjaNueva">Zanjas nuevas</option><option value="zanjaEx">Zanjas existentes</option></select></label>
+            <label class="chk note">Capa <select id="edLayer"><optgroup label="Tramos y zanjas"><option value="exLineas">Tramos aéreos existentes</option><option value="subEx">Tramos subterráneos existentes</option><option value="aerNuevo">Tramos aéreos nuevos</option><option value="subNueva">Tramos subterráneos nuevos</option><option value="zanjaEx">Zanjas existentes</option><option value="zanjaNueva">Zanjas nuevas</option></optgroup><optgroup label="Puntos"><option value="exDC">Puntos D-C</option><option value="nuevo">Apoyos nuevos (línea calculada)</option><option value="exApoyos">Apoyos existentes</option><option value="ruta">Ruta del trazado</option></optgroup></select></label>
             <button class="btn small" id="edUndo" disabled title="Ctrl+Z">Deshacer</button>
             <button class="btn small" id="capasBtn" aria-expanded="false" aria-controls="capasPanel">Capas</button>
           </div>
@@ -857,7 +858,7 @@ return { utmFromLatLon, latLonFromUtm, calcular, presupuesto, nodesFromManual, b
 })();
 const ANEXO_TPL = "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";
 /* ===== Aplicación ===== */
-const VERSION = '1.36.1';
+const VERSION = '1.37.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -1494,7 +1495,7 @@ function allPts() {
   const n = sinGeo ? [] : (S.calc?.nodes || (S.proj.rows.length > 1 ? currentNodes() : []));
   const ruta = S.proj.geo?.ruta || [];
   const ex = [...exNodes(), ...exLineas().flatMap(l => l.pts), ...exDC()];
-  const base = [...n, ...ruta, ...subAllPts()];
+  const base = [...n, ...ruta, ...subAllPts(), ...tramosAer().flatMap(t => t.pts)];
   if (!base.length) return ex;
   const xs = base.map(p => p.x), ys = base.map(p => p.y), m = 300;
   const x0 = Math.min(...xs) - m, x1 = Math.max(...xs) + m, y0 = Math.min(...ys) - m, y1 = Math.max(...ys) + m;
@@ -1510,10 +1511,11 @@ function fitView() {
 }
 /* ===== Capas visibles del plano ===== */
 const CAPAS = [
-  ['grupo', 'Proyecto'], ['nuevo', 'Apoyos nuevos'], ['nuevoTxt', 'Textos de apoyos nuevos'], ['linea', 'Línea nueva'], ['vanos', 'Longitud de vanos'], ['cable', 'Cable del proyecto'], ['ruta', 'Ruta del trazado'],
-  ['grupo', 'Red existente'], ['exApoyos', 'Apoyos existentes'], ['exApoyosTxt', 'Textos de apoyos'], ['exLineas', 'Tramos baja'], ['exLineasTxt', 'Textos y conductor de tramos'], ['exDC', 'Puntos D-C'], ['exDCTxt', 'CUPS de puntos D-C'],
+  ['grupo', 'Tramos, zanjas y puntos D-C'], ['exLineas', 'Tramos aéreos existentes'], ['subEx', 'Tramos subterráneos existentes'], ['linea', 'Tramos aéreos nuevos'], ['subNueva', 'Tramos subterráneos nuevos'], ['exDC', 'Puntos D-C'], ['zanjaEx', 'Zanjas existentes'], ['zanjaNueva', 'Zanjas nuevas'],
+  ['grupo', 'Textos'], ['exLineasTxt', 'Conductor de tramos existentes'], ['exDCTxt', 'CUPS de puntos D-C'], ['nuevoTxt', 'Textos de apoyos nuevos'], ['vanos', 'Longitud de vanos'], ['cable', 'Cable del proyecto'], ['subTxt', 'Textos de tramos subterráneos'], ['zanjaTxt', 'Textos de zanjas'],
+  ['grupo', 'Apoyos y otros'], ['nuevo', 'Apoyos nuevos'], ['exApoyos', 'Apoyos existentes'], ['exApoyosTxt', 'Textos de apoyos existentes'], ['arquetas', 'Arquetas'], ['cgp', 'CGP del cliente'], ['ruta', 'Ruta del trazado'],
   ['grupo', 'Fondo'], ['orto', 'Ortofoto PNOA'], ['catastro', 'Catastro'], ['rejilla', 'Cuadrícula']];
-function vis(k) { if (k === 'orto' || k === 'catastro') return S.proj.fondos?.[k]?.visible !== false; return S.proj.capas?.[k] !== false; }
+function vis(k) { if (k === 'aerNuevo') k = 'linea'; if (k === 'orto' || k === 'catastro') return S.proj.fondos?.[k]?.visible !== false; return S.proj.capas?.[k] !== false; }
 function setVis(k, on) {
   if (k === 'orto' || k === 'catastro') { S.proj.fondos = S.proj.fondos || {}; const f = S.proj.fondos[k] || (S.proj.fondos[k] = {}); f.visible = on; f.userVis = true; renderFondos(); }
   else { S.proj.capas = S.proj.capas || {}; S.proj.capas[k] = on; }
@@ -1640,12 +1642,15 @@ function drawMap(T) {
   }
   drawSub({ g, P, screen, col, halo, alongText, longestSeg, vtx, sc, L, tool });
   // Líneas existentes con su texto (y su cable verificado)
-  if (vis('exLineas')) lines.forEach((l, li) => {
-    g.strokeStyle = col('--exist'); g.lineWidth = 3; g.setLineDash([8, 5]); g.beginPath(); l.pts.forEach((n, i) => { const [x, y] = P(n); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); g.setLineDash([]);
+  lines.forEach((l, li) => {
+    if (!exLVis(l)) return; const subt = exLSubt(l);
+    g.strokeStyle = col('--exist'); g.lineWidth = subt ? 2.5 : 3; g.setLineDash(subt ? [12, 4, 2, 4] : [8, 5]); g.beginPath(); l.pts.forEach((n, i) => { const [x, y] = P(n); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); g.setLineDash([]);
     const ls = longestSeg(l.pts); const txt = mapLineLabel(l);
     if (vis('exLineasTxt') && ls.i >= 0 && txt && ls.len > g.measureText(txt).width * 0.6) alongText(txt, l.pts[ls.i], l.pts[ls.i + 1], -1, 'italic 600 11px ' + col('--f-body'), col('--exist'));
     if (screen && tool !== 'pan' && L === 'exLineas') l.pts.forEach((n, i) => { const [x, y] = P(n); vtx(x, y, S.selPt?.layer === 'exLineas' && S.selPt.li === li && S.selPt.i === i); });
+    if (screen && S.selPt?.layer === 'exLineas' && S.selPt.li === li) { g.save(); g.strokeStyle = col('--ink'); g.globalAlpha = 0.35; g.lineWidth = 9; g.beginPath(); l.pts.forEach((n, i) => { const [x, y] = P(n); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); g.restore(); }
   });
+  drawTramosAer({ g, P, screen, col, alongText, longestSeg, vtx, L, tool });
   if (vis('exApoyos') || S.pickEntronque) ex.forEach((n, i) => {
     const [x, y] = P(n); if (!inView(x, y)) return;
     const isEn = S.proj.entronque?.k === i, isSel = screen && S.selPt?.layer === 'exApoyos' && S.selPt.i === i;
@@ -1710,15 +1715,15 @@ function zoomAt(f, mx, my) {
 }
 
 /* ===== Edición en el plano ===== */
-const LAYERS = { nuevo: 'Apoyos nuevos', exApoyos: 'Apoyos existentes', exLineas: 'Tramos baja existentes', exDC: 'Puntos D-C', ruta: 'Ruta del trazado' };
+const LAYERS = { nuevo: 'Apoyos nuevos', exApoyos: 'Apoyos existentes', exLineas: 'Tramos aéreos existentes', aerNuevo: 'Tramos aéreos nuevos', exDC: 'Puntos D-C', ruta: 'Ruta del trazado' };
 S.tool = 'pan'; S.editLayer = 'nuevo'; S.hist = [];
 function snapshot() {
-  S.hist.push(JSON.stringify({ geo: S.proj.geo, rows: S.proj.rows, redEx: S.proj.redEx, entronque: S.proj.entronque, verif: S.proj.verif, modo: S.proj.modo, zone: S.proj.zone, rumbo0: S.proj.ctx.rumbo0, sub: S.proj.sub || null }));
+  S.hist.push(JSON.stringify({ geo: S.proj.geo, rows: S.proj.rows, redEx: S.proj.redEx, entronque: S.proj.entronque, verif: S.proj.verif, modo: S.proj.modo, zone: S.proj.zone, rumbo0: S.proj.ctx.rumbo0, sub: S.proj.sub || null, tramosAer: S.proj.tramosAer || null }));
   if (S.hist.length > 60) S.hist.shift(); updUndo();
 }
 function undo() {
   const h = S.hist.pop(); if (!h) return; const d = JSON.parse(h);
-  Object.assign(S.proj, { geo: d.geo, rows: d.rows, redEx: d.redEx, entronque: d.entronque, verif: d.verif, modo: d.modo, zone: d.zone, sub: d.sub || null }); S.subDraw = null; S.proj.ctx.rumbo0 = d.rumbo0;
+  Object.assign(S.proj, { geo: d.geo, rows: d.rows, redEx: d.redEx, entronque: d.entronque, verif: d.verif, modo: d.modo, zone: d.zone, sub: d.sub || null, tramosAer: d.tramosAer || null }); S.subDraw = null; S.polyDraw = null; S.proj.ctx.rumbo0 = d.rumbo0;
   invalidateVert(); S.selPt = null; updUndo(); refreshAll(); toast('Cambio deshecho.');
 }
 function updUndo() { const b = $('#edUndo'); if (b) b.disabled = !S.hist.length; }
@@ -1734,6 +1739,7 @@ function layerPts(layer) {
   if (layer === 'nuevo') return S.proj.modo === 'kml' && S.proj.geo ? [S.proj.geo.pts] : [];
   if (layer === 'exApoyos') return redEx()?.apoyos?.length ? [redEx().apoyos] : [];
   if (layer === 'exLineas') return exLineas().map(l => l.pts);
+  if (layer === 'aerNuevo') return tramosAerVis().map(t => t.pts);
   if (layer === 'exDC') return exDC().length ? [exDC()] : [];
   if (layer === 'ruta') return S.proj.geo?.ruta ? [S.proj.geo.ruta] : [];
   if (isSubLayer(layer)) return subObjs(layer).map(o => o.pts);
@@ -1768,10 +1774,10 @@ function snapTargets(dp) {
     pts.forEach((p, i) => { if (own('nuevo', 0, i) || (i === 0 && linkedA1)) return; out.push({ x: p.x, y: p.y, label: 'Apoyo ' + apName(i) }); });
   }
   if (vis('exApoyos')) (redEx()?.apoyos || []).forEach((p, i) => { if (own('exApoyos', 0, i) || (i === enK && linkedA1)) return; out.push({ x: p.x, y: p.y, label: 'Apoyo existente ' + exLabel(i), exK: i }); });
-  if (vis('exLineas')) exLineas().forEach((l, li) => { const n = l.pts.length; [0, n - 1].forEach((i, k) => { if (n < 2 || (k && i === 0) || own('exLineas', li, i)) return; out.push({ x: l.pts[i].x, y: l.pts[i].y, label: (k ? 'Fin' : 'Inicio') + ' de tramo ' + (lineLabel(l) || 'L' + (li + 1)) }); }); });
+  exLineas().forEach((l, li) => { if (!exLVis(l)) return; const n = l.pts.length; [0, n - 1].forEach((i, k) => { if (n < 2 || (k && i === 0) || own('exLineas', li, i)) return; out.push({ x: l.pts[i].x, y: l.pts[i].y, label: (k ? 'Fin' : 'Inicio') + ' de tramo ' + (lineLabel(l) || 'L' + (li + 1)) }); }); });
   if (vis('ruta') && S.proj.geo?.ruta?.length > 1) { const r = S.proj.geo.ruta; [0, r.length - 1].forEach((i, k) => { if (!own('ruta', 0, i)) out.push({ x: r[i].x, y: r[i].y, label: (k ? 'Fin' : 'Inicio') + ' de ruta' }); }); }
   if (vis('exDC')) exDC().forEach((p, i) => { if (!own('exDC', 0, i)) out.push({ x: p.x, y: p.y, label: 'Punto D-C' + (dcLabel(p) ? ' ' + dcLabel(p) : '') }); });
-  out.push(...subSnapTargets(dp));
+  out.push(...subSnapTargets(dp), ...aerSnapTargets(dp));
   return out;
 }
 function findSnap(dp, mx, my) {
@@ -1785,6 +1791,7 @@ function editClick(mx, my) {
   const layer = S.editLayer, tool = S.tool, snI = tool === 'insert' ? findSnap({ layer: '__hover__' }, mx, my) : null, w = snI ? { x: snI.x, y: snI.y } : worldAt(mx, my);
   if ((tool === 'insert' || tool === 'delete') && !vis(layer)) return toast(`La capa «${LAYERS[layer]}» está oculta. Muéstrala en «Capas» para editarla.`);
   if (tool === 'insert' && isSubLayer(layer)) return subInsert(layer, mx, my);
+  if (tool === 'insert' && (layer === 'aerNuevo' || layer === 'exLineas')) return polyInsert(layer, mx, my);
   if (tool === 'insert') {
     if (layer === 'nuevo') {
       snapshot();
@@ -1843,7 +1850,7 @@ function editClick(mx, my) {
     } else if (isSubLayer(layer)) { subDelete(layer, h);
     } else {
       const arr = layerPts(layer)[h.li]; snapshot();
-      if (arr.length <= 2) { if (layer === 'exLineas') { exLineas().splice(h.li, 1); toast('Línea existente borrada (le quedaban dos vértices).'); } else { S.proj.geo.ruta = null; toast('Ruta borrada.'); } }
+      if (arr.length <= 2) { if (layer === 'exLineas') { exLineas().splice(h.li, 1); toast('Línea existente borrada (le quedaban dos vértices).'); } else if (layer === 'aerNuevo') { const t = tramosAerVis()[h.li], A = tramosAer(); A.splice(A.indexOf(t), 1); toast('Tramo aéreo nuevo borrado (le quedaban dos vértices).'); } else { S.proj.geo.ruta = null; toast('Ruta borrada.'); } }
       else arr.splice(h.i, 1);
       invalidateVert();
     }
@@ -1904,8 +1911,9 @@ function bindMap() {
     const kd = vis('exDC') ? near(exDC()) : -1; if (kd >= 0) { S.selPt = { layer: 'exDC', li: 0, i: kd }; renderPtEdit(); drawMap(); return; }
     const k = vis('exApoyos') ? near(S.mapT.ex) : -1; if (k >= 0 && redEx()?.apoyos?.length) { S.selPt = { layer: 'exApoyos', li: 0, i: k }; renderPtEdit(); drawMap(); return; }
     if (selectExtra(mx, my, 'pre')) return;
-    let hl = null; if (vis('exLineas')) exLineas().forEach((l, li) => { const h = hitSegment(l.pts, mx, my, 8); if (h && (!hl || h.d < hl.d)) hl = { ...h, li }; });
-    if (hl) { S.selPt = { layer: 'exLineas', li: hl.li, i: hl.t < 0.5 ? hl.i : hl.i + 1 }; renderPtEdit(); drawMap(); return; }
+    if (selectTramoAer(mx, my)) return;
+    let hl = null; exLineas().forEach((l, li) => { if (!exLVis(l)) return; const h = hitSegment(l.pts, mx, my, 8); if (h && (!hl || h.d < hl.d)) hl = { ...h, li }; });
+    if (hl) { S.selObj = null; S.selPt = { layer: 'exLineas', li: hl.li, i: hl.t < 0.5 ? hl.i : hl.i + 1 }; renderPtEdit(); drawMap(); return; }
     if (selectExtra(mx, my, 'post')) return;
     S.selPt = null; S.selObj = null; renderPtEdit(); drawMap();
   });
@@ -1920,10 +1928,10 @@ function bindMap() {
   // Barra de edición
   $('#edBar').addEventListener('click', ev => {
     const b = ev.target.closest('button'); if (!b) return;
-    if (b.dataset.tool) { if (S.subDraw) subEndDraw(); S.tool = b.dataset.tool; renderEdBar(); drawMap(); }
+    if (b.dataset.tool) { if (S.subDraw) subEndDraw(); if (S.polyDraw) polyEnd(); S.tool = b.dataset.tool; renderEdBar(); drawMap(); }
     if (b.id === 'edUndo') undo();
   });
-  $('#edLayer').addEventListener('change', e => { if (S.subDraw) subEndDraw(); S.editLayer = e.target.value; S.selPt = null; renderEdBar(); renderPtEdit(); drawMap(); });
+  $('#edLayer').addEventListener('change', e => { if (S.subDraw) subEndDraw(); if (S.polyDraw) polyEnd(); S.editLayer = e.target.value; S.selPt = null; renderEdBar(); renderPtEdit(); drawMap(); });
   document.addEventListener('keydown', ev => {
     if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'z' && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName)) { ev.preventDefault(); undo(); }
     if (ev.key === 'Escape' && S.tool !== 'pan') { S.tool = 'pan'; renderEdBar(); drawMap(); }
@@ -1947,7 +1955,7 @@ function renderEdBar() {
   document.querySelectorAll('#edBar [data-tool]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tool === S.tool)));
   $('#edLayer').value = S.editLayer; $('#map').style.cursor = S.tool === 'pan' ? 'grab' : S.tool === 'move' ? 'move' : S.tool === 'text' ? 'text' : 'crosshair';
   $('#edLayer').disabled = S.tool === 'text' || S.tool === 'pan';
-  const hint = { pan: 'Arrastra para mover el plano. Pulsa un apoyo para seleccionarlo y editar sus coordenadas.', move: `Arrastra un punto de «${LAYERS[S.editLayer]}» para moverlo.`, insert: S.editLayer === 'nuevo' ? 'Pulsa sobre un vano para intercalar un apoyo, o fuera del trazado para añadirlo al final.' : S.editLayer === 'exApoyos' ? 'Pulsa en el plano para añadir un apoyo existente.' : isSubLayer(S.editLayer) ? 'Pulsa sobre un tramo para intercalar un vértice, o en vacío para dibujar uno nuevo punto a punto. Termina pulsando otra vez el último punto o con Intro.' : 'Pulsa sobre un tramo para insertar un vértice.', delete: `Pulsa un punto de «${LAYERS[S.editLayer]}» para borrarlo.`, text: 'Pulsa un apoyo existente, un tramo baja, un punto D-C o un apoyo nuevo para cambiar el texto que se rotula en el plano.' }[S.tool];
+  const hint = { pan: 'Arrastra para mover el plano. Pulsa un apoyo para seleccionarlo y editar sus coordenadas.', move: `Arrastra un punto de «${LAYERS[S.editLayer]}» para moverlo.`, insert: S.editLayer === 'nuevo' ? 'Pulsa sobre un vano para intercalar un apoyo, o fuera del trazado para añadirlo al final.' : S.editLayer === 'exApoyos' ? 'Pulsa en el plano para añadir un apoyo existente.' : S.editLayer === 'exDC' ? 'Pulsa en el plano para añadir un punto D-C.' : S.editLayer === 'ruta' ? 'Pulsa los puntos de la ruta.' : 'Pulsa sobre un tramo para intercalar un vértice, o en vacío para dibujar uno nuevo punto a punto. Termina pulsando otra vez el último punto o con Intro.', delete: `Pulsa un punto de «${LAYERS[S.editLayer]}» para borrarlo.`, text: 'Pulsa un apoyo existente, un tramo baja, un punto D-C o un apoyo nuevo para cambiar el texto que se rotula en el plano.' }[S.tool];
   $('#edHint').textContent = hint; updUndo();
 }
 function p0dc(sp) { return exDC()[sp.i]?.nombre || ''; }
@@ -1956,7 +1964,7 @@ function renderPtEdit() {
   if (!sp) { box.hidden = true; return; }
   let p, label;
   if (sp.layer === 'nuevo') { const n = (S.proj.modo === 'kml' && S.proj.geo) ? S.proj.geo.pts[sp.i] : currentNodes()[sp.i]; p = n; label = `Apoyo nuevo A${sp.i + 1}`; }
-  else { p = layerPts(sp.layer)[sp.li]?.[sp.i]; label = sp.layer === 'exDC' ? `Punto D-C${p0dc(sp) ? ' · ' + esc(p0dc(sp)) : ''}` : sp.layer === 'exApoyos' ? `Apoyo existente E${sp.i + 1}` : sp.layer === 'ruta' ? `Vértice ${sp.i + 1} de la ruta` : isSubLayer(sp.layer) ? `${esc(subObjs(sp.layer)[sp.li]?.nombre || '')} · vértice ${sp.i + 1}` : `Línea existente «${exLineas()[sp.li]?.nombre || ''}» · vértice ${sp.i + 1}`; }
+  else { p = layerPts(sp.layer)[sp.li]?.[sp.i]; label = sp.layer === 'exDC' ? `Punto D-C${p0dc(sp) ? ' · ' + esc(p0dc(sp)) : ''}` : sp.layer === 'exApoyos' ? `Apoyo existente E${sp.i + 1}` : sp.layer === 'ruta' ? `Vértice ${sp.i + 1} de la ruta` : isSubLayer(sp.layer) ? `${esc(subObjs(sp.layer)[sp.li]?.nombre || '')} · vértice ${sp.i + 1}` : sp.layer === 'aerNuevo' ? `Tramo aéreo nuevo «${esc(tramoAerNombre(tramosAerVis()[sp.li], sp.li))}» · vértice ${sp.i + 1}` : `Tramo existente «${exLineas()[sp.li]?.nombre || ''}» · vértice ${sp.i + 1}`; }
   if (!p) { box.hidden = true; return; }
   box.hidden = false;
   box.innerHTML = `<b>${label}</b>${isEntronqueA1(sp.layer === 'nuevo' ? sp.i : -1) ? ' · es el apoyo de entronque: edítalo como apoyo existente' : ''}
@@ -1966,9 +1974,9 @@ function renderPtEdit() {
     ${sp.layer === 'exApoyos' ? `<label class="f full">Texto en el plano<input id="pe_lab" type="text" value="${esc(exLabel(sp.i))}" placeholder="E${sp.i + 1}"><span class="hint">Vacío: no se rotula. Por defecto: E${sp.i + 1}</span></label>` : ''}
     ${sp.layer === 'exDC' ? `<label class="f full">CUPS<input id="pe_cups" type="text" value="${esc(p.cups || '')}" placeholder="ES0000000000000000XX"></label>
       <label class="f full">Texto en el plano<input id="pe_dcl" type="text" value="${esc(dcLabel(p))}" placeholder="${esc(cupsCorto(p.cups))}"><span class="hint">Por defecto: caracteres 12 a 18 del CUPS (${esc(cupsCorto(p.cups) || '—')}).</span></label>` : ''}
-    ${sp.layer === 'exLineas' ? `<label class="f full">Texto de la línea en el plano<input id="pe_ll" type="text" value="${esc(exLineas()[sp.li]?.txt || '')}" placeholder="${esc(mapLineLabel({ ...(exLineas()[sp.li] || {}), txt: '' }) || 'conductor')}"><span class="hint">Vacío: el tipo de conductor.</span></label>` : ''}</div>
+    </div>
     ${p.lat != null ? `<p class="note mono" style="margin:6px 0 0">${p.lat.toFixed(7)}, ${p.lon.toFixed(7)}</p>` : ''}
-    ${(() => { const at = sp.layer === 'exLineas' ? exLineas()[sp.li]?.attrs : p.attrs; const ks = at ? Object.keys(at) : []; return ks.length ? `<details style="margin-top:6px"><summary class="note">Datos del GIS (${ks.length})</summary><div class="tablewrap" style="margin-top:4px;max-height:200px;overflow:auto"><table class="vt"><tbody>${ks.map(k => `<tr><td class="note">${esc(k)}</td><td>${esc(at[k])}</td></tr>`).join('')}</tbody></table></div></details>` : ''; })()}`;
+    `;
 }
 
 /* ===== Lectura de archivos: KML, KMZ, GPX y texto de GPS Visualizer ===== */
@@ -2842,8 +2850,8 @@ function anexoFilas() {
   // Con identificador del GIS manda el identificador: si no está en la red existente es nuevo, aunque vaya por el mismo trazado (refuerzo o sustitución)
   const subIds = new Set((S.proj.sub?.lineas || []).map(l => l.idTramo).filter(Boolean));
   const esSubt = t => subIds.has(t.id) || /subterr/i.test(t.attrs?.['Situación'] || t.attrs?.['Situacion'] || '');
-  const esExistente = t => t.id ? exIds.has(t.id) : (exLineas().some(l => overlapFrac(t.pts, l.pts, 2) > 0.6) || (nodes.length > 1 && overlapFrac(t.pts, nodes, 3) < 0.5));
-  let tr = (S.proj.geo?.tramos || []).filter(t => t.pts.length > 1 && !esSubt(t) && !esExistente(t)); const ru = S.proj.geo?.ruta;
+  const esExistente = t => t.nuevo ? false : t.id ? exIds.has(t.id) : (exLineas().some(l => overlapFrac(t.pts, l.pts, 2) > 0.6) || (nodes.length > 1 && overlapFrac(t.pts, nodes, 3) < 0.5));
+  let tr = tramosAer().filter(t => t.pts.length > 1 && !esSubt(t) && !esExistente(t)); const ru = S.proj.geo?.ruta;
   if (ru?.length > 1 && tr.length) { // en el orden y sentido de la ruta, desde el entronque
     const ch = p => projectOnRuta(ru, p).ch;
     tr = tr.map(t => { const a0 = ch(t.pts[0]), a1 = ch(t.pts[t.pts.length - 1]); return { ...t, pts: a0 <= a1 ? t.pts : [...t.pts].reverse(), k: Math.min(a0, a1) }; }).sort((p, q) => p.k - q.k);
@@ -3381,7 +3389,7 @@ function subCalc() { try { S.subCalc = subHasData() ? calcSub() : null; } catch 
 
 /* ---------- Capas y edición en el plano ---------- */
 const SUB_LAYERS = { subNueva: ['lineas', 'nuevo'], subEx: ['lineas', 'existente'], zanjaNueva: ['zanjas', 'nuevo'], zanjaEx: ['zanjas', 'existente'] };
-Object.assign(LAYERS, { subNueva: 'Líneas subterráneas nuevas', subEx: 'Líneas subterráneas existentes', zanjaNueva: 'Zanjas nuevas', zanjaEx: 'Zanjas existentes' });
+Object.assign(LAYERS, { subNueva: 'Tramos subterráneos nuevos', subEx: 'Tramos subterráneos existentes', zanjaNueva: 'Zanjas nuevas', zanjaEx: 'Zanjas existentes' });
 function subObjs(layer) { const d = SUB_LAYERS[layer]; if (!d) return null; if (!S.proj.sub) return []; return SUB()[d[0]].filter(o => o.estado === d[1]); }
 function isSubLayer(layer) { return !!SUB_LAYERS[layer]; }
 /* Inserción: pulsar sobre un tramo intercala un vértice; en vacío, dibuja una polilínea nueva punto a punto */
@@ -3621,7 +3629,7 @@ function initSubDb(db) {
   db.collection('tubos').onSnapshot(qs => { S.tubos = qs.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden || 0) - (b.orden || 0)); got.t = true; S.subLoaded.t = true; trySeed(); renderSubBases(); renderSub(); drawMap(); }, () => { });
 }
 PRECIO_FIELDS.push(...SUB_PRECIOS);
-CAPAS.push(['grupo', 'Suministro'], ['cgp', 'CGP del cliente'], ['grupo', 'Red subterránea'], ['subNueva', 'Líneas subterráneas nuevas'], ['subEx', 'Líneas subterráneas existentes'], ['subTxt', 'Textos de líneas subterráneas'], ['zanjaNueva', 'Zanjas nuevas'], ['zanjaEx', 'Zanjas existentes'], ['zanjaTxt', 'Textos de zanjas'], ['arquetas', 'Arquetas']);
+/* Las capas subterráneas están en CAPAS (grupo «Tramos, zanjas y puntos D-C») */
 
 /* ---------- Exportación ---------- */
 function subDxfLayers() { return [['BT_CGP', 1], ['BT_SUB_NUEVA', 6], ['BT_SUB_EXISTENTE', 8], ['BT_ZANJA_NUEVA', 40], ['BT_ZANJA_EXISTENTE', 9], ['BT_ARQUETAS', 40], ['BT_TEXTO_SUB', 6], ['BT_TEXTO_ZANJAS', 40]]; }
@@ -4076,7 +4084,7 @@ function textToolClick(mx, my) {
   else if (vis('exDC') && (i = near(exDC())) >= 0) { S.selPt = { layer: 'exDC', li: 0, i }; }
   else if (vis('exApoyos') && (i = near(exNodes())) >= 0) { S.selPt = { layer: 'exApoyos', li: 0, i }; }
   else if (!selectExtra(mx, my, 'pre')) {
-    let hl = null; if (vis('exLineas')) exLineas().forEach((l, li) => { const h = hitSegment(l.pts, mx, my, 8); if (h && (!hl || h.d < hl.d)) hl = { ...h, li }; });
+    let hl = null; exLineas().forEach((l, li) => { if (!exLVis(l)) return; const h = hitSegment(l.pts, mx, my, 8); if (h && (!hl || h.d < hl.d)) hl = { ...h, li }; });
     if (hl) S.selPt = { layer: 'exLineas', li: hl.li, i: hl.i };
     else if (!selectExtra(mx, my, 'post')) return toast('Pulsa sobre un apoyo, un vano, un tramo, un punto D-C, una línea subterránea, una zanja o la CGP para editar su texto.');
   }
@@ -4288,6 +4296,169 @@ async function importTrTramos(file) {
     toast(`${lines.length} tramo(s) nuevo(s) importado(s)${quitados ? ` (${quitados} existente(s) descartado(s))` : ''}: ruta de ${fmt(polyLen(ruta), 1)} m. Importa ahora los apoyos o pulsa «Calcular y optimizar» para colocarlos automáticamente.`);
   } catch (e) { toast('No se pudieron importar los tramos: ' + e.message); }
 }
+/* =====================================================================
+   CAPAS DE TRAMOS: aéreos y subterráneos (existentes y nuevos), puntos D-C y zanjas.
+   Crear desde el plano y editar o borrar todos los datos (también los importados del KML)
+   ===================================================================== */
+/* Tramos existentes: el GIS marca la situación (Aérea / Subterránea) */
+function exLSubt(l) { return /subterr/i.test(String(attrFind(l?.attrs, k => k === 'situacion') || '')); }
+function exLVis(l) { return vis(exLSubt(l) ? 'subEx' : 'exLineas'); }
+/* Tramos aéreos nuevos: importados (con su identificador del GIS) o dibujados en el plano */
+function tramosAer() {
+  const g = S.proj.geo; if (g?.tramos) { S.proj.tramosAer = g.tramos; delete g.tramos; }
+  return S.proj.tramosAer || (S.proj.tramosAer = []);
+}
+function tramosAerVis() {
+  const exIds = new Set(exLineas().map(l => tramoId(l)).filter(Boolean));
+  const subIds = new Set((S.proj.sub?.lineas || []).map(l => l.idTramo).filter(Boolean));
+  return tramosAer().filter(t => t.nuevo || !((t.id && exIds.has(t.id)) || (t.id && subIds.has(t.id)) || exLSubt(t)));
+}
+function tramoAerNombre(t, i) { return t ? (t.nombre || t.id || 'Tramo aéreo nuevo ' + (i + 1)) : ''; }
+function attrSet(o, norm, defKey, v) {
+  o.attrs = o.attrs || {}; const k = Object.keys(o.attrs).find(kk => normKey(kk) === norm);
+  if (v === '' && k) { delete o.attrs[k]; return; } if (v === '') return;
+  o.attrs[k || defKey] = v;
+}
+
+/* ---- Dibujo de los tramos aéreos nuevos ---- */
+function drawTramosAer({ g, P, screen, col, alongText, longestSeg, vtx, L, tool }) {
+  if (!vis('linea')) return;
+  tramosAerVis().forEach((t, li) => {
+    if (t.pts.length < 2) { if (screen && t.pts[0]) { const [x, y] = P(t.pts[0]); vtx(x, y, true); } return; }
+    const sel = screen && S.selPt?.layer === 'aerNuevo' && S.selPt.li === li;
+    if (sel) { g.save(); g.strokeStyle = col('--ink'); g.globalAlpha = 0.35; g.lineWidth = 9; g.beginPath(); t.pts.forEach((n, i) => { const [x, y] = P(n); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); g.restore(); }
+    g.strokeStyle = col('--accent'); g.lineWidth = 2.5; g.setLineDash([]); g.beginPath(); t.pts.forEach((n, i) => { const [x, y] = P(n); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke();
+    const txt = t.txt || conductorTramo(t); const ls = longestSeg(t.pts);
+    if (txt && vis('cable') && ls.i >= 0) alongText(txt, t.pts[ls.i], t.pts[ls.i + 1], 1, '600 11px ' + col('--f-body'), col('--accent'));
+    if (screen && tool !== 'pan' && L === 'aerNuevo') t.pts.forEach((n, i) => { const [x, y] = P(n); vtx(x, y, sel && S.selPt.i === i); });
+  });
+}
+function aerSnapTargets(dp) {
+  if (!vis('linea')) return [];
+  const out = [];
+  tramosAerVis().forEach((t, li) => { const n = t.pts.length; [0, n - 1].forEach((i, k) => {
+    if (n < 1 || (k && i === 0)) return; if (dp.layer === 'aerNuevo' && dp.li === li && dp.i === i) return;
+    if (S.polyDraw?.obj === t && i === n - 1) return;
+    out.push({ x: t.pts[i].x, y: t.pts[i].y, label: (k ? 'Fin' : 'Inicio') + ' de tramo ' + tramoAerNombre(t, li) }); }); });
+  return out;
+}
+function selectTramoAer(mx, my) {
+  if (!vis('linea')) return false;
+  let best = null; tramosAerVis().forEach((t, li) => { const h = hitSegment(t.pts, mx, my, 8); if (h && (!best || h.d < best.d)) best = { ...h, li }; });
+  if (!best) return false;
+  S.selObj = null; S.selPt = { layer: 'aerNuevo', li: best.li, i: best.t < 0.5 ? best.i : best.i + 1 }; renderPtEdit(); drawMap(); return true;
+}
+
+/* ---- Crear tramos aéreos (existentes o nuevos) desde el plano ---- */
+function polyInsert(layer, mx, my) {
+  if (!S.proj.zone) return toast('Importa primero algún elemento con coordenadas para fijar el huso UTM.');
+  let w = worldAt(mx, my); const sn = findSnap({ layer: '__nuevo__' }, mx, my); if (sn) w = { x: sn.x, y: sn.y };
+  const d = S.polyDraw;
+  if (d && d.layer === layer) {
+    const last = d.obj.pts[d.obj.pts.length - 1]; const [lx, ly] = S.mapT.P(last);
+    if (Math.hypot(lx - mx, ly - my) < 8) return polyEnd();
+    snapshot(); const np = { x: w.x, y: w.y }; setLL(np); d.obj.pts.push(np); invalidateVert(); refreshAll(); return;
+  }
+  const arrs = layerPts(layer); let hit = null, li = -1;
+  arrs.forEach((arr, k) => { if (layer === 'exLineas' && !exLVis(exLineas()[k])) return; const h = hitSegment(arr, mx, my); if (h && (!hit || h.d < hit.d)) { hit = h; li = k; } });
+  snapshot(); const np = { x: w.x, y: w.y }; setLL(np);
+  if (hit) { arrs[li].splice(hit.i + 1, 0, np); invalidateVert(); refreshAll(); toast('Vértice intercalado en el tramo.'); return; }
+  let o;
+  if (layer === 'exLineas') { const R = redEx() || (S.proj.redEx = { lineas: [], apoyos: [] }); o = { id: uid('l'), nombre: 'Tramo existente ' + (R.lineas.length + 1), fuente: 'dibujado en el plano', attrs: { 'Situación': 'Aérea' }, pts: [np] }; R.lineas.push(o); }
+  else { o = { id: '', nuevo: true, nombre: 'Tramo aéreo nuevo ' + (tramosAerVis().length + 1), attrs: {}, pts: [np] }; tramosAer().push(o); }
+  S.polyDraw = { layer, obj: o }; invalidateVert(); refreshAll();
+  toast(`Dibujando «${o.nombre}»: pulsa los siguientes puntos. Para terminar pulsa otra vez el último punto o Intro.`);
+}
+function polyEnd() {
+  const d = S.polyDraw; S.polyDraw = null; if (!d) return;
+  const arr = d.layer === 'exLineas' ? exLineas() : tramosAer();
+  if (d.obj.pts.length < 2) { const i = arr.indexOf(d.obj); if (i >= 0) arr.splice(i, 1); toast('Tramo descartado: necesita al menos dos puntos.'); }
+  else {
+    const li = d.layer === 'exLineas' ? exLineas().indexOf(d.obj) : tramosAerVis().indexOf(d.obj);
+    if (li >= 0) { S.selObj = null; S.selPt = { layer: d.layer, li, i: 0 }; }
+    toast(`«${d.obj.nombre}» terminado (${fmt(polyLen(d.obj.pts), 1)} m). Completa sus datos en «Elemento seleccionado».`);
+  }
+  invalidateVert(); refreshAll();
+}
+document.addEventListener('keydown', ev => { if (S.polyDraw && (ev.key === 'Enter' || ev.key === 'Escape') && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName)) { ev.preventDefault(); polyEnd(); } });
+
+/* ---- Panel «Elemento seleccionado»: datos importados editables y borrar ---- */
+function dreg(fn) { const id = 'd' + (++dsetN); DSET.set(id, { set: fn }); return id; }
+function dattrs(o, titulo = 'Datos importados (KML / GIS)') {
+  o.attrs = o.attrs || {}; const ks = Object.keys(o.attrs);
+  const rows = ks.map(k => {
+    const idk = dreg(v => { v = String(v).trim(); if (!v || v === k || v in o.attrs) return; o.attrs = Object.fromEntries(Object.entries(o.attrs).map(([kk, vv]) => [kk === k ? v : kk, vv])); });
+    const idv = dreg(v => { o.attrs[k] = v; });
+    const idd = dreg(() => { delete o.attrs[k]; });
+    return `<tr><td><input data-d="${idk}" type="text" value="${esc(k)}" aria-label="Nombre del dato"></td><td><input data-d="${idv}" type="text" value="${esc(o.attrs[k])}" aria-label="Valor de ${esc(k)}"></td><td><button class="btn small ghost" type="button" data-fn="${idd}" title="Borrar el dato «${esc(k)}»" aria-label="Borrar el dato ${esc(k)}">✕</button></td></tr>`;
+  }).join('');
+  const idAdd = dreg(() => { let n = 1, k = 'Nuevo dato'; while (k in o.attrs) k = 'Nuevo dato ' + (++n); o.attrs[k] = ''; });
+  const idAll = ks.length ? dreg(() => { o.attrs = {}; }) : null;
+  return `<div class="dsec"><h4>${titulo} · ${ks.length}</h4>
+    ${ks.length ? `<div class="tablewrap" style="max-height:300px;overflow:auto"><table class="vt attrs"><thead><tr><th>Dato</th><th>Valor</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="note">Sin datos importados.</p>'}
+    <div class="row" style="margin-top:6px"><button class="btn small" type="button" data-fn="${idAdd}">+ Añadir dato</button>${idAll ? `<button class="btn small ghost" type="button" data-fn="${idAll}" data-confirm="Pulsa otra vez para borrar todos los datos">Borrar todos los datos</button>` : ''}</div></div>`;
+}
+function ddel(texto, fn) { const id = dreg(() => { fn(); S.selPt = null; S.selObj = null; }); return `<div class="dsec"><button class="btn small danger" type="button" data-fn="${id}" data-confirm="Pulsa otra vez para borrar">${texto}</button> <span class="note">Se puede deshacer con Ctrl+Z.</span></div>`; }
+
+/* Tramo existente (aéreo o subterráneo) importado de la red */
+detLineaEx = function (li) {
+  const l = exLineas()[li]; if (!l) return ''; const d = lineData(l.id);
+  let h = dsec('Datos del tramo',
+    dfield('Nombre', l.nombre || '', v => { l.nombre = v; }) +
+    dfield('Situación', exLSubt(l) ? 'Subterránea' : 'Aérea', v => attrSet(l, 'situacion', 'Situación', v), { options: [['Aérea', 'Aérea'], ['Subterránea', 'Subterránea']], hint: 'Decide en qué capa se ve' }) +
+    dfield('Identificador', attrFind(l.attrs, k => k === 'identificador') || '', v => attrSet(l, 'identificador', 'Identificador', v), { w2: true }) +
+    dfield('Conductor', conductorTramo(l), v => { if (l.conductor != null) l.conductor = v; else attrSet(l, 'conductor', 'Conductor', v); }, { w2: true }) +
+    dfield('Texto en el plano', l.txt || '', v => { l.txt = v; }, { txt: true, full: true, ph: mapLineLabel({ ...l, txt: '' }) || 'conductor', hint: 'Vacío: el conductor' }));
+  h += dsec('Cable verificado', dfield('Cable trenzado instalado', d.v.cableId || '', val => { d.v.cableId = val; }, { options: [['', 'Sin verificar'], ...S.cables.map(x => [x.id, x.designacion])], full: true }) +
+    dfield('Verificado', !!d.v.ok, val => { d.v.ok = val; }, { type: 'checkbox' }));
+  h += dinfo([['Longitud', fmt(polyLen(l.pts), 1) + ' m'], ['Vértices', l.pts.length], l.fuente && ['Origen', esc(l.fuente)]]);
+  return h + dattrs(l) + ddel('Borrar este tramo', () => { const R = exLineas(), id = tramoId(l); R.splice(R.indexOf(l), 1); if (id) { const A = tramosAer(); for (let i = A.length - 1; i >= 0; i--) if (!A[i].nuevo && A[i].id === id) A.splice(i, 1); } invalidateVert(); });
+};
+/* Tramo aéreo nuevo */
+function detTramoAer(t) {
+  let h = dsec('Datos del tramo',
+    dfield('Nombre', t.nombre || '', v => { t.nombre = v; }) +
+    dfield('Identificador (GIS)', t.id || '', v => { t.id = String(v).trim(); t.nuevo = true; }, { w2: true, hint: 'Es la identificación del ANEXO I' }) +
+    dfield('Conductor', conductorTramo(t), v => { if (t.conductor != null) t.conductor = v; else attrSet(t, 'conductor', 'Conductor', v); }, { w2: true }) +
+    dfield('Texto en el plano', t.txt || '', v => { t.txt = v; }, { txt: true, full: true, ph: conductorTramo(t) || 'sin texto', hint: 'Vacío: el conductor' }));
+  h += dinfo([['Longitud', fmt(polyLen(t.pts), 1) + ' m'], ['Vértices', t.pts.length], ['En el ANEXO I', anexoFilas().some(r => r.id && r.id === t.id) ? 'Sí' : 'No (sin identificador o no sigue la línea nueva)']]);
+  return h + dattrs(t) + ddel('Borrar este tramo', () => { const A = tramosAer(); A.splice(A.indexOf(t), 1); });
+}
+/* Punto D-C */
+function detDC(i) {
+  const d = exDC()[i]; if (!d) return '';
+  return dattrs(d) + ddel('Borrar este punto D-C', () => { const A = exDC(); A.splice(A.indexOf(d), 1); });
+}
+/* Apoyo existente: además de la verificación, sus datos importados y borrar */
+{ const _ae = detApoyoEx; detApoyoEx = function (k) {
+  const a = redEx()?.apoyos?.[k]; let h = _ae(k); if (!a) return h;
+  return h + dattrs(a) + ddel('Borrar este apoyo existente', () => { const en = S.proj.entronque, A = redEx().apoyos, i = A.indexOf(a); if (en?.k === i) en.k = null; else if (en?.k > i) en.k--; A.splice(i, 1); invalidateVert(); });
+}; }
+/* Línea subterránea o zanja: identificador, datos importados y borrar */
+{ const _ds = detSub; detSub = function (o) {
+  const s = SUB(), isL = s.lineas.includes(o);
+  let h = _ds(o);
+  if (isL) h += dsec('Identificación', dfield('Identificador del tramo (GIS)', o.idTramo || '', v => { o.idTramo = String(v).trim(); }, { full: true, hint: 'Es la identificación del ANEXO I' }));
+  return h + dattrs(o) + ddel(isL ? 'Borrar esta línea subterránea' : 'Borrar esta zanja', () => { const arr = isL ? s.lineas : s.zanjas; arr.splice(arr.indexOf(o), 1); if (!isL) s.lineas.forEach(l => { if (l.zanjaId === o.id) l.zanjaId = ''; }); });
+}; }
+/* Paneles que faltaban en «Elemento seleccionado» */
+{ const _rd = renderDetail; renderDetail = function () {
+  const box = $('#detailBody'); if (!box) return;
+  if (box.contains(document.activeElement) && document.activeElement.matches('input[type=text],input[type=number]')) return;
+  _rd(); const sp = S.selPt; let html = null, info = null;
+  if (sp?.layer === 'exDC') { html = detDC(sp.i); info = 'Punto D-C'; }
+  else if (sp?.layer === 'aerNuevo') { const t = tramosAerVis()[sp.li]; if (t) { html = detTramoAer(t); info = 'Tramo aéreo nuevo · ' + tramoAerNombre(t, sp.li); } }
+  else if (sp?.layer === 'exLineas') { const l = exLineas()[sp.li]; if (l) info = (exLSubt(l) ? 'Tramo subterráneo existente' : 'Tramo aéreo existente') + (l.nombre ? ' · ' + l.nombre : ''); }
+  if (html != null) { box.innerHTML = html; const pe = $('#ptEdit'); if (pe) pe.style.display = ''; }
+  if (info) $('#detailInfo').textContent = info;
+}; }
+/* Botones de acción del panel (borrar dato, añadir dato, borrar elemento), con confirmación en dos pulsaciones */
+document.addEventListener('click', ev => {
+  const b = ev.target.closest('#detailBody button[data-fn]'); if (!b) return;
+  const d = DSET.get(b.dataset.fn); if (!d) return;
+  if (b.dataset.confirm && !b.dataset.armed) { b.dataset.armed = '1'; b.dataset.txt0 = b.textContent; b.textContent = b.dataset.confirm; setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = b.dataset.txt0; } }, 4000); return; }
+  snapshot(); d.set(); invalidateVert(); refreshAll(); renderDetail();
+});
 start();
 </script>
 </body></html>
