@@ -102,6 +102,7 @@ tr.sel td{background:var(--accent-soft)}
 .subt{width:max-content;min-width:100%} .subt select{min-width:10ch} .subt input[type=text]{min-width:7ch} .subt td,.subt th{white-space:nowrap} .tgrp{display:flex;flex-direction:column;gap:4px;align-items:flex-start} .nowrap{flex-wrap:nowrap} .subt select{max-width:22ch}
 .vt.attrs{width:100%}.vt.attrs td{padding:2px 4px}.vt.attrs td:first-child{width:40%}.vt.attrs input{width:100%;min-width:0;font:inherit;font-size:.85em}
 .rbcols tr.off td{opacity:.5}.rbcols td:first-child{width:2em}
+.impdlg{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;background:rgba(10,20,30,.45);padding:16px}.impdlg .wlbox{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px;box-shadow:0 12px 40px rgba(0,0,0,.25)}.impdlg h2{margin:0;font-family:var(--f-display)}.impdlg h2 small{display:block;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}.impdlg tr.off td{opacity:.5}.impdlg input[type=search]{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--soft);color:var(--ink)}
 h3.sub{font:600 .95rem var(--f-display);margin:14px 0 6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 ul.checks{margin:4px 0 8px;padding-left:20px;font-size:.85rem} ul.checks li.ok::marker{color:var(--ok)} ul.checks li.warn{color:var(--warn)} ul.checks li.bad{color:var(--bad)}
 #subResults details{border-top:1px solid var(--line);padding:4px 0} #subResults summary{cursor:pointer;font-size:.9rem}
@@ -184,7 +185,7 @@ a.btn{text-decoration:none;display:inline-block}
       <label class="btn small" for="impProjFile">Abrir archivo</label><input id="impProjFile" type="file" accept=".json" hidden>
       <button class="btn small" id="expBases" type="button" hidden>Exportar bases</button>
       <button class="btn small" id="foldAll" type="button">Minimizar / desplegar todo</button>
-      <div class="ver" id="ver">v1.39.1</div>
+      <div class="ver" id="ver">v1.40.0</div>
     </div>
   </header>
   <nav class="tabs" role="tablist">
@@ -233,6 +234,12 @@ a.btn{text-decoration:none;display:inline-block}
           </div>
           <div id="exPick" hidden style="margin-bottom:8px"></div>
           <div id="exBody"></div>
+        </section>
+
+        <section class="card" id="impCard">
+          <h2>Datos importados <span class="chip info" id="impN"></span></h2>
+          <p class="note" style="margin-top:0">Todo lo que se ha importado de archivos o de la base de red existente, agrupado por origen, para quitarlo del proyecto.</p>
+          <div id="impBody"></div>
         </section>
 
         <section class="card" id="aerCard">

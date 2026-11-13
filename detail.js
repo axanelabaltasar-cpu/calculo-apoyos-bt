@@ -367,7 +367,7 @@ async function importTrTramos(file) {
     const quitados = todas.length - lines.length; if (!lines.length) throw new Error('todos los tramos del archivo son de la red existente');
     const zone = setZoneFrom(lines[0].pts[0]), ruta = encadenarTramos(lines, zone); if (ruta.length < 2) throw new Error('los tramos no tienen al menos dos puntos');
     const opt = { nombre: 'Tramos', pts: ruta.map(p => ({ lat: p.lat, lon: p.lon, alt: p.alt })), conCota: hasAlt(ruta) };
-    const tramos = lines.filter(l => l.pts.length > 1).map((l, i) => ({ id: tramoId(l), nombre: l.nombre || `Tramo ${i + 1}`, attrs: l.attrs || {}, pts: l.pts.map(p => ({ lat: p.lat, lon: p.lon, ...E.utmFromLatLon(p.lat, p.lon, zone) })) }));
+    const tramos = lines.filter(l => l.pts.length > 1).map((l, i) => ({ id: tramoId(l), nombre: l.nombre || `Tramo ${i + 1}`, attrs: l.attrs || {}, fuente: file.name, pts: l.pts.map(p => ({ lat: p.lat, lon: p.lon, ...E.utmFromLatLon(p.lat, p.lon, zone) })) }));
     if (S.trImpApoyos?.pts?.length >= 2) { applyTrace(opt, file.name, S.trImpApoyos.pts); S.proj.geo.tramos = tramos; refreshAll(); if (quitados) toast(`Trazado importado con ${tramos.length} tramo(s) nuevo(s); ${quitados} tramo(s) de la red existente descartado(s).`); return; }
     snapshot();
     S.proj.geo = { zone, pts: [], ruta: ruta.map(({ x, y, lat, lon, alt }) => ({ x, y, lat, lon, alt })), fuente: file.name, tramos }; S.proj.modo = 'kml'; S.proj.rows = [];

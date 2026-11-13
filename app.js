@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.39.1';
+const VERSION = '1.40.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -1196,7 +1196,7 @@ async function importFile(file, destino) {
     if (destino === 'exDC') return applyExDC(points, file.name);
     // Trazado nuevo: ruta + marcadores de apoyos en el mismo archivo
     if (!lines.length && points.length < 2) throw new Error('No se ha encontrado la ruta ni los marcadores de los apoyos');
-    const go = l => { applyTrace(l || { nombre: 'Apoyos', pts: points, sinDividir: true, conCota: hasAlt(points) }, file.name, l && points.length ? points : null); if (l && S.proj.geo) { const z = S.proj.zone; S.proj.geo.tramos = [{ id: tramoId(l), nombre: l.nombre, attrs: l.attrs || {}, pts: l.pts.map(p => ({ lat: p.lat, lon: p.lon, ...E.utmFromLatLon(p.lat, p.lon, z) })) }]; refreshAll(); } };
+    const go = l => { applyTrace(l || { nombre: 'Apoyos', pts: points, sinDividir: true, conCota: hasAlt(points) }, file.name, l && points.length ? points : null); if (l && S.proj.geo) { const z = S.proj.zone; S.proj.geo.tramos = [{ id: tramoId(l), nombre: l.nombre, attrs: l.attrs || {}, fuente: file.name, pts: l.pts.map(p => ({ lat: p.lat, lon: p.lon, ...E.utmFromLatLon(p.lat, p.lon, z) })) }]; refreshAll(); } };
     if (lines.length <= 1) return go(lines[0]);
     const box = $('#kmlPick'); box.hidden = false;
     box.innerHTML = `<div class="banner info">El archivo tiene varias líneas. Elige la ruta del trazado nuevo${points.length ? ` (se usarán sus ${points.length} marcadores como apoyos)` : ''}:</div><div class="row" style="margin-top:6px">${lines.map((l, k) => `<button class="btn small" data-k="${k}">${esc(l.nombre)} · ${l.pts.length} puntos</button>`).join('')}</div>`;
