@@ -101,6 +101,7 @@ td input.num{width:72px}
 tr.sel td{background:var(--accent-soft)}
 .subt{width:max-content;min-width:100%} .subt select{min-width:10ch} .subt input[type=text]{min-width:7ch} .subt td,.subt th{white-space:nowrap} .tgrp{display:flex;flex-direction:column;gap:4px;align-items:flex-start} .nowrap{flex-wrap:nowrap} .subt select{max-width:22ch}
 .vt.attrs{width:100%}.vt.attrs td{padding:2px 4px}.vt.attrs td:first-child{width:40%}.vt.attrs input{width:100%;min-width:0;font:inherit;font-size:.85em}
+.rbcols tr.off td{opacity:.5}.rbcols td:first-child{width:2em}
 h3.sub{font:600 .95rem var(--f-display);margin:14px 0 6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 ul.checks{margin:4px 0 8px;padding-left:20px;font-size:.85rem} ul.checks li.ok::marker{color:var(--ok)} ul.checks li.warn{color:var(--warn)} ul.checks li.bad{color:var(--bad)}
 #subResults details{border-top:1px solid var(--line);padding:4px 0} #subResults summary{cursor:pointer;font-size:.9rem}
@@ -183,7 +184,7 @@ a.btn{text-decoration:none;display:inline-block}
       <label class="btn small" for="impProjFile">Abrir archivo</label><input id="impProjFile" type="file" accept=".json" hidden>
       <button class="btn small" id="expBases" type="button" hidden>Exportar bases</button>
       <button class="btn small" id="foldAll" type="button">Minimizar / desplegar todo</button>
-      <div class="ver" id="ver">v1.37.0</div>
+      <div class="ver" id="ver">v1.39.0</div>
     </div>
   </header>
   <nav class="tabs" role="tablist">
@@ -191,6 +192,7 @@ a.btn{text-decoration:none;display:inline-block}
     <button role="tab" data-tab="apoyos" aria-selected="false">Base de apoyos</button>
     <button role="tab" data-tab="cables" aria-selected="false">Base de cables</button>
     <button role="tab" data-tab="subbase" aria-selected="false">Base subterránea</button>
+    <button role="tab" data-tab="redbase" aria-selected="false">Base de red existente</button>
     <button role="tab" data-tab="precios" aria-selected="false">Precios auxiliares</button>
     <button role="tab" data-tab="norma" aria-selected="false">Criterios de cálculo</button>
   </nav>
@@ -223,6 +225,7 @@ a.btn{text-decoration:none;display:inline-block}
 
         <section class="card">
           <h2>Red existente y entronque</h2>
+          <div id="redSel" style="margin-bottom:10px"></div>
           <div class="row" style="margin-bottom:8px">
             <label class="btn small" for="exApoFile">1 · Importar apoyos</label><input id="exApoFile" type="file" accept=".kmz,.kml,.gpx" hidden>
             <label class="btn small" for="exLinFile">2 · Importar tramo baja</label><input id="exLinFile" type="file" accept=".kmz,.kml,.gpx" hidden>
@@ -373,6 +376,11 @@ a.btn{text-decoration:none;display:inline-block}
   </div>
 
   <!-- ============ BASE SUBTERRÁNEA ============ -->
+  <div id="tab-redbase" hidden>
+    <p class="note" style="margin-top:16px">Red existente de cada distribuidora (apoyos, tramos de baja y puntos D-C exportados del GIS). Se guarda una vez y cada proyecto carga solo la red de su zona: en «Red existente y entronque» elige la distribuidora y busca un CUPS, apoyo o tramo, o importa o dibuja la red nueva y se trae sola la red de alrededor.</p>
+    <div id="redBases"></div>
+    <div id="rbPrev" hidden></div>
+  </div>
   <div id="tab-subbase" hidden>
     <section class="card" style="margin-top:16px">
       <h2>Cables subterráneos <span class="row"><button class="btn small" id="addSubCable">Añadir cable</button></span></h2>

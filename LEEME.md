@@ -77,3 +77,7 @@ firebase deploy --only hosting,firestore:rules
 - **Contraseña olvidada:** en la pantalla de acceso pulsa «He olvidado la contraseña» y llega un correo a tecnicos@elecanto.es.
 - **Copia de las bases:** botón **Exportar bases** (archivo `.json`). Para recuperarlas, usa **Abrir archivo** con ese `.json`.
 - **Proyectos:** «Guardar» (o Ctrl+S) los guarda en la base de datos y se abren desde cualquier equipo en «Proyectos guardados», entrando con el usuario. Si quieres además una copia en una carpeta, usa «Exportar a archivo». Los proyectos de la versión de Claude o de la versión local se abren con **Abrir archivo** y, al pulsar «Guardar», pasan a la base de datos.
+
+## Red existente por distribuidora
+- Pestaña **Base de red existente**: por cada distribuidora (Eléctrica de Cantoña, Eléctrica del Noroeste) se importan los JSON del GIS de apoyos, tramos de baja y puntos D-C. Se guardan en la base de datos (no en GitHub) y valen para todos los proyectos.
+- En el proyecto, **Red existente y entronque → Distribuidora**: busca un CUPS, apoyo, tramo, dirección o titular y pulsa «Cargar zona», o importa/dibuja la red nueva y se trae sola la red existente de alrededor (radio ajustable). El plano se ajusta a la red nueva.

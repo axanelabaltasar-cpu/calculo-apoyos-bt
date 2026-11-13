@@ -15,6 +15,7 @@ body() {
   cat sub.js
   cat detail.js
   cat capas.js
+  cat redbase.js
   if [ "$1" = web ]; then cat web.js; echo 'webStart();'; else echo 'start();'; fi
   echo '</script>'
 }

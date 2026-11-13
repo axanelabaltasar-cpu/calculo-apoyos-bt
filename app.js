@@ -1,5 +1,5 @@
 /* ===== Aplicación ===== */
-const VERSION = '1.37.0';
+const VERSION = '1.39.0';
 const $ = s => document.querySelector(s);
 const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => fmt(v, 2) + ' €';
@@ -2253,7 +2253,7 @@ function bindPrecios() {
 function bindTabs() {
   document.querySelectorAll('nav.tabs button').forEach(b => b.addEventListener('click', () => {
     document.querySelectorAll('nav.tabs button').forEach(x => x.setAttribute('aria-selected', x === b));
-    ['calc', 'apoyos', 'cables', 'subbase', 'precios', 'norma'].forEach(t => $('#tab-' + t).hidden = t !== b.dataset.tab);
+    ['calc', 'apoyos', 'cables', 'subbase', 'redbase', 'precios', 'norma'].forEach(t => $('#tab-' + t).hidden = t !== b.dataset.tab);
     if (b.dataset.tab === 'calc') drawMap();
   }));
 }
