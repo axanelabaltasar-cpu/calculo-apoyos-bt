@@ -98,7 +98,7 @@ const cajaContiene = (a, b) => a && b && b.x0 >= a.x0 && b.y0 >= a.y0 && b.x1 <=
 /* Añade al proyecto los elementos de la base dentro de la caja (no quita ni cambia los que ya hay: se conservan las ediciones y el entronque) */
 async function rbAplicar(id, caja, { silencio = false } = {}) {
   let base; try { base = await rbCargar(id); } catch (e) { toast('No se pudo leer la red existente: ' + (e.message || e.code)); return 0; }
-  if (!base) { S.rbFalta = S.rbFalta || {}; S.rbFalta[id] = true; if (!silencio) toast(`No hay red existente de ${distNombre(id)} en la base. Impórtala en la pestaña «Base de red existente».`); return 0; }
+  if (!base) { if (S.redMeta[id] === null) { S.rbFalta = S.rbFalta || {}; S.rbFalta[id] = true; } if (!silencio) toast(`No hay red existente de ${distNombre(id)} en la base. Impórtala en la pestaña «Base de red existente».`); return 0; }
   if (!S.proj.zone) S.proj.zone = 29;
   const z = S.proj.zone, cz = z === 29 ? caja : (() => { const a = E.latLonFromUtm(caja.x0, caja.y0, z), b = E.latLonFromUtm(caja.x1, caja.y1, z); const A = E.utmFromLatLon(a.lat, a.lon, 29), B = E.utmFromLatLon(b.lat, b.lon, 29); return { x0: Math.min(A.x, B.x), y0: Math.min(A.y, B.y), x1: Math.max(A.x, B.x), y1: Math.max(A.y, B.y) }; })();
   const R = redEx() || (S.proj.redEx = { lineas: [], apoyos: [] }); R.apoyos = R.apoyos || []; R.puntosDC = R.puntosDC || [];
@@ -123,7 +123,7 @@ async function rbAplicar(id, caja, { silencio = false } = {}) {
 /* Red nueva importada o dibujada fuera de la zona ya cargada: se trae la red existente que falta (automático) */
 let rbAutoT = null, rbAutoBusy = false;
 function rbAuto() {
-  const id = S.proj.distribuidora; if (!id || S.proj.redAuto === false || rbAutoBusy || S.rbFalta?.[id]) return;
+  const id = S.proj.distribuidora; if (!id || S.proj.redAuto === false || rbAutoBusy || S.rbFalta?.[id] || (WEB && !S.db)) return;
   const caja = rbCaja(redNuevaPts(), Number(S.proj.redRadio) || RB_RADIO); if (!caja) return;
   if (cajaContiene(S.proj.redZona?.dist === id ? S.proj.redZona : null, caja)) return;
   clearTimeout(rbAutoT); rbAutoT = setTimeout(async () => {
@@ -153,7 +153,7 @@ function rbBuscar(base, q) {
 function renderRedSel() {
   const box = $('#redSel'); if (!box || box.contains(document.activeElement) && document.activeElement.matches('input')) return;
   const id = S.proj.distribuidora || '', m = id ? S.redMeta[id] : null;
-  if (id && S.redMeta[id] === undefined) rbMeta(id).then(() => renderRedSel());
+  if (id && S.redMeta[id] === undefined && (S.db || !WEB) && !S.rbLeyendo) { S.rbLeyendo = true; rbMeta(id).finally(() => { S.rbLeyendo = false; if (S.redMeta[id] !== undefined) renderRedSel(); }); }
   box.innerHTML = `<div class="fields hfields">
     <label class="f">Distribuidora<select id="rs_dist"><option value="">Sin base (importar archivos)</option>${DISTRIBUIDORAS.map(([k, n]) => `<option value="${k}" ${k === id ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
     <label class="f">Radio alrededor (m)<input id="rs_radio" class="num" type="number" min="50" step="50" value="${Number(S.proj.redRadio) || RB_RADIO}"></label>
